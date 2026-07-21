@@ -19,7 +19,10 @@ export const RECOVERY_RATE = 0.6; // currentFatigue *= this between races / on r
 
 // --- Tactics (SPEC §5.5) ---
 export const LEADER_BONUS = 6; // ALL_IN_LEADER: perfScore bonus to protected rider
-export const CONSERVE_PENALTY = 2; // CONSERVE: small perfScore penalty
+export const ALL_IN_HELPER_PENALTY = 2; // ALL_IN_LEADER: helpers work, don't race for themselves
+export const CONSERVE_PENALTY = 2; // CONSERVE: small perfScore penalty (protected rider)
+export const HUNT_STAGE_SIGMA_MULT = 1.25; // HUNT_STAGE: rides aggressively → wider form swing
+export const ROLE_MULTIPLIER_DEFAULT = 1; // normal fatigue accrual (Phase 3)
 export const ROLE_MULTIPLIER_ALL_IN = 1.3; // helpers' fatigue multiplier when going all-in
 export const ROLE_MULTIPLIER_CONSERVE = 0.7; // helpers' fatigue multiplier when conserving
 
