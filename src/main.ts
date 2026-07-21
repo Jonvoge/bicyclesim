@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene.ts';
 import { MainMenuScene } from './scenes/MainMenuScene.ts';
+import { PreRaceScene } from './scenes/PreRaceScene.ts';
+import { RaceScene } from './scenes/RaceScene.ts';
+import { StageResultsScene } from './scenes/StageResultsScene.ts';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -13,7 +16,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 390,
     height: 844,
   },
-  scene: [BootScene, MainMenuScene],
+  scene: [BootScene, MainMenuScene, PreRaceScene, RaceScene, StageResultsScene],
 };
 
 new Phaser.Game(config);

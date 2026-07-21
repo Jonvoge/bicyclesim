@@ -1,8 +1,12 @@
 import Phaser from 'phaser';
+import { RACES } from '../data/races.ts';
+import { STAGES_BY_ID } from '../data/stages.ts';
+import { makeButton } from '../ui/button.ts';
+import { COLORS, FONT } from '../ui/theme.ts';
 
 /**
- * Phase 0 scaffold: a title and a single (non-functional) button.
- * No game logic yet — that arrives in later phases.
+ * Phase 2: pick a race to ride. One-day races only for now (multi-stage is
+ * Phase 3). This is the entry to the pick-tactics → watch → results loop.
  */
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -10,62 +14,41 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    const { width, height } = this.scale;
+    const { width } = this.scale;
 
     this.add
-      .text(width / 2, height * 0.32, 'BICYCLE SIM', {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '40px',
+      .text(width / 2, 90, 'BICYCLE SIM', {
+        fontFamily: FONT,
+        fontSize: '38px',
         fontStyle: 'bold',
-        color: '#e6e6fa',
+        color: COLORS.text,
       })
       .setOrigin(0.5);
 
     this.add
-      .text(width / 2, height * 0.32 + 44, 'team manager', {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '18px',
-        color: '#8a8ab0',
-      })
+      .text(width / 2, 128, 'pick a race', { fontFamily: FONT, fontSize: '16px', color: COLORS.textMuted })
       .setOrigin(0.5);
 
-    this.createButton(width / 2, height * 0.55, 'New Team', () => {
-      // Phase 0: no game logic yet. Placeholder for the season flow.
-    });
-  }
-
-  private createButton(x: number, y: number, label: string, onClick: () => void): void {
-    const paddingX = 28;
-    const paddingY = 14;
-
-    const text = this.add
-      .text(x, y, label, {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '22px',
-        color: '#1a1a2e',
-      })
-      .setOrigin(0.5);
-
-    const bg = this.add
-      .rectangle(
-        x,
+    let y = 220;
+    for (const race of RACES) {
+      const stage = STAGES_BY_ID.get(race.stageIds[0])!;
+      makeButton(
+        this,
+        width / 2,
         y,
-        text.width + paddingX * 2,
-        text.height + paddingY * 2,
-        0xe6e6fa,
-        1,
-      )
-      .setStrokeStyle(2, 0x8a8ab0);
-
-    bg.setInteractive({ useHandCursor: true });
-    text.setDepth(1);
-
-    bg.on('pointerover', () => bg.setFillStyle(0xffffff));
-    bg.on('pointerout', () => bg.setFillStyle(0xe6e6fa));
-    bg.on('pointerdown', () => bg.setFillStyle(0xc9c9e6));
-    bg.on('pointerup', () => {
-      bg.setFillStyle(0xffffff);
-      onClick();
-    });
+        `${race.name}`,
+        () => this.scene.start('PreRace', { raceId: race.id }),
+        { width: 300, height: 58, fontSize: 22 },
+      );
+      this.add
+        .text(width / 2, y + 42, `${stage.type} · ${stage.lengthKm} km`, {
+          fontFamily: FONT,
+          fontSize: '13px',
+          color: COLORS.textMuted,
+        })
+        .setOrigin(0.5)
+        .setDepth(1);
+      y += 100;
+    }
   }
 }
