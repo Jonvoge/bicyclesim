@@ -6,7 +6,7 @@ import { PLAYER_TEAM } from '../data/teams.ts';
 import type { Stage, StageType } from '../data/types.ts';
 import { baseScore } from '../sim/stageSim.ts';
 import { bestSuitedRider } from '../sim/raceSetup.ts';
-import type { Strategy, TeamTactics } from '../sim/tactics.ts';
+import { strategiesForRaceType, type Strategy, type TeamTactics } from '../sim/tactics.ts';
 import { Button, makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
@@ -21,15 +21,9 @@ const BLURBS: Record<StageType, string> = {
   ttt: 'Team time trial — the squad rides as one.',
 };
 
-const STRATEGY_DESC: Record<Strategy, string> = {
-  ALL_IN_LEADER: 'Commit the team to your leader (costs stamina).',
-  HUNT_STAGE: 'Race aggressively, no single leader — higher variance.',
-  CONSERVE: 'Save energy and take fewer risks today.',
-};
-
 export class PreRaceScene extends Phaser.Scene {
   private selectedRiderId!: string;
-  private selectedStrategy: Strategy = 'ALL_IN_LEADER';
+  private selectedStrategy: Strategy = 'PROTECT_LEADER';
   private riderButtons: { id: string; btn: Button }[] = [];
   private strategyButtons: { strategy: Strategy; btn: Button }[] = [];
 
@@ -75,21 +69,22 @@ export class PreRaceScene extends Phaser.Scene {
       this.riderButtons.push({ id, btn });
     });
 
-    // strategy picker
+    // strategy picker — race-type-aware set (SPEC §5.5)
     this.add.text(width / 2, 420, 'STRATEGY', { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
-    const strategies: Strategy[] = ['ALL_IN_LEADER', 'HUNT_STAGE', 'CONSERVE'];
-    strategies.forEach((strategy, i) => {
+    const defs = strategiesForRaceType(race.type);
+    this.selectedStrategy = defs[0].id;
+    defs.forEach((def, i) => {
       const y = 456 + i * 62;
-      const btn = makeButton(this, width / 2, y, strategy.replace(/_/g, ' '), () => this.selectStrategy(strategy), {
+      const btn = makeButton(this, width / 2, y, def.label, () => this.selectStrategy(def.id), {
         width: 300,
         height: 34,
         fontSize: 16,
       });
       this.add
-        .text(width / 2, y + 22, STRATEGY_DESC[strategy], { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted })
+        .text(width / 2, y + 22, def.blurb, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted })
         .setOrigin(0.5)
         .setDepth(2);
-      this.strategyButtons.push({ strategy, btn });
+      this.strategyButtons.push({ strategy: def.id, btn });
     });
 
     // start

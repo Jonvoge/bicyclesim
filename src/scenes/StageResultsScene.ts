@@ -47,7 +47,8 @@ export class StageResultsScene extends Phaser.Scene {
       this.add.rectangle(46, y, 9, 9, col.jersey, 1);
       this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
       this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5);
-      this.add.text(width - 20, y, i === 0 ? '—' : `+${this.fmtGap(e.timeSec - winnerTime)}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5);
+      const gapLabel = e.dnf ? 'DNF' : i === 0 ? '—' : `+${this.fmtGap(e.timeSec - winnerTime)}`;
+      this.add.text(width - 20, y, gapLabel, { fontFamily: FONT, fontSize: '13px', color: e.dnf ? '#e23b3b' : COLORS.textMuted }).setOrigin(1, 0.5);
     });
 
     makeButton(this, width / 2, top + order.length * rowH + 30, 'Continue →', () => this.scene.start('MainMenu'), {

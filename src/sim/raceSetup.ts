@@ -25,7 +25,7 @@ export function buildTacticsMap(stage: Stage, player: TeamTactics): Map<string, 
     map.set(team.id, {
       teamId: team.id,
       protectedRiderId: bestSuitedRider(team.riderIds, stage),
-      strategy: 'ALL_IN_LEADER',
+      strategy: 'PROTECT_LEADER',
     });
   }
   return map;
