@@ -1,7 +1,16 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Minimal ambient so we can read the deploy env var without pulling in @types/node.
+declare const process: { env: Record<string, string | undefined> };
+
+// When deploying to GitHub Pages the app is served from a subpath
+// (https://<user>.github.io/bicyclesim/). The deploy workflow sets BASE_PATH;
+// local dev/build default to root.
+const base = process.env.BASE_PATH ?? '/';
+
 export default defineConfig({
+  base,
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
