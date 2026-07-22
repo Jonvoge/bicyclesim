@@ -19,10 +19,12 @@ import { StageProfileView } from '../ui/stageProfile.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
 // --- animation pacing (cosmetic) ---
-const MAIN_T_SECONDS = 11; // real seconds for the stage clock at 1×
-const FINALE_SLOWDOWN = 0.6; // clock rate in the finale, for tension
+const MAIN_T_SECONDS = 16; // real seconds for the stage clock at 1× (slow enough to follow)
+const FINALE_SLOWDOWN = 0.55; // clock rate in the finale, for tension
 const FINISH_SPREAD = 0.0016; // extra stage-time per second of finishing gap
-const COMPRESS_K = 75; // gap→x: a gap of K seconds sits halfway back
+const COMPRESS_K = 90; // gap→spread shaping
+const MAX_SPREAD = 0.5; // field never spans more than this fraction of the road…
+const SPREAD_RATE = 0.62; // …and can't spread faster than this × progress (keeps everyone moving up)
 const CLUSTER_GAP_SEC = 4; // riders within this render as one bunch
 const MAX_ROWS = 12;
 
@@ -281,28 +283,36 @@ export class RaceScene extends Phaser.Scene {
       this.groupsText.setText('— Finish —');
       return;
     }
+    // Read the strip the same way as the road: backmost group on the LEFT,
+    // the front of the race (break / leaders) on the RIGHT.
     const biggest = clusters.reduce((m, c) => Math.max(m, c.members.length), 0);
-    const parts: string[] = [];
-    clusters.slice(0, 4).forEach((c, i) => {
+    const shown = clusters.slice(0, 4);
+    const items = shown.map((c, i) => {
       const n = c.members.length;
       let label: string;
       if (n === biggest && n > 3) label = `Peloton ${n}`;
       else if (i === 0 && c.members.every((m) => m.a.story.inBreak) && n < biggest) label = `Break ${n}`;
       else if (n <= 2) label = c.members.map((m) => RIDERS_BY_ID.get(m.a.entry.riderId)!.name.split(' ').slice(-1)[0]).join(', ');
       else label = `Group ${n}`;
-      if (i > 0) parts.push(`+${this.fmtGap(c.gap - clusters[0].gap)}`);
-      parts.push(label);
+      const gapToLead = c.gap - clusters[0].gap;
+      return i === 0 ? label : `${label} +${this.fmtGap(gapToLead)}`;
     });
-    if (clusters.length > 4) parts.push('…');
-    this.groupsText.setText(parts.join('  ·  '));
+    items.reverse(); // front group ends up on the right
+    if (clusters.length > 4) items.unshift('…');
+    this.groupsText.setText(items.join('  ·  '));
   }
 
-  /** Left→right flow: the head of the race advances with tPos; gaps sit behind it. */
+  /**
+   * Left→right flow. The head of the race is at progress tPos; a group `gap`
+   * seconds back sits a little behind — but the spread is capped by tPos so early
+   * on the whole field is bunched near the start and everyone keeps moving forward
+   * (no pack "stuck at the start" or drifting backwards).
+   */
   private xForGap(gap: number, tPos: number): number {
-    const leaderX = this.raceLeftX + (this.frontX - this.raceLeftX) * tPos;
-    const maxBehind = (this.frontX - this.raceLeftX) * 0.55;
-    const behind = maxBehind * (gap / (gap + COMPRESS_K));
-    return Math.max(this.trackLeft + 4, leaderX - behind);
+    const desiredBehind = MAX_SPREAD * (gap / (gap + COMPRESS_K)); // 0..MAX_SPREAD
+    const behind = Math.min(desiredBehind, tPos * SPREAD_RATE);
+    const progress = Math.max(0, tPos - behind);
+    return this.raceLeftX + (this.frontX - this.raceLeftX) * progress;
   }
 
   private addRadioLine(text: string, kind: RaceEvent['kind'] | 'info'): void {

@@ -38,8 +38,8 @@ export const STRATEGIES: StrategyDef[] = [
   },
   {
     id: 'BREAKAWAY',
-    label: 'Send a Breakaway',
-    blurb: 'Put your rider up the road early — a gamble that can steal the day.',
+    label: 'Attack',
+    blurb: 'Back your rider to go clear — a domestique in the morning break, or a leader attacking late.',
     raceTypes: ['oneDay', 'shortTour', 'grandTour'],
   },
   {

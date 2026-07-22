@@ -129,10 +129,11 @@ describe('race narrative layer (SPEC §5.9)', () => {
       const st = story.stories.get(entry.riderId)!;
       expect(interpGap(st.gaps, 1)).toBeCloseTo(entry.timeSec - winnerTime, 1);
     }
-    // someone is on the front (gap ~0) at every sampled moment
+    // there is always a lead group near the head of the race (the scene renders
+    // everyone relative to the front, so this need only be tight, not exactly 0)
     for (const t of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
       const minGap = Math.min(...[...story.stories.values()].map((st) => interpGap(st.gaps, t)));
-      expect(minGap).toBeLessThan(1);
+      expect(minGap).toBeLessThan(12);
     }
   });
 
@@ -164,7 +165,8 @@ describe('race narrative layer (SPEC §5.9)', () => {
         expect(breakEvent!.text).toContain(last);
       }
     }
-    expect(story.events.some((e) => e.kind === 'finale')).toBe(true);
+    // a decisive late-race moment always lands (break holds / attack / finale)
+    expect(story.events.some((e) => e.t >= 0.7)).toBe(true);
   });
 
   const survivalRate = (stageId: string, strategy: Strategy, protectedId: string, n = 1000): number => {
@@ -178,18 +180,66 @@ describe('race narrative layer (SPEC §5.9)', () => {
     return survived / n;
   };
 
-  it('a committed breakaway raises the odds the break survives (but stays bounded)', () => {
-    const withBreak = survivalRate('st-roubey', 'BREAKAWAY', 'gr-kobbel');
-    const without = survivalRate('st-roubey', 'PROTECT_LEADER', 'gr-kobbel');
-    expect(without).toBeLessThan(0.3); // rare by default
-    expect(withBreak).toBeGreaterThan(without + 0.06); // the gamble matters
-    expect(withBreak).toBeLessThan(0.6); // still a gamble, not a guarantee
+  // gr-vance is a clear non-favourite → committing him puts him in the morning break
+  it('committing a domestique to the break raises its survival odds (but stays bounded)', () => {
+    const withBreak = survivalRate('st-roubey', 'BREAKAWAY', 'gr-vance');
+    const without = survivalRate('st-roubey', 'PROTECT_LEADER', 'gr-vance');
+    expect(without).toBeLessThan(0.3);
+    expect(withBreak).toBeGreaterThan(without + 0.06);
+    expect(withBreak).toBeLessThan(0.6);
   });
 
   it('terrain matters: breaks survive more often on a hilly day than a flat one', () => {
-    const hilly = survivalRate('st-fleche', 'BREAKAWAY', 'gr-kobbel', 600);
-    const flat = survivalRate('st-sanreno', 'BREAKAWAY', 'gr-philq', 600);
+    const hilly = survivalRate('st-fleche', 'BREAKAWAY', 'gr-vance', 600);
+    const flat = survivalRate('st-sanreno', 'BREAKAWAY', 'gr-vance', 600);
     expect(hilly).toBeGreaterThan(flat + 0.05);
+  });
+
+  it('the morning break is opportunists — the strongest climber is almost never in it on a summit', () => {
+    const s2 = stage('st-lombardo');
+    let inBreak = 0;
+    const N = 1000;
+    for (let i = 0; i < N; i++) {
+      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: allProtectLeader(s2), rng: new Rng(i * 40503 + 11) });
+      if (story.breakIds.includes('vm-vinge')) inBreak++;
+    }
+    expect(inBreak / N).toBeLessThan(0.05);
+  });
+
+  it('punctures never cause an abandon; crashes rarely do', () => {
+    let punctureDnf = 0;
+    let crashes = 0;
+    let crashDnf = 0;
+    const s2 = stage('st-roubey');
+    for (let i = 0; i < 2500; i++) {
+      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: allProtectLeader(s2), rng: new Rng(i * 7919 + 1) });
+      for (const st of story.stories.values()) {
+        if (!st.incident) continue;
+        if (st.incident.type === 'puncture') {
+          if (st.incident.dnf) punctureDnf++;
+        } else {
+          crashes++;
+          if (st.incident.dnf) crashDnf++;
+        }
+      }
+    }
+    expect(punctureDnf).toBe(0); // punctures never abandon
+    expect(crashes).toBeGreaterThan(0);
+    expect(crashDnf / crashes).toBeLessThan(0.15); // crash abandons are rare
+  });
+
+  it('produces varied race shapes across seeds, and attackers are never in the morning break', () => {
+    const shapes = new Set<string>();
+    for (const stg of ['st-lombardo', 'st-fleche', 'st-roubey', 'st-sanreno']) {
+      const s2 = stage(stg);
+      for (let i = 0; i < 250; i++) {
+        const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: allProtectLeader(s2), rng: new Rng(i * 2654435761 + stg.length) });
+        shapes.add(story.shape);
+        if (story.attackerId) expect(story.breakIds).not.toContain(story.attackerId);
+      }
+    }
+    expect(shapes.size).toBeGreaterThanOrEqual(3); // not formulaic
+    expect(shapes.has('soloAttack')).toBe(true); // favourites do attack late
   });
 });
 

@@ -31,35 +31,57 @@ export const ROLE_MULTIPLIER_ALL_IN = 1.3; // helpers' fatigue multiplier when g
 export const ROLE_MULTIPLIER_SPRINT = 0.8; // team saves a little for the sprint
 export const ROLE_MULTIPLIER_CONSERVE = 0.7; // helpers' fatigue multiplier when conserving
 
-// --- Crashes / illness (SPEC §5.6) ---
-export const CRASH_PROB = 0.015; // per rider per stage
-export const CRASH_PROB_MULTIPLIER_RISKY = 2; // doubled on cobbled / descentFinish
-export const CRASH_DNF_FRACTION = 0.1; // fraction of crashes that become a DNF
-export const CRASH_TIME_LOSS_MIN = 25; // seconds lost in a crash/puncture (min)
-export const CRASH_TIME_LOSS_MAX = 110; // seconds lost in a crash/puncture (max)
+// --- Incidents: crashes & punctures (SPEC §5.6) ---
+export const INCIDENT_PROB = 0.02; // per rider per stage (crash OR puncture)
+export const INCIDENT_PROB_MULTIPLIER_RISKY = 2; // doubled on cobbled / descentFinish
+export const PUNCTURE_SHARE = 0.6; // of incidents, this fraction are punctures (never DNF)
+export const CRASH_DNF_FRACTION = 0.06; // of CRASHES only, this fraction abandon — rare
+export const INCIDENT_TIME_LOSS_MIN = 20; // seconds lost (min)
+export const INCIDENT_TIME_LOSS_MAX = 100; // seconds lost (max)
 
 // --- Finish groups (SPEC §5.7) ---
 export const GROUP_GAP_THRESHOLD_SEC = 5; // riders within this of the rider ahead share a group
 export const GROUP_GAP_THRESHOLD_HARD_SEC = 2; // mountain/summit: field shatters into small groups
 
-// --- Race narrative: breakaway (SPEC §5.9) ---
+// The strongest FAVOURITE_COUNT riders are the "favourites": they never ride in
+// the morning break — they save it and attack late (SPEC §5.9).
+export const FAVOURITE_COUNT = 6;
+
+// --- Race narrative: the morning breakaway (opportunists only) (SPEC §5.9) ---
 export const BREAK_MIN_SIZE = 2; // riders up the road
 export const BREAK_MAX_SIZE = 5;
 export const BREAK_MAX_LEAD_SEC_MIN = 60; // peak lead the break builds mid-race (min)
 export const BREAK_MAX_LEAD_SEC_MAX = 300; // peak lead the break builds mid-race (max)
-export const BREAK_WIN_MARGIN_SEC = 14; // if it survives, how far clear the break winner finishes
+export const BREAK_WIN_MARGIN_SEC = 14; // if it survives, how far clear it finishes
 
 /**
- * Whether a break survives is emergent, not a flat dice roll (SPEC §5.9):
- *   survive = clamp(BASE + TERRAIN·friendliness + STRENGTH·breakStrength + tacticBonus, 0, MAX)
- * so a strong break on a break-friendly day genuinely tends to stay away, while a
- * weak break on a sprinters' course almost never does.
+ * Whether the morning break survives is emergent, not a flat dice roll (SPEC §5.9):
+ *   survive = clamp(BASE + TERRAIN·friendliness + tacticBonus, 0, MAX)
+ * The break is opportunists, so it lives or dies mostly on how break-friendly the
+ * course is; committing a domestique to it (BREAKAWAY on a non-favourite) helps.
  */
-export const BREAK_SURVIVE_BASE = 0.04;
-export const BREAK_SURVIVE_TERRAIN_W = 0.34; // × terrain break-friendliness (0..1)
-export const BREAK_SURVIVE_STRENGTH_W = 0.34; // × how strong the break's best rider is (0..1)
-export const BREAK_SURVIVE_TACTIC_BONUS = 0.14; // player committed a rider to the break
-export const BREAK_SURVIVE_MAX = 0.72;
+export const BREAK_SURVIVE_BASE = 0.05;
+export const BREAK_SURVIVE_TERRAIN_W = 0.32;
+export const BREAK_SURVIVE_TACTIC_BONUS = 0.16;
+export const BREAK_SURVIVE_MAX = 0.5;
+
+/**
+ * Late attack by a favourite in the finale (SPEC §5.9). Whether one is launched,
+ * and whether it sticks, both scale with how selective the terrain is — attacks
+ * win on climbs, get chased down on flat roads.
+ *   P(attack)  = clamp(OCCUR_BASE + selectiveness·OCCUR_TERRAIN_W, 0, 1)   (1 if the
+ *                player committed their leader via BREAKAWAY)
+ *   P(sticks)  = clamp(SUCCESS_BASE + selectiveness·W + attackerStrength·W + tacticBonus, 0, MAX)
+ */
+export const LATE_ATTACK_OCCUR_BASE = 0.15;
+export const LATE_ATTACK_OCCUR_TERRAIN_W = 0.5;
+export const LATE_ATTACK_SUCCESS_BASE = 0.05;
+export const LATE_ATTACK_SUCCESS_TERRAIN_W = 0.34;
+export const LATE_ATTACK_SUCCESS_STRENGTH_W = 0.28;
+export const LATE_ATTACK_SUCCESS_TACTIC_BONUS = 0.18;
+export const LATE_ATTACK_SUCCESS_MAX = 0.7;
+export const LATE_ATTACK_MARGIN_MIN = 5; // seconds a successful solo attack wins by
+export const LATE_ATTACK_MARGIN_MAX = 24;
 
 /** Terrain break-friendliness (0 = sprinters control, 1 = breaks thrive). */
 export const BREAK_FRIENDLINESS: Record<string, number> = {
@@ -69,6 +91,16 @@ export const BREAK_FRIENDLINESS: Record<string, number> = {
   cobbled: 0.52,
   descentFinish: 0.55,
   hilly: 0.6,
+};
+
+/** Terrain selectiveness for late attacks (climbs reward the attacker). */
+export const TERRAIN_SELECTIVENESS: Record<string, number> = {
+  flat: 0.12,
+  cobbled: 0.4,
+  descentFinish: 0.45,
+  hilly: 0.55,
+  mountain: 0.75,
+  summitFinish: 0.85,
 };
 
 // Narrative timing is jittered per race so no two unfold identically (SPEC §5.9).

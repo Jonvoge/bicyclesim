@@ -221,7 +221,7 @@ Before each stage the player picks **two things**:
 | Strategy | Idea | Protected rider | Other selected riders |
 |---|---|---|---|
 | PROTECT_LEADER | Ride for your leader | `+LEADER_BONUS` (≈ +6) to perfScore | roleMultiplier 1.3 (more fatigue), small self-penalty (−2) |
-| BREAKAWAY | Send them up the road, gamble | joins the day's break; `+BREAK_PERF_BONUS` on break-friendly terrain (hilly/mountain/cobbled/descent), small penalty on bunch-sprint terrain (flat); wider σ; markedly higher chance the break survives to the line | roleMultiplier 1.0 |
+| BREAKAWAY (label: "Attack") | Back your rider to go clear | a *domestique* joins the morning break (raising its survival odds); a *leader* attacks late in the finale instead (§5.9). `+BREAK_PERF_BONUS` on break-friendly terrain, small penalty on flat; wider σ | roleMultiplier 1.0 |
 | SPRINT_FINISH | Sit in, save it for the kick | `+SPRINT_FINISH_BONUS` on likely bunch finishes (flat/hilly/cobbled), penalty if the climbs drop them (mountain/summitFinish) | roleMultiplier 0.8 (a little saved) |
 
 **Stage races** (`shortTour` / `grandTour`, Phase 3) reuse `PROTECT_LEADER` + `BREAKAWAY` and
@@ -235,13 +235,14 @@ The trade-off *is* the game: spending the team today for a leader costs stamina 
 gambled breakaway can steal a race a stronger team should have won. A weaker team can
 occasionally out-tactic a stronger one — that's the giant-killing drama.
 
-### 5.6 Crashes / illness & incidents (`tuning.ts`)
+### 5.6 Incidents: crashes & punctures (`tuning.ts`)
 
-Per rider per stage: `P(crash) ≈ 0.015`, doubled on `cobbled` / `descentFinish`. Effect: a time
-loss (finish + random gap); a *small* fraction of crashes become DNF. **Kept rare on purpose** —
-drama, never a frustration tax. These incidents feed the race narrative (§5.9): a punctured or
-crashed rider is **seen** sliding out of the group. Surfaced from **Phase 2** (as visible drama)
-rather than waiting for Phase 3.
+Per rider per stage: `P(incident) ≈ 0.02`, doubled on `cobbled` / `descentFinish`. An incident is
+either a **puncture** (~60%) or a **crash**. Both cost a time loss (finish + random gap), but only
+a *crash* can end in a DNF, and only a **small** fraction do — **a puncture never causes an
+abandon**. So abandons are genuinely rare; a punctured rider is dropped and chasing, not out.
+These feed the race narrative (§5.9): the rider is **seen** sliding out the back and named on the
+race radio. Surfaced from **Phase 2** as visible drama rather than waiting for Phase 3.
 
 ### 5.7 Result → times
 
@@ -273,13 +274,18 @@ engine**, not a replacement (fun over realism):
 
 1. **Base scores** come from §5.1 (`scoreRiders`).
 2. **A few bounded events adjust the result** (this is what makes watching *matter*):
-   - **Breakaway.** A small group (2–5) goes up the road early: the player's rider if the
-     strategy is `BREAKAWAY`, plus a few random opportunists (weighted to non-stars). Whether it
-     **stays away** is *emergent, not a flat dice roll*: `survive = clamp(BASE +
-     TERRAIN·friendliness + STRENGTH·breakStrength + tacticBonus, 0, MAX)`. So a strong break on
-     a break-friendly day (hilly/cobbled) genuinely tends to make it, a weak break on a
-     sprinters' course almost never does, and committing a real contender is what turns the
-     gamble live. If it survives, its strongest member wins over the chasers behind.
+   There are **two kinds of move**, not one — this is what keeps a race from feeling formulaic:
+   - **The morning break.** A small group (2–5) of **opportunists only** — never a favourite; the
+     strongest `FAVOURITE_COUNT` riders save it for later. The player can commit a *domestique*
+     to it via `BREAKAWAY`. Whether it **stays away** is emergent: `survive = clamp(BASE +
+     TERRAIN·friendliness + tacticBonus, 0, MAX)`. Break-friendly days (hilly/cobbled) let it
+     stick; sprinters' courses reel it in. If it survives, its strongest rider wins.
+   - **Late attacks.** In the finale a **favourite** can jump clear — the player's leader if they
+     chose `BREAKAWAY` (a leader "attacks late" rather than riding the morning break), else
+     sometimes an emergent move. Whether it's launched and whether it **sticks** both scale with
+     terrain **selectiveness** (`P(sticks) = clamp(BASE + selectiveness·W + attackerStrength·W +
+     tacticBonus, 0, MAX)`): attacks win on climbs, get chased down on flat roads. A successful
+     attack is a solo win by a small margin.
    - **Incidents (§5.6).** Crash/puncture victims take a time penalty (rare DNF); enough to drop
      them down the order or out.
    These are applied on top of base scores, then converted to final times (§5.7). Everything is
