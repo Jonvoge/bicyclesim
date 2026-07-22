@@ -8,6 +8,7 @@ import { baseScore } from '../sim/stageSim.ts';
 import { bestSuitedRider } from '../sim/raceSetup.ts';
 import { strategiesForRaceType, type Strategy, type TeamTactics } from '../sim/tactics.ts';
 import { Button, makeButton } from '../ui/button.ts';
+import { StageProfileView } from '../ui/stageProfile.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
 const BLURBS: Record<StageType, string> = {
@@ -44,7 +45,7 @@ export class PreRaceScene extends Phaser.Scene {
     this.add.text(width / 2, 62, `${stage.type} · ${stage.lengthKm} km`, { fontFamily: FONT, fontSize: '14px', color: COLORS.textMuted }).setOrigin(0.5);
 
     // profile
-    this.drawProfile(width / 2 - 165, 88, 330, 70, stage.type);
+    new StageProfileView(this, width / 2 - 165, 88, 330, 70, stage.type);
     this.add.text(width / 2, 176, BLURBS[stage.type], { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted, align: 'center', wordWrap: { width: 320 } }).setOrigin(0.5);
 
     // protected rider picker
@@ -122,46 +123,4 @@ export class PreRaceScene extends Phaser.Scene {
     this.scene.start('Race', { stageId: stage.id, tactics });
   }
 
-  /** Crude elevation silhouette per stage type (SPEC §8 — placeholder art). */
-  private drawProfile(x: number, y: number, w: number, h: number, type: StageType): void {
-    this.add.rectangle(x + w / 2, y + h / 2, w, h, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
-    const g = this.add.graphics({ x, y });
-    const base = h - 6;
-    const pts: number[] = (() => {
-      switch (type) {
-        case 'flat':
-          return [base, base - 4, base - 2, base - 6, base - 3, base - 2, base];
-        case 'cobbled':
-          return [base, base - 8, base - 3, base - 10, base - 4, base - 9, base - 5, base - 8, base];
-        case 'hilly':
-          return [base, base - 12, base - 4, base - 16, base - 6, base - 14, base - 5, base - 12, base];
-        case 'mountain':
-          return [base, base - 20, base - 8, base - 30, base - 12, base - 24, base - 6, base - 28, base - 10];
-        case 'summitFinish':
-          return [base, base - 4, base - 8, base - 14, base - 22, base - 32, base - 44, base - 54];
-        case 'descentFinish':
-          return [base, base - 10, base - 24, base - 40, base - 50, base - 30, base - 12, base];
-        case 'itt':
-          return [base - 2, base - 3, base - 2, base - 3, base - 2, base - 3, base - 2];
-        case 'ttt':
-          return [base - 3, base - 2, base - 4, base - 2, base - 3, base - 2, base - 3];
-      }
-    })();
-
-    g.fillStyle(COLORS.buttonSelected, 0.35);
-    g.lineStyle(2, COLORS.buttonSelected, 1);
-    g.beginPath();
-    const step = w / (pts.length - 1);
-    g.moveTo(0, base);
-    pts.forEach((py, i) => g.lineTo(i * step, py));
-    g.lineTo(w, base);
-    g.closePath();
-    g.fillPath();
-    g.beginPath();
-    pts.forEach((py, i) => (i === 0 ? g.moveTo(0, py) : g.lineTo(i * step, py)));
-    g.strokePath();
-
-    // finish flag
-    this.add.text(x + w - 6, y + 4, '🏁', { fontSize: '14px' }).setOrigin(1, 0);
-  }
 }

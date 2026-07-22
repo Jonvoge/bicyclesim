@@ -110,12 +110,14 @@ describe('tactics visibly change outcomes', () => {
 describe('race narrative layer (SPEC §5.9)', () => {
   const s = stage('st-lombardo');
 
-  it('is deterministic under a seed', () => {
+  it('is deterministic under a seed (result, groups, and radio events)', () => {
     const t = allProtectLeader(s);
     const a = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: t, rng: new Rng(99) });
     const b = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: t, rng: new Rng(99) });
     expect(a.result.order.map((e) => e.riderId)).toEqual(b.result.order.map((e) => e.riderId));
     expect(a.breakSurvived).toBe(b.breakSurvived);
+    expect(JSON.stringify(a.groups)).toBe(JSON.stringify(b.groups));
+    expect(JSON.stringify(a.events)).toBe(JSON.stringify(b.events));
   });
 
   it('gives every rider a story that ends at their final gap, with a leader at all times', () => {
@@ -132,6 +134,37 @@ describe('race narrative layer (SPEC §5.9)', () => {
       const minGap = Math.min(...[...story.stories.values()].map((st) => interpGap(st.gaps, t)));
       expect(minGap).toBeLessThan(1);
     }
+  });
+
+  it('finishers arrive in groups; whole group shares a time (SPEC §5.7)', () => {
+    for (const seed of [1, 7, 42, 1234]) {
+      const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allProtectLeader(s), rng: new Rng(seed) });
+      const nonDnf = story.result.order.filter((e) => !e.dnf);
+      // groups partition the finishers
+      expect(story.groups.flatMap((g) => g.ids).sort()).toEqual(nonDnf.map((e) => e.riderId).sort());
+      for (const g of story.groups) {
+        for (const id of g.ids) {
+          expect(story.result.order.find((e) => e.riderId === id)!.timeSec).toBe(g.timeSec);
+        }
+      }
+      // group times strictly increase
+      for (let i = 1; i < story.groups.length; i++) {
+        expect(story.groups[i].timeSec).toBeGreaterThan(story.groups[i - 1].timeSec);
+      }
+    }
+  });
+
+  it('narrates the race: break composition on the radio', () => {
+    const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allProtectLeader(s), rng: new Rng(5) });
+    if (story.breakIds.length > 0) {
+      const breakEvent = story.events.find((e) => e.kind === 'break');
+      expect(breakEvent).toBeDefined();
+      for (const id of story.breakIds) {
+        const last = RIDERS_BY_ID.get(id)!.name.split(' ').slice(-1)[0];
+        expect(breakEvent!.text).toContain(last);
+      }
+    }
+    expect(story.events.some((e) => e.kind === 'finale')).toBe(true);
   });
 
   it('a committed breakaway raises the odds the break survives (but stays bounded)', () => {

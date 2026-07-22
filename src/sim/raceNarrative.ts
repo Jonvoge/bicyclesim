@@ -1,3 +1,4 @@
+import { RIDERS_BY_ID } from '../data/riders.ts';
 import {
   BREAK_MAX_LEAD_SEC_MAX,
   BREAK_MAX_LEAD_SEC_MIN,
@@ -11,23 +12,32 @@ import {
   CRASH_PROB_MULTIPLIER_RISKY,
   CRASH_TIME_LOSS_MAX,
   CRASH_TIME_LOSS_MIN,
+  GROUP_GAP_THRESHOLD_HARD_SEC,
+  GROUP_GAP_THRESHOLD_ITT_SEC,
+  GROUP_GAP_THRESHOLD_SEC,
 } from '../data/tuning.ts';
-import type { StageResult } from '../data/types.ts';
+import type { StageResult, StageResultEntry, StageType } from '../data/types.ts';
 import { perfToResult, scoreRiders, type StageSimInput } from './stageSim.ts';
 
 /**
- * Race narrative layer (SPEC §5.9). A thin layer over the scoring engine that
- * (a) lets a few bounded events adjust the result — a breakaway that can stay
- * away, crashes/punctures — and (b) produces a RaceStory of gap-to-leader
- * keyframes so the field can be *watched* forming a break, chasing it back,
- * splintering, and shedding riders. All seeded → reproducible.
+ * Race narrative layer (SPEC §5.9), group-centric: a road race is the story of
+ * GROUPS — a break forms, the peloton chases, the finale shatters the field, and
+ * riders arrive in groups that share a finishing time (SPEC §5.7). This layer
+ * turns the scoring engine's numbers into that story:
+ *   - bounded events (breakaway survival, crashes/punctures) adjust the result
+ *   - finishers are clustered into FinishGroups; whole group = same time
+ *   - per-rider gap trajectories are quantized BY GROUP, so riders visibly ride
+ *     together in bunches rather than strung out on a line
+ *   - a RaceEvent list ("race radio") narrates it: break composition, incidents,
+ *     the catch, the finale
+ * Everything is seeded → reproducible.
  */
 
 export type RiderRole = 'break' | 'peloton' | 'contender' | 'dropped';
 
 export interface GapKey {
   t: number; // normalised stage time [0,1]
-  gap: number; // seconds behind the current race leader
+  gap: number; // seconds behind the head of the race
 }
 
 export interface Incident {
@@ -40,26 +50,40 @@ export interface RiderStory {
   riderId: string;
   role: RiderRole;
   inBreak: boolean;
-  gaps: GapKey[]; // sorted by t; ends at t=1 with the final gap
+  gaps: GapKey[];
   incident?: Incident;
+}
+
+export type RaceEventKind = 'break' | 'crash' | 'puncture' | 'catch' | 'finale' | 'info' | 'finish';
+
+export interface RaceEvent {
+  t: number;
+  kind: RaceEventKind;
+  text: string;
+}
+
+/** Riders who cross the line together and share a time (SPEC §5.7). */
+export interface FinishGroup {
+  ids: string[]; // crossing order within the group
+  timeSec: number;
+  gapSec: number; // to the winning group
 }
 
 export interface RaceStory {
   result: StageResult;
+  groups: FinishGroup[];
   stories: Map<string, RiderStory>;
+  events: RaceEvent[];
   breakIds: string[];
   breakSurvived: boolean;
 }
 
-// --- animation timeline (cosmetic fractions of the stage) ---
-const T_BREAK_GO = 0.06;
-const T_BREAK_PEAK = 0.4;
-const T_FINALE = 0.88;
-const PACK_SPREAD_CAP = 20; // pack riders sit within ~this many seconds mid-race
+// --- narrative timeline (fractions of the stage; cosmetic) ---
+export const T_BREAK_GO = 0.06;
+export const T_BREAK_PEAK = 0.4;
+export const T_FINALE = 0.88;
 const RISKY_TYPES = new Set(['cobbled', 'descentFinish']);
-const TOP_CONTENDERS = 6; // final placings treated as "attacked in the finale"
-
-const clampGap = (g: number): number => Math.max(0, g);
+const TOP_CONTENDERS = 6;
 
 export function interpGap(gaps: GapKey[], t: number): number {
   if (t <= gaps[0].t) return gaps[0].gap;
@@ -76,10 +100,29 @@ export function interpGap(gaps: GapKey[], t: number): number {
   return last.gap;
 }
 
+function lastName(riderId: string): string {
+  const name = RIDERS_BY_ID.get(riderId)?.name ?? riderId;
+  return name.split(' ').slice(-1)[0];
+}
+
+function fmtLead(sec: number): string {
+  const s = Math.round(sec);
+  const m = Math.floor(s / 60);
+  const ss = s % 60;
+  return m > 0 ? `${m}:${String(ss).padStart(2, '0')}` : `${ss}s`;
+}
+
+function groupThreshold(type: StageType): number {
+  if (type === 'itt' || type === 'ttt') return GROUP_GAP_THRESHOLD_ITT_SEC;
+  if (type === 'mountain' || type === 'summitFinish') return GROUP_GAP_THRESHOLD_HARD_SEC;
+  return GROUP_GAP_THRESHOLD_SEC;
+}
+
 export function buildRaceStory(input: StageSimInput): RaceStory {
   const { stage, rng } = input;
   const scored = scoreRiders(input);
-  const isItt = stage.type === 'itt';
+  const isItt = stage.type === 'itt' || stage.type === 'ttt';
+  const events: RaceEvent[] = [];
 
   // --- breakaway membership -------------------------------------------------
   const byPerfDesc = [...scored].sort((a, b) => b.perfScore - a.perfScore);
@@ -91,7 +134,6 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   let breakIds: string[] = [];
   if (!isItt) {
     const size = BREAK_MIN_SIZE + rng.int(BREAK_MAX_SIZE - BREAK_MIN_SIZE + 1);
-    // opportunists = riders outside the favourites, shuffled
     const opportunists = byPerfDesc
       .slice(TOP_CONTENDERS)
       .map((s) => s.riderId)
@@ -118,12 +160,18 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
     if (rng.next() < CRASH_PROB * riskyMult) {
       const dnf = rng.next() < CRASH_DNF_FRACTION;
       const loss = CRASH_TIME_LOSS_MIN + rng.next() * (CRASH_TIME_LOSS_MAX - CRASH_TIME_LOSS_MIN);
-      timePenalties.set(s.riderId, loss);
-      if (dnf) dnfIds.add(s.riderId);
-      incidents.set(s.riderId, {
+      const inc: Incident = {
         t: 0.2 + rng.next() * 0.6,
         type: rng.next() < 0.5 ? 'crash' : 'puncture',
         dnf,
+      };
+      timePenalties.set(s.riderId, loss);
+      if (dnf) dnfIds.add(s.riderId);
+      incidents.set(s.riderId, inc);
+      events.push({
+        t: inc.t,
+        kind: inc.type,
+        text: `${inc.type === 'crash' ? 'Crash!' : 'Puncture!'} ${lastName(s.riderId)}${dnf ? ' — abandons' : ''}`,
       });
     }
   }
@@ -143,31 +191,83 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
       }
     }
   }
+  const tCatch = breakSurvived ? Infinity : 0.68 + rng.next() * 0.18;
+  const breakMaxLead =
+    BREAK_MAX_LEAD_SEC_MIN + rng.next() * (BREAK_MAX_LEAD_SEC_MAX - BREAK_MAX_LEAD_SEC_MIN);
 
-  // --- final result ---------------------------------------------------------
+  // --- raw result, then survived-break adjustment ---------------------------
   const result = perfToResult(stage, scored, timePenalties, dnfIds);
   if (breakSurvived && breakWinnerId) {
-    const fastest = result.order.find((e) => !e.dnf);
+    const fastestOther = result.order.find((e) => !e.dnf && e.riderId !== breakWinnerId);
     const bw = result.order.find((e) => e.riderId === breakWinnerId);
-    if (fastest && bw) {
-      bw.timeSec = fastest.timeSec - BREAK_WIN_MARGIN_SEC;
+    if (fastestOther && bw) {
+      bw.timeSec = fastestOther.timeSec - BREAK_WIN_MARGIN_SEC;
       result.order.sort((a, b) => (a.dnf !== b.dnf ? (a.dnf ? 1 : -1) : a.timeSec - b.timeSec));
     }
   }
 
-  // --- build gap stories ----------------------------------------------------
+  // --- cluster finishers into groups; whole group shares a time (SPEC §5.7) --
+  const threshold = groupThreshold(stage.type);
+  const finishers = result.order.filter((e) => !e.dnf);
+  const dnfs = result.order.filter((e) => e.dnf);
+  const groups: FinishGroup[] = [];
+  let current: StageResultEntry[] = [];
+  for (const e of finishers) {
+    if (current.length > 0 && e.timeSec - current[current.length - 1].timeSec > threshold) {
+      groups.push({ ids: current.map((x) => x.riderId), timeSec: current[0].timeSec, gapSec: 0 });
+      current = [];
+    }
+    current.push(e);
+  }
+  if (current.length > 0) {
+    groups.push({ ids: current.map((x) => x.riderId), timeSec: current[0].timeSec, gapSec: 0 });
+  }
+  for (const g of groups) {
+    g.gapSec = g.timeSec - groups[0].timeSec;
+    for (const id of g.ids) {
+      const entry = result.order.find((e) => e.riderId === id)!;
+      entry.timeSec = g.timeSec; // same group, same time
+    }
+  }
+  result.order = [...groups.flatMap((g) => g.ids.map((id) => finishers.find((e) => e.riderId === id)!)), ...dnfs];
+
+  // --- radio events ----------------------------------------------------------
+  if (breakIds.length > 0) {
+    events.push({
+      t: T_BREAK_GO + 0.01,
+      kind: 'break',
+      text: `Breakaway: ${breakIds.map(lastName).join(', ')}`,
+    });
+    events.push({
+      t: T_BREAK_PEAK,
+      kind: 'info',
+      text: `The break leads by ${fmtLead(breakMaxLead)}`,
+    });
+    if (breakSurvived && breakWinnerId) {
+      events.push({ t: 0.93, kind: 'break', text: `${lastName(breakWinnerId)} is going to make it!` });
+    } else {
+      events.push({ t: Math.min(tCatch, 0.86), kind: 'catch', text: 'The break is caught' });
+    }
+  }
+  if (!isItt) {
+    events.push({ t: T_FINALE, kind: 'finale', text: 'Finale — the favourites attack!' });
+  } else {
+    events.push({ t: 0.05, kind: 'info', text: 'First riders on course' });
+    events.push({ t: 0.55, kind: 'info', text: 'Halfway splits coming in' });
+  }
+  events.sort((a, b) => a.t - b.t);
+
+  // --- per-rider gap trajectories, quantized by finish group ------------------
   const winnerTime = result.order[0].timeSec;
   const finalRank = new Map(result.order.map((e, i) => [e.riderId, i]));
-  const breakMaxLead = BREAK_MAX_LEAD_SEC_MIN + rng.next() * (BREAK_MAX_LEAD_SEC_MAX - BREAK_MAX_LEAD_SEC_MIN);
-  const tCatch = breakSurvived ? 2 : 0.7 + rng.next() * 0.18; // >1 = never caught
-
   const stories = new Map<string, RiderStory>();
+
   for (const entry of result.order) {
     const id = entry.riderId;
-    const finalGap = entry.dnf ? breakMaxLead + 200 : entry.timeSec - winnerTime;
     const inBreak = breakSet.has(id);
-    const rank = finalRank.get(id) ?? 99;
     const incident = incidents.get(id);
+    const rank = finalRank.get(id) ?? 99;
+    const finalGap = entry.dnf ? breakMaxLead + 250 : entry.timeSec - winnerTime;
 
     let role: RiderRole;
     if (incident) role = 'dropped';
@@ -175,90 +275,56 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
     else if (rank < TOP_CONTENDERS) role = 'contender';
     else role = 'peloton';
 
-    let gaps = buildGaps({
-      role,
-      inBreak,
-      isWinner: id === breakWinnerId || rank === 0,
-      finalGap,
-      breakMaxLead,
-      breakSurvived,
-      tCatch,
-      isItt,
-    });
+    let gaps: GapKey[];
+    if (isItt) {
+      gaps = [
+        { t: 0, gap: 0 },
+        { t: 0.5, gap: finalGap * 0.5 },
+        { t: 1, gap: finalGap },
+      ];
+    } else if (inBreak) {
+      if (breakSurvived) {
+        // survivors ride clear all day; non-winners drift to their final group late
+        gaps = [
+          { t: 0, gap: 0 },
+          { t: T_FINALE, gap: 0 },
+          { t: 1, gap: finalGap },
+        ];
+      } else {
+        gaps = [
+          { t: 0, gap: 0 },
+          { t: Math.min(tCatch, 0.86), gap: 0 },
+          { t: T_FINALE, gap: finalGap * 0.4 },
+          { t: 1, gap: finalGap },
+        ];
+      }
+    } else if (breakSurvived) {
+      gaps = [
+        { t: 0, gap: 0 },
+        { t: T_BREAK_GO, gap: 0 },
+        { t: T_BREAK_PEAK, gap: breakMaxLead },
+        { t: T_FINALE, gap: Math.max(finalGap * 0.6, 8) },
+        { t: 1, gap: finalGap },
+      ];
+    } else {
+      gaps = [
+        { t: 0, gap: 0 },
+        { t: T_BREAK_GO, gap: 0 },
+        { t: T_BREAK_PEAK, gap: breakIds.length > 0 ? breakMaxLead : 0 },
+        { t: Math.min(tCatch, 0.86), gap: 2 },
+        { t: T_FINALE, gap: finalGap * 0.35 + 1 },
+        { t: 1, gap: finalGap },
+      ];
+    }
     if (incident) gaps = applyIncident(gaps, incident, finalGap);
 
     stories.set(id, { riderId: id, role, inBreak, gaps, incident });
   }
 
-  return { result, stories, breakIds, breakSurvived };
+  return { result, groups, stories, events, breakIds, breakSurvived };
 }
 
-interface GapOpts {
-  role: RiderRole;
-  inBreak: boolean;
-  isWinner: boolean;
-  finalGap: number;
-  breakMaxLead: number;
-  breakSurvived: boolean;
-  tCatch: number;
-  isItt: boolean;
-}
-
-function buildGaps(o: GapOpts): GapKey[] {
-  const g = o.finalGap;
-
-  if (o.isItt) {
-    // solo effort: winner leads throughout, everyone else strings out steadily
-    return [
-      { t: 0, gap: 0 },
-      { t: 0.5, gap: g * 0.5 },
-      { t: 1, gap: g },
-    ];
-  }
-
-  if (o.inBreak) {
-    if (o.isWinner && o.breakSurvived) {
-      return [
-        { t: 0, gap: 0 },
-        { t: T_FINALE, gap: 0 },
-        { t: 1, gap: 0 },
-      ];
-    }
-    const caught = o.breakSurvived ? T_FINALE : o.tCatch;
-    return [
-      { t: 0, gap: 0 },
-      { t: T_BREAK_GO, gap: 0 },
-      { t: T_BREAK_PEAK, gap: 0 },
-      { t: Math.min(caught, 0.98), gap: 0 },
-      { t: 1, gap: g },
-    ];
-  }
-
-  const internal = Math.min(g, PACK_SPREAD_CAP);
-  const breakLeadPeak = o.breakMaxLead;
-
-  if (o.breakSurvived) {
-    // pack never catches the break: they close some, but finish behind the winner
-    return [
-      { t: 0, gap: clampGap(internal * 0.4) },
-      { t: T_BREAK_PEAK, gap: clampGap(breakLeadPeak + internal) },
-      { t: T_FINALE, gap: clampGap(o.role === 'contender' ? g * 0.6 : g * 0.85) },
-      { t: 1, gap: g },
-    ];
-  }
-
-  // break gets caught: pack surges back to the front, then the finale opens up
-  const finaleGap = o.role === 'contender' ? g * 0.3 : g * 0.6;
-  return [
-    { t: 0, gap: clampGap(internal * 0.4) },
-    { t: T_BREAK_PEAK, gap: clampGap(breakLeadPeak + internal) },
-    { t: Math.min(o.tCatch, 0.85), gap: clampGap(internal) },
-    { t: T_FINALE, gap: clampGap(finaleGap) },
-    { t: 1, gap: g },
-  ];
-}
-
-/** Truncate the base trajectory at the incident and balloon the gap afterwards. */
+/** Truncate the trajectory at the incident and balloon the gap afterwards. */
 function applyIncident(base: GapKey[], incident: Incident, finalGap: number): GapKey[] {
   const tc = incident.t;
   const before = interpGap(base, tc);

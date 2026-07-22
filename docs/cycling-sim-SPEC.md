@@ -246,6 +246,11 @@ rather than waiting for Phase 3.
 
 - Winner base time = `lengthKm / REFERENCE_SPEED_KMH * 3600`.
 - Gaps derived from `perfScore` differences × `GAP_SPREAD` (seconds per point).
+- **Finish groups (pro convention):** finishers are clustered — a rider within
+  `GROUP_GAP_THRESHOLD_SEC` of the rider ahead joins their group, and **everyone in a group
+  gets the same time** (shown as `s.t.` after the first rider). The threshold is terrain-aware:
+  bunch terrain ~5 s (big groups), mountain/summit ~2 s (ones and twos), itt/ttt ~0.5 s
+  (individual times). Order within a group = crossing order.
 - MVP can display simple **ordering + gaps**; precise times only matter once GC exists.
 
 ### 5.8 Stage races & GC (`standings.ts`, Phase 3)
@@ -277,9 +282,16 @@ engine**, not a replacement (fun over realism):
    seeded, so a race is reproducible.
 3. **A `RaceStory` is generated for the animation**: per rider, a `role`
    (`break` / `peloton` / `contender` / `dropped`) and a small set of **gap-to-leader keyframes**
-   over normalised stage time `t ∈ [0,1]`, converging to the final gap at `t = 1`. The race view
-   interpolates these so the field visibly forms a break, chases it back, splinters in the finale,
-   and sheds anyone who crashes — arriving at the line in groups with real gaps.
+   over normalised stage time `t ∈ [0,1]`, converging to the final gap at `t = 1`. Trajectories
+   are **quantized by group** (riders in the same group share a trajectory) so the field reads as
+   *bunches* — a break clear, one peloton blob chasing, the finale splintering — not individuals
+   strung along a line.
+4. **Race radio.** The story also carries a seeded `RaceEvent` list — break composition (named),
+   the break's max lead, crashes/punctures (named, with abandons), the catch, the finale, the
+   winner — which the race view surfaces as a live commentary ticker.
+5. **The race view is broadcast-style:** the stage profile with a live position marker (the map),
+   a groups-overview strip listing every group on the road and the gaps between them, the
+   clustered field, the radio ticker, and the finish order revealing group by group.
 
 The result is authored to still satisfy Phase 1's guarantees (favourites usually win, seeded and
 tunable); the narrative only ever nudges outcomes within bounded, tunable limits.

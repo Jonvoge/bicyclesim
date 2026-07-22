@@ -42,12 +42,21 @@ export class StageResultsScene extends Phaser.Scene {
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === 't-grenoble';
       const y = top + i * rowH;
+
+      // new finish group (time changed vs the row above) → separator line
+      const prev = i > 0 ? order[i - 1] : null;
+      const sameGroup = prev && !e.dnf && !prev.dnf && Math.abs(e.timeSec - prev.timeSec) < 0.01;
+      if (prev && !sameGroup) {
+        this.add.rectangle(width / 2, y - rowH / 2, width - 40, 1, COLORS.stroke, 0.6);
+      }
+
       if (isPlayer) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12);
       this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5);
       this.add.rectangle(46, y, 9, 9, col.jersey, 1);
       this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
       this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5);
-      const gapLabel = e.dnf ? 'DNF' : i === 0 ? '—' : `+${this.fmtGap(e.timeSec - winnerTime)}`;
+      // pro convention: same group = same time → "s.t." after the first rider
+      const gapLabel = e.dnf ? 'DNF' : i === 0 ? '—' : sameGroup ? 's.t.' : `+${this.fmtGap(e.timeSec - winnerTime)}`;
       this.add.text(width - 20, y, gapLabel, { fontFamily: FONT, fontSize: '13px', color: e.dnf ? '#e23b3b' : COLORS.textMuted }).setOrigin(1, 0.5);
     });
 

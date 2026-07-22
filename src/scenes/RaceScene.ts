@@ -5,49 +5,68 @@ import { teamColor } from '../data/teamColors.ts';
 import type { Stage, StageResultEntry } from '../data/types.ts';
 import { Rng } from '../sim/rng.ts';
 import { buildTacticsMap } from '../sim/raceSetup.ts';
-import { buildRaceStory, interpGap, type RaceStory, type RiderStory } from '../sim/raceNarrative.ts';
+import {
+  buildRaceStory,
+  interpGap,
+  T_FINALE,
+  type RaceEvent,
+  type RaceStory,
+  type RiderStory,
+} from '../sim/raceNarrative.ts';
 import type { TeamTactics } from '../sim/tactics.ts';
 import { CodeDrawnRenderer } from '../render/codeDrawnRenderer.ts';
 import { Button, makeButton } from '../ui/button.ts';
+import { StageProfileView } from '../ui/stageProfile.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
 // --- animation pacing (cosmetic) ---
-const MAIN_T_SECONDS = 11; // real seconds for the stage clock to run 0 → 1 at 1×
-const FINISH_SPREAD = 0.0016; // extra stage-time per second of gap, for the finish reveal
-const COMPRESS_K = 75; // gap→x compression: gap of K seconds sits halfway back
-const MAX_ROWS = 15;
+const MAIN_T_SECONDS = 11; // real seconds for the stage clock at 1×
+const FINALE_SLOWDOWN = 0.6; // clock rate in the finale, for tension
+const FINISH_SPREAD = 0.0016; // extra stage-time per second of finishing gap
+const COMPRESS_K = 75; // gap→x: a gap of K seconds sits halfway back
+const CLUSTER_GAP_SEC = 4; // riders within this render as one bunch
+const MAX_ROWS = 12;
 
 interface Actor {
   entry: StageResultEntry;
   story: RiderStory;
   glyph: Phaser.GameObjects.Container;
   tFinish: number;
-  revealed: boolean;
   incidentShown: boolean;
   isPlayer: boolean;
+  packSeed: number; // stable slot within a bunch
+  out: boolean; // DNF'd and faded from the road
+}
+
+interface TickerLine {
+  text: Phaser.GameObjects.Text;
 }
 
 export class RaceScene extends Phaser.Scene {
   private stage!: Stage;
   private story!: RaceStory;
   private actors: Actor[] = [];
-  private t = 0; // stage clock (0..~1.1+)
+  private t = 0;
   private maxFinish = 1;
   private speed = 1;
   private done = false;
   private revealed = 0;
+  private eventIdx = 0;
 
-  private trackLeft = 30;
-  private finishX = 350;
-  private roadTop = 150;
-  private laneH = 15;
-  private lbTop = 500;
+  private trackLeft = 28;
+  private frontX = 352;
+  private roadTop = 196;
+  private roadBottom = 404;
+  private lbTop = 540;
   private rowH = 20;
+  private tickerTop = 438;
 
   private progressBar!: Phaser.GameObjects.Rectangle;
   private kmText!: Phaser.GameObjects.Text;
-  private statusText!: Phaser.GameObjects.Text;
+  private groupsText!: Phaser.GameObjects.Text;
+  private profile!: StageProfileView;
   private speedBtn!: Button;
+  private ticker: TickerLine[] = [];
 
   constructor() {
     super('Race');
@@ -55,13 +74,16 @@ export class RaceScene extends Phaser.Scene {
 
   create(data: { stageId: string; tactics: TeamTactics }): void {
     this.actors = [];
+    this.ticker = [];
     this.t = 0;
     this.speed = 1;
     this.done = false;
     this.revealed = 0;
+    this.eventIdx = 0;
+    this.maxFinish = 1;
 
     const { width } = this.scale;
-    this.finishX = width - 40;
+    this.frontX = width - 38;
     this.stage = STAGES_BY_ID.get(data.stageId)!;
 
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
@@ -75,83 +97,81 @@ export class RaceScene extends Phaser.Scene {
 
     this.buildHeader(width);
     this.buildRoad(data.tactics.protectedRiderId);
-    this.buildLeaderboardHeader(width);
+    this.addRadioLine(`${this.stage.name} — ${this.stage.lengthKm} km`, 'info');
   }
 
   private buildHeader(width: number): void {
-    this.add.text(width / 2, 28, this.stage.name, { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
-    this.add.text(width / 2, 52, `${this.stage.type} · ${this.stage.lengthKm} km`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(width / 2, 26, this.stage.name, { fontFamily: FONT, fontSize: '21px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
+    this.add.text(width / 2, 48, `${this.stage.type} · ${this.stage.lengthKm} km`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
 
     const barX = this.trackLeft;
     const barW = width - 2 * this.trackLeft;
-    this.add.rectangle(barX, 80, barW, 8, COLORS.panel, 1).setOrigin(0, 0.5).setStrokeStyle(1, COLORS.stroke);
-    this.progressBar = this.add.rectangle(barX, 80, 0, 8, COLORS.buttonSelected, 1).setOrigin(0, 0.5);
-    this.kmText = this.add.text(barX, 98, '', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0, 0.5);
-    this.statusText = this.add.text(width - barX, 98, '', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(1, 0.5);
+    this.add.rectangle(barX, 66, barW, 7, COLORS.panel, 1).setOrigin(0, 0.5).setStrokeStyle(1, COLORS.stroke);
+    this.progressBar = this.add.rectangle(barX, 66, 0, 7, COLORS.buttonSelected, 1).setOrigin(0, 0.5);
+    this.kmText = this.add.text(barX, 82, '', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0, 0.5);
 
-    this.speedBtn = makeButton(this, width - 48, 30, '1×', () => this.cycleSpeed(), { width: 48, height: 26, fontSize: 14 });
-    makeButton(this, width - 48, 62, 'Skip', () => this.skip(), { width: 48, height: 26, fontSize: 12 });
+    this.speedBtn = makeButton(this, width - 46, 26, '1×', () => this.cycleSpeed(), { width: 44, height: 24, fontSize: 13 });
+    makeButton(this, width - 46, 56, 'Skip', () => this.skip(), { width: 44, height: 24, fontSize: 12 });
 
-    // finish line (right edge = current race leader / the line)
+    // stage profile with live position marker
+    this.profile = new StageProfileView(this, this.trackLeft, 96, width - 2 * this.trackLeft, 62, this.stage.type, { showMarker: true });
+
+    // groups overview strip
+    this.groupsText = this.add.text(width / 2, 176, '', { fontFamily: FONT, fontSize: '12px', color: COLORS.text }).setOrigin(0.5);
+
+    // road area + FRONT line
     const fl = this.add.graphics();
-    fl.lineStyle(2, 0xffffff, 0.4);
-    for (let yy = this.roadTop - 6; yy < this.roadTop + 21 * this.laneH; yy += 10) fl.lineBetween(this.finishX, yy, this.finishX, yy + 5);
-    this.add.text(this.finishX, this.roadTop - 18, 'FRONT', { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0.5);
+    fl.lineStyle(2, 0xffffff, 0.35);
+    for (let yy = this.roadTop; yy < this.roadBottom; yy += 10) fl.lineBetween(this.frontX, yy, this.frontX, yy + 5);
+    this.add.text(this.frontX, this.roadTop - 10, 'FRONT', { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
+
+    // race radio panel
+    this.add.text(20, 420, 'RACE RADIO', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted });
+    this.add.rectangle(width / 2, 432, width - 20, 1, COLORS.stroke, 1);
+
+    // finish order
+    this.add.text(20, 518, 'FINISH ORDER', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted });
+    this.add.rectangle(width / 2, 532, width - 20, 1, COLORS.stroke, 1);
   }
 
   private buildRoad(protectedId: string): void {
     const renderer = new CodeDrawnRenderer();
     const order = this.story.result.order;
-    const lanes = this.shuffledLanes(order.length);
+
+    // stable pack slots so bunch positions don't flicker
+    const seeds = Array.from({ length: order.length }, (_, i) => i);
+    const rng = new Rng(0xbadb1ce);
+    for (let i = seeds.length - 1; i > 0; i--) {
+      const j = rng.int(i + 1);
+      [seeds[i], seeds[j]] = [seeds[j], seeds[i]];
+    }
 
     order.forEach((entry, rank) => {
       const rider = RIDERS_BY_ID.get(entry.riderId)!;
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === 't-grenoble';
       const story = this.story.stories.get(entry.riderId)!;
-      const laneY = this.roadTop + lanes[rank] * this.laneH;
-      const glyph = renderer.draw(this, this.xFromGap(interpGap(story.gaps, 0)), laneY, {
+      const glyph = renderer.draw(this, this.trackLeft + 30, (this.roadTop + this.roadBottom) / 2, {
         jerseyColor: col.jersey,
         accentColor: col.accent,
         emphasised: isPlayer,
       });
-      glyph.setScale(0.78);
-      glyph.y = laneY;
+      glyph.setScale(0.74);
 
-      // marker over the player's protected rider so you can follow your pick
       if (entry.riderId === protectedId) {
-        const tri = this.add.triangle(0, -13, 0, 0, 8, 0, 4, 6, COLORS.gold, 1);
+        const tri = this.add.triangle(0, -14, 0, 0, 8, 0, 4, 6, COLORS.gold, 1);
         glyph.add(tri);
       }
 
-      const finalGap = entry.dnf ? Infinity : entry.timeSec - order[0].timeSec;
-      const tFinish = entry.dnf ? Infinity : 1 + finalGap * FINISH_SPREAD;
-      this.maxFinish = Number.isFinite(tFinish) ? Math.max(this.maxFinish, tFinish) : this.maxFinish;
-      this.actors.push({ entry, story, glyph, tFinish, revealed: false, incidentShown: false, isPlayer });
+      // finish timing: whole group crosses together, tiny stagger for readability
+      const groupIdx = this.story.groups.findIndex((g) => g.ids.includes(entry.riderId));
+      const inGroupIdx = groupIdx >= 0 ? this.story.groups[groupIdx].ids.indexOf(entry.riderId) : 0;
+      const gapSec = groupIdx >= 0 ? this.story.groups[groupIdx].gapSec : Infinity;
+      const tFinish = entry.dnf ? Infinity : 1 + gapSec * FINISH_SPREAD + inGroupIdx * 0.004;
+      if (Number.isFinite(tFinish)) this.maxFinish = Math.max(this.maxFinish, tFinish);
+
+      this.actors.push({ entry, story, glyph, tFinish, incidentShown: false, isPlayer, packSeed: seeds[rank], out: false });
     });
-    // render front-runners on top
-    this.actors.sort((a, b) => interpGap(a.story.gaps, 1) - interpGap(b.story.gaps, 1));
-    this.actors.forEach((a) => this.children.bringToTop(a.glyph));
-  }
-
-  private buildLeaderboardHeader(width: number): void {
-    this.add.rectangle(width / 2, this.lbTop - 20, width - 20, 1, COLORS.stroke, 1);
-    this.add.text(20, this.lbTop - 34, 'FINISH ORDER', { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted });
-  }
-
-  private shuffledLanes(n: number): number[] {
-    const arr = Array.from({ length: n }, (_, i) => i);
-    const rng = new Rng(0xa11ce ^ n);
-    for (let i = n - 1; i > 0; i--) {
-      const j = rng.int(i + 1);
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  private xFromGap(gap: number): number {
-    const span = this.finishX - this.trackLeft;
-    return this.finishX - span * (gap / (gap + COMPRESS_K));
   }
 
   private cycleSpeed(): void {
@@ -161,28 +181,36 @@ export class RaceScene extends Phaser.Scene {
 
   private skip(): void {
     this.t = this.maxFinish + 1;
-    for (const a of this.actors) a.glyph.x = this.xFromGap(interpGap(a.story.gaps, 1));
+    while (this.eventIdx < this.story.events.length) {
+      const e = this.story.events[this.eventIdx++];
+      this.addRadioLine(e.text, e.kind);
+    }
+    this.layoutRiders(1);
     this.finish();
   }
 
-  update(_time: number, deltaMs: number): void {
+  update(time: number, deltaMs: number): void {
     if (this.done) return;
-    this.t += (deltaMs / 1000) * this.speed / MAIN_T_SECONDS;
+    const inFinale = this.t > T_FINALE && this.t < 1;
+    this.t += ((deltaMs / 1000) * this.speed * (inFinale ? FINALE_SLOWDOWN : 1)) / MAIN_T_SECONDS;
     const tPos = Math.min(this.t, 1);
 
-    // move riders by their gap-to-leader
-    for (const a of this.actors) {
-      const gap = interpGap(a.story.gaps, tPos);
-      a.glyph.x = this.xFromGap(gap);
-      if (!a.incidentShown && a.story.incident && tPos >= a.story.incident.t) {
-        a.incidentShown = true;
-        this.showIncident(a);
-      }
+    this.layoutRiders(tPos, time);
+    this.profile.setProgress(tPos);
+
+    // progress + km
+    const barW = this.scale.width - 2 * this.trackLeft;
+    this.progressBar.width = barW * tPos;
+    const kmToGo = Math.max(0, Math.round(this.stage.lengthKm * (1 - tPos)));
+    this.kmText.setText(kmToGo > 0 ? `${kmToGo} km to go` : 'FINISH');
+
+    // radio
+    while (this.eventIdx < this.story.events.length && this.story.events[this.eventIdx].t <= tPos) {
+      const e = this.story.events[this.eventIdx++];
+      this.addRadioLine(e.text, e.kind);
     }
 
-    this.updateStatus(tPos);
-
-    // reveal finishers in order as the clock passes their finish time
+    // reveal finish groups as the clock passes their crossing time
     while (this.revealed < Math.min(MAX_ROWS, this.actors.length) && this.t >= this.orderedActor(this.revealed).tFinish) {
       this.revealRow(this.revealed);
       this.revealed++;
@@ -191,44 +219,104 @@ export class RaceScene extends Phaser.Scene {
     if (this.t >= this.maxFinish + 0.03) this.finish();
   }
 
-  /** Actors in finishing order (result order), for staggered reveal. */
+  /** Cluster riders by current gap and lay each cluster out as a compact bunch. */
+  private layoutRiders(tPos: number, time = 0): void {
+    const yMid = (this.roadTop + this.roadBottom) / 2;
+    const live = this.actors.filter((a) => !a.out);
+    const withGap = live.map((a) => ({ a, gap: interpGap(a.story.gaps, tPos) }));
+    withGap.sort((x, y) => x.gap - y.gap);
+
+    // build clusters
+    const clusters: { gap: number; members: typeof withGap }[] = [];
+    for (const item of withGap) {
+      const cur = clusters[clusters.length - 1];
+      if (!cur || item.gap - cur.members[cur.members.length - 1].gap > CLUSTER_GAP_SEC) {
+        clusters.push({ gap: item.gap, members: [item] });
+      } else {
+        cur.members.push(item);
+      }
+    }
+
+    // position riders: bunch = rows of 3 stacked behind the cluster front
+    for (const c of clusters) {
+      const frontX = this.xFromGap(c.gap);
+      const members = [...c.members].sort((x, y) => x.a.packSeed - y.a.packSeed);
+      members.forEach((m, i) => {
+        const colIdx = Math.floor(i / 3);
+        const rowIdx = i % 3;
+        const jitter = Math.sin(time / 380 + m.a.packSeed * 1.7) * 1.5;
+        m.a.glyph.x = frontX - colIdx * 11 - (rowIdx % 2) * 4;
+        m.a.glyph.y = yMid + (rowIdx - 1) * 14 + (colIdx % 2) * 5 + jitter;
+      });
+
+      // incidents: flash + fade when they happen
+      for (const m of c.members) {
+        const inc = m.a.story.incident;
+        if (inc && !m.a.incidentShown && tPos >= inc.t) {
+          m.a.incidentShown = true;
+          const flash = this.add.circle(m.a.glyph.x, m.a.glyph.y, 11, 0xe23b3b, 0.9);
+          this.tweens.add({ targets: flash, alpha: 0, scale: 1.9, duration: 550, onComplete: () => flash.destroy() });
+          if (inc.dnf) {
+            this.tweens.add({ targets: m.a.glyph, alpha: 0, duration: 1400, onComplete: () => (m.a.out = true) });
+          } else {
+            m.a.glyph.setAlpha(0.6);
+          }
+        }
+      }
+    }
+
+    this.updateGroupsStrip(clusters, tPos);
+  }
+
+  private updateGroupsStrip(clusters: { gap: number; members: { a: Actor }[] }[], tPos: number): void {
+    if (tPos >= 1) {
+      this.groupsText.setText('— Finish —');
+      return;
+    }
+    const biggest = clusters.reduce((m, c) => Math.max(m, c.members.length), 0);
+    const parts: string[] = [];
+    clusters.slice(0, 4).forEach((c, i) => {
+      const n = c.members.length;
+      let label: string;
+      if (n === biggest && n > 3) label = `Peloton ${n}`;
+      else if (i === 0 && c.members.every((m) => m.a.story.inBreak) && n < biggest) label = `Break ${n}`;
+      else if (n <= 2) label = c.members.map((m) => RIDERS_BY_ID.get(m.a.entry.riderId)!.name.split(' ').slice(-1)[0]).join(', ');
+      else label = `Group ${n}`;
+      if (i > 0) parts.push(`+${this.fmtGap(c.gap - clusters[0].gap)}`);
+      parts.push(label);
+    });
+    if (clusters.length > 4) parts.push('…');
+    this.groupsText.setText(parts.join('  ·  '));
+  }
+
+  private xFromGap(gap: number): number {
+    const span = this.frontX - this.trackLeft - 40;
+    return this.frontX - span * (gap / (gap + COMPRESS_K));
+  }
+
+  private addRadioLine(text: string, kind: RaceEvent['kind'] | 'info'): void {
+    const colors: Record<string, string> = {
+      break: '#f5c518',
+      crash: '#e23b3b',
+      puncture: '#e28f3b',
+      catch: '#18b39a',
+      finale: '#f5c518',
+      finish: '#f5c518',
+      info: '#8a8ab0',
+    };
+    // shift old lines down, cap at 4
+    for (const line of this.ticker) line.text.y += 17;
+    while (this.ticker.length >= 4) this.ticker.pop()!.text.destroy();
+    const t = this.add.text(24, this.tickerTop, `• ${text}`, { fontFamily: FONT, fontSize: '13px', color: colors[kind] ?? colors.info });
+    t.setAlpha(0);
+    this.tweens.add({ targets: t, alpha: 1, duration: 250 });
+    this.ticker.unshift({ text: t });
+    this.ticker.forEach((l, i) => l.text.setAlpha(Math.max(0.35, 1 - i * 0.22)));
+  }
+
   private orderedActor(rank: number): Actor {
     const id = this.story.result.order[rank].riderId;
     return this.actors.find((a) => a.entry.riderId === id)!;
-  }
-
-  private updateStatus(tPos: number): void {
-    const barW = this.scale.width - 2 * this.trackLeft;
-    this.progressBar.width = barW * tPos;
-    const kmToGo = Math.max(0, Math.round(this.stage.lengthKm * (1 - tPos)));
-    this.kmText.setText(kmToGo > 0 ? `${kmToGo} km to go` : 'FINISH');
-
-    if (tPos >= 1) {
-      this.statusText.setText('');
-      return;
-    }
-    // current lead of the break over the chasing bunch
-    let breakGap = Infinity;
-    let packGap = Infinity;
-    for (const a of this.actors) {
-      const g = interpGap(a.story.gaps, tPos);
-      if (a.story.inBreak) breakGap = Math.min(breakGap, g);
-      else if (a.story.role !== 'dropped') packGap = Math.min(packGap, g);
-    }
-    const lead = packGap - breakGap;
-    if (this.story.breakIds.length > 0 && Number.isFinite(lead) && lead > 4 && tPos < 0.86) {
-      this.statusText.setText(`Break +${this.fmtGap(lead)}`);
-    } else if (tPos > 0.86) {
-      this.statusText.setText('Finale!');
-    } else {
-      this.statusText.setText('Bunch together');
-    }
-  }
-
-  private showIncident(a: Actor): void {
-    const flash = this.add.circle(a.glyph.x, a.glyph.y - 2, 10, 0xe23b3b, 0.9);
-    this.tweens.add({ targets: flash, alpha: 0, scale: 1.8, duration: 500, onComplete: () => flash.destroy() });
-    a.glyph.setAlpha(0.55);
   }
 
   private revealRow(rank: number): void {
@@ -238,15 +326,19 @@ export class RaceScene extends Phaser.Scene {
     const y = this.lbTop + rank * this.rowH;
     const isWinner = rank === 0 && !entry.dnf;
     const actor = this.actors.find((x) => x.entry.riderId === entry.riderId)!;
-    const inBreak = actor.story.inBreak;
-    const nameColor = isWinner ? '#f5c518' : actor.isPlayer ? '#18b39a' : COLORS.text;
+    const winnerTime = this.story.result.order[0].timeSec;
+
+    // same group as the row above → "s.t." (same time), like real results
+    const prev = rank > 0 ? this.story.result.order[rank - 1] : null;
+    const sameAsPrev = prev && !entry.dnf && !prev.dnf && Math.abs(entry.timeSec - prev.timeSec) < 0.01;
     const winTag = this.story.breakSurvived && isWinner ? 'WIN (break!)' : 'WIN';
-    const right = entry.dnf ? 'DNF' : rank === 0 ? winTag : `+${this.fmtGap(entry.timeSec - this.story.result.order[0].timeSec)}`;
+    const right = entry.dnf ? 'DNF' : isWinner ? winTag : sameAsPrev ? 's.t.' : `+${this.fmtGap(entry.timeSec - winnerTime)}`;
+    const nameColor = isWinner ? '#f5c518' : actor.isPlayer ? '#18b39a' : COLORS.text;
 
     const row = this.add.container(0, 0, [
       this.add.text(30, y, `${rank + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5),
       this.add.rectangle(42, y, 9, 9, col.jersey, 1),
-      this.add.text(56, y, rider.name + (inBreak && !entry.dnf ? ' ↗' : ''), {
+      this.add.text(56, y, rider.name + (actor.story.inBreak && !entry.dnf ? ' ↗' : ''), {
         fontFamily: FONT,
         fontSize: '14px',
         fontStyle: isWinner ? 'bold' : 'normal',
@@ -256,7 +348,9 @@ export class RaceScene extends Phaser.Scene {
     ]);
     row.setAlpha(0);
     this.tweens.add({ targets: row, alpha: 1, x: { from: 8, to: 0 }, duration: 200, ease: 'Quad.out' });
-    if (isWinner) this.tweens.add({ targets: actor.glyph, scale: { from: 1.2, to: 0.78 }, duration: 400, ease: 'Quad.out' });
+    if (isWinner) {
+      this.addRadioLine(`${rider.name.split(' ').slice(-1)[0]} takes ${this.stage.name}!`, 'finish');
+    }
   }
 
   private fmtGap(sec: number): string {
@@ -270,16 +364,19 @@ export class RaceScene extends Phaser.Scene {
   private finish(): void {
     if (this.done) return;
     this.done = true;
-    // reveal any rows not yet shown (e.g. DNFs)
     while (this.revealed < Math.min(MAX_ROWS, this.actors.length)) {
       this.revealRow(this.revealed);
       this.revealed++;
     }
+    const extra = this.story.result.order.length - MAX_ROWS;
+    if (extra > 0) {
+      this.add.text(56, this.lbTop + MAX_ROWS * this.rowH, `… +${extra} more (full results next)`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+    }
     this.progressBar.width = this.scale.width - 2 * this.trackLeft;
     this.kmText.setText('FINISH');
-    this.statusText.setText('');
+    this.profile.setProgress(1);
 
-    const btn = makeButton(this, this.scale.width / 2, 822, 'Continue →', () => this.scene.start('StageResults', { stageId: this.stage.id, result: this.story.result }), {
+    const btn = makeButton(this, this.scale.width / 2, 818, 'Continue →', () => this.scene.start('StageResults', { stageId: this.stage.id, result: this.story.result }), {
       width: 220,
       height: 40,
       fontSize: 18,

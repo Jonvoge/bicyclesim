@@ -51,9 +51,11 @@ export class CodeDrawnRenderer implements RiderRenderer {
     container.setSize(24, 18);
 
     if (visual.emphasised) {
-      // faint halo so the player's riders are followable in the bunch
-      const halo = scene.add.circle(0, -2, 11, visual.jerseyColor, 0.16);
+      // halo + white ring so the player's riders pop out of any bunch
+      const halo = scene.add.circle(0, -2, 11, visual.jerseyColor, 0.3);
+      const ring = scene.add.circle(0, -2, 11).setStrokeStyle(1.5, 0xffffff, 0.9);
       container.addAt(halo, 0);
+      container.addAt(ring, 1);
     }
 
     return container;

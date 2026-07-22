@@ -38,6 +38,11 @@ export const CRASH_DNF_FRACTION = 0.1; // fraction of crashes that become a DNF
 export const CRASH_TIME_LOSS_MIN = 25; // seconds lost in a crash/puncture (min)
 export const CRASH_TIME_LOSS_MAX = 110; // seconds lost in a crash/puncture (max)
 
+// --- Finish groups (SPEC §5.7) ---
+export const GROUP_GAP_THRESHOLD_SEC = 5; // riders within this of the rider ahead share a group
+export const GROUP_GAP_THRESHOLD_HARD_SEC = 2; // mountain/summit: field shatters into small groups
+export const GROUP_GAP_THRESHOLD_ITT_SEC = 0.5; // itt/ttt: individual times
+
 // --- Race narrative: breakaway (SPEC §5.9) ---
 export const BREAK_MIN_SIZE = 2; // riders up the road
 export const BREAK_MAX_SIZE = 4;
