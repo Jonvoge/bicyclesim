@@ -41,16 +41,43 @@ export const CRASH_TIME_LOSS_MAX = 110; // seconds lost in a crash/puncture (max
 // --- Finish groups (SPEC §5.7) ---
 export const GROUP_GAP_THRESHOLD_SEC = 5; // riders within this of the rider ahead share a group
 export const GROUP_GAP_THRESHOLD_HARD_SEC = 2; // mountain/summit: field shatters into small groups
-export const GROUP_GAP_THRESHOLD_ITT_SEC = 0.5; // itt/ttt: individual times
 
 // --- Race narrative: breakaway (SPEC §5.9) ---
 export const BREAK_MIN_SIZE = 2; // riders up the road
-export const BREAK_MAX_SIZE = 4;
-export const BREAK_SURVIVE_PROB = 0.1; // base chance the break stays away to the line
-export const BREAK_SURVIVE_PROB_TACTIC = 0.32; // when the player committed a rider to the break
-export const BREAK_MAX_LEAD_SEC_MIN = 90; // peak lead the break builds mid-race (min)
-export const BREAK_MAX_LEAD_SEC_MAX = 240; // peak lead the break builds mid-race (max)
-export const BREAK_WIN_MARGIN_SEC = 12; // if it survives, how far clear the break winner finishes
+export const BREAK_MAX_SIZE = 5;
+export const BREAK_MAX_LEAD_SEC_MIN = 60; // peak lead the break builds mid-race (min)
+export const BREAK_MAX_LEAD_SEC_MAX = 300; // peak lead the break builds mid-race (max)
+export const BREAK_WIN_MARGIN_SEC = 14; // if it survives, how far clear the break winner finishes
+
+/**
+ * Whether a break survives is emergent, not a flat dice roll (SPEC §5.9):
+ *   survive = clamp(BASE + TERRAIN·friendliness + STRENGTH·breakStrength + tacticBonus, 0, MAX)
+ * so a strong break on a break-friendly day genuinely tends to stay away, while a
+ * weak break on a sprinters' course almost never does.
+ */
+export const BREAK_SURVIVE_BASE = 0.04;
+export const BREAK_SURVIVE_TERRAIN_W = 0.34; // × terrain break-friendliness (0..1)
+export const BREAK_SURVIVE_STRENGTH_W = 0.34; // × how strong the break's best rider is (0..1)
+export const BREAK_SURVIVE_TACTIC_BONUS = 0.14; // player committed a rider to the break
+export const BREAK_SURVIVE_MAX = 0.72;
+
+/** Terrain break-friendliness (0 = sprinters control, 1 = breaks thrive). */
+export const BREAK_FRIENDLINESS: Record<string, number> = {
+  flat: 0.12,
+  summitFinish: 0.38,
+  mountain: 0.5,
+  cobbled: 0.52,
+  descentFinish: 0.55,
+  hilly: 0.6,
+};
+
+// Narrative timing is jittered per race so no two unfold identically (SPEC §5.9).
+export const BREAK_PEAK_T_MIN = 0.32;
+export const BREAK_PEAK_T_MAX = 0.46;
+export const CATCH_T_MIN = 0.6;
+export const CATCH_T_MAX = 0.92;
+export const FINALE_T_MIN = 0.78;
+export const FINALE_T_MAX = 0.93;
 
 // --- Result → times (SPEC §5.7) ---
 export const REFERENCE_SPEED_KMH = 42; // winner's average speed → base time

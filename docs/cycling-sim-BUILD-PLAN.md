@@ -84,7 +84,7 @@ one-day races). The finish now shows the field arriving in groups with real gaps
 - Fatigue accumulation + recovery (**SPEC §5.8**); wire `roleMultiplier` from tactics into it.
 - Crashes/illness (**SPEC §5.6**) already surfaced as drama in Phase 2; here, fold their time
   loss into GC and add the `CONSERVE` (save-for-GC) strategy to the stage-race palette.
-- TTT special-case (team-averaged) if you include one.
+- (Time trials & TTT are deferred for now — see SPEC §4 — so no TTT special-case yet.)
 
 **Acceptance:** a grand tour plays across stages; protecting a leader early visibly costs stamina
 later; GC updates each stage; crashes are noticeable but rare.

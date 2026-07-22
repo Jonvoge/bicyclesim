@@ -18,8 +18,6 @@ const BLURBS: Record<StageType, string> = {
   summitFinish: 'Decided on the final climb. Pure climbers to the front.',
   descentFinish: 'A hard climb, then a daring plunge to the line.',
   cobbled: 'Brutal pavé — power and positioning over pure legs.',
-  itt: 'Every rider alone against the clock.',
-  ttt: 'Team time trial — the squad rides as one.',
 };
 
 export class PreRaceScene extends Phaser.Scene {

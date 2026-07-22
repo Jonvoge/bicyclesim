@@ -44,8 +44,8 @@ describe('baseScore — right stat for the right stage type', () => {
   it('a climber wins a summit finish', () => {
     expect(topStat('st-lombardo', 'climbing')).toBeGreaterThanOrEqual(88);
   });
-  it('a time-triallist wins an ITT', () => {
-    expect(topStat('st-chrono', 'timeTrial')).toBeGreaterThanOrEqual(90);
+  it('a puncheur wins the hilly classic', () => {
+    expect(topStat('st-fleche', 'puncheur')).toBeGreaterThanOrEqual(84);
   });
   it('a puncheur/cobbled-type wins the cobbled classic', () => {
     expect(topStat('st-roubey', 'puncheur')).toBeGreaterThanOrEqual(82);
@@ -167,24 +167,29 @@ describe('race narrative layer (SPEC §5.9)', () => {
     expect(story.events.some((e) => e.kind === 'finale')).toBe(true);
   });
 
+  const survivalRate = (stageId: string, strategy: Strategy, protectedId: string, n = 1000): number => {
+    const s2 = stage(stageId);
+    let survived = 0;
+    for (let i = 0; i < n; i++) {
+      const p: TeamTactics = { teamId: 't-grenoble', protectedRiderId: protectedId, strategy };
+      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: withPlayer(s2, p), rng: new Rng(i * 2246822519) });
+      if (story.breakSurvived) survived++;
+    }
+    return survived / n;
+  };
+
   it('a committed breakaway raises the odds the break survives (but stays bounded)', () => {
-    const s2 = stage('st-roubey'); // cobbled — break-friendly
-    const breakRider = 'gr-kobbel';
-    const rate = (strategy: Strategy): number => {
-      const N = 1000;
-      let survived = 0;
-      for (let i = 0; i < N; i++) {
-        const p: TeamTactics = { teamId: 't-grenoble', protectedRiderId: breakRider, strategy };
-        const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: withPlayer(s2, p), rng: new Rng(i * 2246822519) });
-        if (story.breakSurvived) survived++;
-      }
-      return survived / N;
-    };
-    const withBreak = rate('BREAKAWAY');
-    const without = rate('PROTECT_LEADER');
-    expect(without).toBeLessThan(0.25); // rare by default
-    expect(withBreak).toBeGreaterThan(without + 0.05); // the gamble matters
-    expect(withBreak).toBeLessThan(0.55); // still a gamble, not a guarantee
+    const withBreak = survivalRate('st-roubey', 'BREAKAWAY', 'gr-kobbel');
+    const without = survivalRate('st-roubey', 'PROTECT_LEADER', 'gr-kobbel');
+    expect(without).toBeLessThan(0.3); // rare by default
+    expect(withBreak).toBeGreaterThan(without + 0.06); // the gamble matters
+    expect(withBreak).toBeLessThan(0.6); // still a gamble, not a guarantee
+  });
+
+  it('terrain matters: breaks survive more often on a hilly day than a flat one', () => {
+    const hilly = survivalRate('st-fleche', 'BREAKAWAY', 'gr-kobbel', 600);
+    const flat = survivalRate('st-sanreno', 'BREAKAWAY', 'gr-philq', 600);
+    expect(hilly).toBeGreaterThan(flat + 0.05);
   });
 });
 

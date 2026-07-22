@@ -16,14 +16,13 @@ const SHAPES: Record<StageType, number[]> = {
   summitFinish: [0.08, 0.12, 0.2, 0.32, 0.45, 0.6, 0.78, 0.95],
   descentFinish: [0.1, 0.32, 0.56, 0.82, 0.92, 0.55, 0.24, 0.08],
   cobbled: [0.1, 0.24, 0.13, 0.28, 0.15, 0.26, 0.17, 0.24, 0.1],
-  itt: [0.08, 0.12, 0.08, 0.12, 0.08, 0.12, 0.08],
-  ttt: [0.1, 0.08, 0.12, 0.08, 0.1, 0.08, 0.1],
 };
 
 export class StageProfileView {
   private xs: number[] = [];
   private ys: number[] = [];
-  private dot?: Phaser.GameObjects.Arc;
+  private markers: Phaser.GameObjects.Arc[] = [];
+  private scene!: Phaser.Scene;
 
   constructor(
     scene: Phaser.Scene,
@@ -34,6 +33,7 @@ export class StageProfileView {
     type: StageType,
     opts: { showMarker?: boolean } = {},
   ) {
+    this.scene = scene;
     scene.add.rectangle(x + w / 2, y + h / 2, w, h, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
 
     const heights = SHAPES[type];
@@ -58,17 +58,15 @@ export class StageProfileView {
 
     scene.add.text(x + w - 6, y + 4, '🏁', { fontSize: '13px' }).setOrigin(1, 0);
 
-    if (opts.showMarker) {
-      this.dot = scene.add.circle(this.xs[0], this.ys[0], 5, COLORS.gold, 1).setStrokeStyle(1.5, 0x1a1a2e);
-      scene.add.existing(this.dot);
-    }
+    void opts;
   }
 
-  /** Move the marker to fraction f ∈ [0,1] of the route, riding the silhouette. */
-  setProgress(f: number): void {
-    if (!this.dot) return;
-    const clamped = Math.max(0, Math.min(1, f));
-    const x = this.xs[0] + (this.xs[this.xs.length - 1] - this.xs[0]) * clamped;
+  private xAt(frac: number): number {
+    const c = Math.max(0, Math.min(1, frac));
+    return this.xs[0] + (this.xs[this.xs.length - 1] - this.xs[0]) * c;
+  }
+
+  private yAt(x: number): number {
     let yy = this.ys[this.ys.length - 1];
     for (let i = 1; i < this.xs.length; i++) {
       if (x <= this.xs[i]) {
@@ -77,6 +75,28 @@ export class StageProfileView {
         break;
       }
     }
-    this.dot.setPosition(x, yy - 3);
+    return yy - 3;
+  }
+
+  /**
+   * Place a marker per group at its route fraction (index 0 = leader). The lead
+   * group is gold and larger; trailing groups smaller and dimmer.
+   */
+  setMarkers(fracs: number[]): void {
+    while (this.markers.length < fracs.length) {
+      const m = this.scene.add.circle(this.xs[0], this.ys[0], 4, COLORS.gold, 1).setStrokeStyle(1.5, 0x1a1a2e);
+      this.markers.push(m);
+    }
+    this.markers.forEach((m, i) => {
+      if (i >= fracs.length) {
+        m.setVisible(false);
+        return;
+      }
+      const x = this.xAt(fracs[i]);
+      m.setVisible(true);
+      m.setPosition(x, this.yAt(x));
+      m.setRadius(i === 0 ? 5 : 3.5);
+      m.setFillStyle(i === 0 ? COLORS.gold : 0xffffff, i === 0 ? 1 : 0.7);
+    });
   }
 }

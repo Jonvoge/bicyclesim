@@ -78,7 +78,7 @@ export interface TacticsEffect {
 const NEUTRAL: TacticsEffect = { perfMod: 0, sigmaMult: 1, roleMultiplier: ROLE_MULTIPLIER_DEFAULT };
 
 const BREAK_FRIENDLY: StageType[] = ['hilly', 'mountain', 'cobbled', 'descentFinish'];
-const SPRINT_UNFRIENDLY_FOR_BREAK: StageType[] = ['flat', 'itt'];
+const SPRINT_UNFRIENDLY_FOR_BREAK: StageType[] = ['flat'];
 const BUNCH_FINISH: StageType[] = ['flat', 'hilly', 'cobbled'];
 const CLIMB_FINISH: StageType[] = ['mountain', 'summitFinish'];
 

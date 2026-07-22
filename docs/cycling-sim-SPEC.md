@@ -107,7 +107,10 @@ interface Team {
 
 type StageType =
   | 'flat' | 'hilly' | 'mountain' | 'summitFinish'
-  | 'descentFinish' | 'cobbled' | 'itt' | 'ttt';
+  | 'descentFinish' | 'cobbled';
+// NOTE: time trials ('itt') and team time trials ('ttt') are DEFERRED — a solo
+// race against the clock is a fundamentally different shape (no bunch, no break,
+// no groups) and will get its own model when reintroduced. Removed for now.
 
 interface Stage {
   id: string;
@@ -170,11 +173,9 @@ Each type is a weight vector over the *base* stats. Weights sum to 1. `stamina` 
 | summitFinish | 0.65 | – | – | 0.05 | 0.30 |
 | descentFinish | 0.40 | – | 0.10 | 0.25 | 0.25 |
 | cobbled | – | 0.10 | 0.20 | 0.35 | 0.35 |
-| itt | – | 0.80 | – | – | 0.20 |
-| ttt | – | 0.60 | – | – | 0.40 | *(team-averaged, see 5.8)* |
 
 *(These are starting values. Expect to tune them once you can watch races — flagged as
-uncertain.)*
+uncertain. `itt`/`ttt` rows removed — time trials are deferred, see §4.)*
 
 ### 5.3 Daily form swing (`form.ts`)
 
@@ -220,7 +221,7 @@ Before each stage the player picks **two things**:
 | Strategy | Idea | Protected rider | Other selected riders |
 |---|---|---|---|
 | PROTECT_LEADER | Ride for your leader | `+LEADER_BONUS` (≈ +6) to perfScore | roleMultiplier 1.3 (more fatigue), small self-penalty (−2) |
-| BREAKAWAY | Send them up the road, gamble | joins the day's break; `+BREAK_PERF_BONUS` on break-friendly terrain (hilly/mountain/cobbled/descent), small penalty on bunch-sprint terrain (flat/itt); wider σ; markedly higher chance the break survives to the line | roleMultiplier 1.0 |
+| BREAKAWAY | Send them up the road, gamble | joins the day's break; `+BREAK_PERF_BONUS` on break-friendly terrain (hilly/mountain/cobbled/descent), small penalty on bunch-sprint terrain (flat); wider σ; markedly higher chance the break survives to the line | roleMultiplier 1.0 |
 | SPRINT_FINISH | Sit in, save it for the kick | `+SPRINT_FINISH_BONUS` on likely bunch finishes (flat/hilly/cobbled), penalty if the climbs drop them (mountain/summitFinish) | roleMultiplier 0.8 (a little saved) |
 
 **Stage races** (`shortTour` / `grandTour`, Phase 3) reuse `PROTECT_LEADER` + `BREAKAWAY` and
@@ -249,8 +250,8 @@ rather than waiting for Phase 3.
 - **Finish groups (pro convention):** finishers are clustered — a rider within
   `GROUP_GAP_THRESHOLD_SEC` of the rider ahead joins their group, and **everyone in a group
   gets the same time** (shown as `s.t.` after the first rider). The threshold is terrain-aware:
-  bunch terrain ~5 s (big groups), mountain/summit ~2 s (ones and twos), itt/ttt ~0.5 s
-  (individual times). Order within a group = crossing order.
+  bunch terrain ~5 s (big groups), mountain/summit ~2 s (ones and twos). Order within a
+  group = crossing order.
 - MVP can display simple **ordering + gaps**; precise times only matter once GC exists.
 
 ### 5.8 Stage races & GC (`standings.ts`, Phase 3)
@@ -260,7 +261,7 @@ rather than waiting for Phase 3.
   `fatigueGain = stageDifficulty * (1 - stamina/100 * STAMINA_FACTOR) * roleMultiplier`;
   added to `currentFatigue`, which penalises the next stage.
 - **Recovery:** between races / on rest, `currentFatigue *= RECOVERY_RATE`.
-- **TTT:** score on the team's *averaged* timeTrial+endurance; the whole team takes the team's time.
+- **TTT:** *(deferred with time trials — see §4; revisit with their own model.)*
 - Optional later: points (sprint) and climbing classifications — **not** in the core; add only if fun.
 
 ### 5.9 Race narrative layer (`raceNarrative.ts`, from Phase 2)
@@ -272,10 +273,13 @@ engine**, not a replacement (fun over realism):
 
 1. **Base scores** come from §5.1 (`scoreRiders`).
 2. **A few bounded events adjust the result** (this is what makes watching *matter*):
-   - **Breakaway.** A small group (2–4) goes up the road early: the player's rider if the
-     strategy is `BREAKAWAY`, plus a few random opportunists (weighted to non-stars). With a
-     small, terrain-/tactic-dependent probability (`BREAK_SURVIVE_PROB`) the break **stays away**
-     and its strongest member wins — even over stronger riders left behind.
+   - **Breakaway.** A small group (2–5) goes up the road early: the player's rider if the
+     strategy is `BREAKAWAY`, plus a few random opportunists (weighted to non-stars). Whether it
+     **stays away** is *emergent, not a flat dice roll*: `survive = clamp(BASE +
+     TERRAIN·friendliness + STRENGTH·breakStrength + tacticBonus, 0, MAX)`. So a strong break on
+     a break-friendly day (hilly/cobbled) genuinely tends to make it, a weak break on a
+     sprinters' course almost never does, and committing a real contender is what turns the
+     gamble live. If it survives, its strongest member wins over the chasers behind.
    - **Incidents (§5.6).** Crash/puncture victims take a time penalty (rare DNF); enough to drop
      them down the order or out.
    These are applied on top of base scores, then converted to final times (§5.7). Everything is
@@ -292,6 +296,12 @@ engine**, not a replacement (fun over realism):
 5. **The race view is broadcast-style:** the stage profile with a live position marker (the map),
    a groups-overview strip listing every group on the road and the gaps between them, the
    clustered field, the radio ticker, and the finish order revealing group by group.
+
+**Non-formulaic on purpose.** The break peak, the catch time and the finale are all **jittered
+per race** (and per rider, slightly), so no two races unfold on the same script: some days the
+break is caught early, some it holds to the line, some come down to a bunch sprint with no real
+"finale" at all. The late-race radio headline reflects what actually happened (break holds / the
+group shatters / bunch sprint), derived from the real lead-group size — not a fixed beat.
 
 The result is authored to still satisfy Phase 1's guarantees (favourites usually win, seeded and
 tunable); the narrative only ever nudges outcomes within bounded, tunable limits.

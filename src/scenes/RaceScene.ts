@@ -8,7 +8,6 @@ import { buildTacticsMap } from '../sim/raceSetup.ts';
 import {
   buildRaceStory,
   interpGap,
-  T_FINALE,
   type RaceEvent,
   type RaceStory,
   type RiderStory,
@@ -54,7 +53,8 @@ export class RaceScene extends Phaser.Scene {
   private eventIdx = 0;
 
   private trackLeft = 28;
-  private frontX = 352;
+  private raceLeftX = 52; // riders start here (left) and flow right toward the finish
+  private frontX = 352; // finish line (right)
   private roadTop = 196;
   private roadBottom = 404;
   private lbTop = 540;
@@ -119,11 +119,14 @@ export class RaceScene extends Phaser.Scene {
     // groups overview strip
     this.groupsText = this.add.text(width / 2, 176, '', { fontFamily: FONT, fontSize: '12px', color: COLORS.text }).setOrigin(0.5);
 
-    // road area + FRONT line
+    // road: start marker (left) and finish line (right); field flows left → right
     const fl = this.add.graphics();
-    fl.lineStyle(2, 0xffffff, 0.35);
+    fl.lineStyle(1, 0xffffff, 0.15);
+    fl.lineBetween(this.raceLeftX, this.roadTop, this.raceLeftX, this.roadBottom);
+    fl.lineStyle(2, 0xffffff, 0.4);
     for (let yy = this.roadTop; yy < this.roadBottom; yy += 10) fl.lineBetween(this.frontX, yy, this.frontX, yy + 5);
-    this.add.text(this.frontX, this.roadTop - 10, 'FRONT', { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(this.raceLeftX, this.roadTop - 10, 'START', { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(this.frontX, this.roadTop - 10, 'FINISH', { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
 
     // race radio panel
     this.add.text(20, 420, 'RACE RADIO', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted });
@@ -191,12 +194,11 @@ export class RaceScene extends Phaser.Scene {
 
   update(time: number, deltaMs: number): void {
     if (this.done) return;
-    const inFinale = this.t > T_FINALE && this.t < 1;
+    const inFinale = this.t > this.story.finaleT && this.t < 1;
     this.t += ((deltaMs / 1000) * this.speed * (inFinale ? FINALE_SLOWDOWN : 1)) / MAIN_T_SECONDS;
     const tPos = Math.min(this.t, 1);
 
     this.layoutRiders(tPos, time);
-    this.profile.setProgress(tPos);
 
     // progress + km
     const barW = this.scale.width - 2 * this.trackLeft;
@@ -238,8 +240,9 @@ export class RaceScene extends Phaser.Scene {
     }
 
     // position riders: bunch = rows of 3 stacked behind the cluster front
+    const headGap = clusters.length > 0 ? clusters[0].gap : 0;
     for (const c of clusters) {
-      const frontX = this.xFromGap(c.gap);
+      const frontX = this.xForGap(c.gap - headGap, tPos);
       const members = [...c.members].sort((x, y) => x.a.packSeed - y.a.packSeed);
       members.forEach((m, i) => {
         const colIdx = Math.floor(i / 3);
@@ -266,6 +269,11 @@ export class RaceScene extends Phaser.Scene {
     }
 
     this.updateGroupsStrip(clusters, tPos);
+
+    // group dots on the stage profile (leader first)
+    const headGap2 = clusters.length > 0 ? clusters[0].gap : 0;
+    const fracs = clusters.slice(0, 6).map((c) => Math.max(0, tPos - Math.min(0.16, (c.gap - headGap2) * 0.0008)));
+    this.profile.setMarkers(fracs);
   }
 
   private updateGroupsStrip(clusters: { gap: number; members: { a: Actor }[] }[], tPos: number): void {
@@ -289,9 +297,12 @@ export class RaceScene extends Phaser.Scene {
     this.groupsText.setText(parts.join('  ·  '));
   }
 
-  private xFromGap(gap: number): number {
-    const span = this.frontX - this.trackLeft - 40;
-    return this.frontX - span * (gap / (gap + COMPRESS_K));
+  /** Left→right flow: the head of the race advances with tPos; gaps sit behind it. */
+  private xForGap(gap: number, tPos: number): number {
+    const leaderX = this.raceLeftX + (this.frontX - this.raceLeftX) * tPos;
+    const maxBehind = (this.frontX - this.raceLeftX) * 0.55;
+    const behind = maxBehind * (gap / (gap + COMPRESS_K));
+    return Math.max(this.trackLeft + 4, leaderX - behind);
   }
 
   private addRadioLine(text: string, kind: RaceEvent['kind'] | 'info'): void {
@@ -374,7 +385,7 @@ export class RaceScene extends Phaser.Scene {
     }
     this.progressBar.width = this.scale.width - 2 * this.trackLeft;
     this.kmText.setText('FINISH');
-    this.profile.setProgress(1);
+    this.profile.setMarkers([1]);
 
     const btn = makeButton(this, this.scale.width / 2, 818, 'Continue →', () => this.scene.start('StageResults', { stageId: this.stage.id, result: this.story.result }), {
       width: 220,
