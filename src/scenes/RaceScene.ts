@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { RIDERS_BY_ID } from '../data/riders.ts';
+import { RIDERS, RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { teamColor } from '../data/teamColors.ts';
-import type { Stage, StageResultEntry } from '../data/types.ts';
+import type { Rider, Stage, StageResultEntry } from '../data/types.ts';
 import { Rng } from '../sim/rng.ts';
 import { buildTacticsMap } from '../sim/raceSetup.ts';
+import { ridersForStage, type TourState } from '../sim/standings.ts';
 import {
   buildRaceStory,
   interpGap,
@@ -61,8 +62,11 @@ interface TickerLine {
  * each group rides in and crosses the line exactly when its result rows reveal.
  */
 export class RaceScene extends Phaser.Scene {
+  private tour!: TourState;
   private stage!: Stage;
-  private tactics!: TeamTactics;
+  private tactics!: TeamTactics; // the player's role sheet for this stage
+  private tacticsByTeam!: Map<string, TeamTactics>;
+  private stageRiders!: Rider[]; // fatigued copies handed to the sim
   private story!: RaceStory;
   private actors: Actor[] = [];
   private t = 0;
@@ -94,7 +98,7 @@ export class RaceScene extends Phaser.Scene {
     super('Race');
   }
 
-  create(data: { stageId: string; tactics: TeamTactics }): void {
+  create(data: { tour: TourState; playerTactics: TeamTactics }): void {
     this.actors = [];
     this.ticker = [];
     this.countLabels = [];
@@ -105,18 +109,21 @@ export class RaceScene extends Phaser.Scene {
     this.revealed = 0;
     this.eventIdx = 0;
     this.maxFinish = 1;
-    this.tactics = data.tactics;
+    this.tour = data.tour;
+    this.tactics = data.playerTactics;
 
     const { width } = this.scale;
     this.frontX = width - 38;
-    this.stage = STAGES_BY_ID.get(data.stageId)!;
+    this.stage = STAGES_BY_ID.get(this.tour.stageIds[this.tour.stageIndex])!;
 
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
-    const tacticsByTeam = buildTacticsMap(this.stage, data.tactics);
+    // fatigued rider copies (abandoned riders already dropped), rival defaults + player sheet
+    this.stageRiders = ridersForStage(this.tour, RIDERS);
+    this.tacticsByTeam = buildTacticsMap(this.stage, this.tactics);
     this.story = buildRaceStory({
       stage: this.stage,
-      riders: [...RIDERS_BY_ID.values()],
-      tacticsByTeam,
+      riders: this.stageRiders,
+      tacticsByTeam: this.tacticsByTeam,
       rng: new Rng(seed),
     });
 
@@ -530,7 +537,15 @@ export class RaceScene extends Phaser.Scene {
       this.scale.width / 2,
       818,
       'Continue →',
-      () => this.scene.start('StageResults', { stageId: this.stage.id, result: this.story.result, tactics: this.tactics }),
+      () =>
+        this.scene.start('StageResults', {
+          tour: this.tour,
+          stage: this.stage,
+          result: this.story.result,
+          stageRiders: this.stageRiders,
+          tacticsByTeam: this.tacticsByTeam,
+          playerTactics: this.tactics,
+        }),
       {
         width: 220,
         height: 40,

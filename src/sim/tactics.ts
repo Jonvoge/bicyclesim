@@ -2,6 +2,8 @@ import {
   BREAK_PERF_BONUS,
   BREAK_SIGMA_MULT,
   BREAK_TERRAIN_PENALTY,
+  CONSERVE_FATIGUE_MULT,
+  CONSERVE_LEADER_PENALTY,
   DOMESTIQUE_SUPPORT_BONUS,
   DOMESTIQUE_SUPPORT_CAP,
   DOMESTIQUE_WORK_PENALTY,
@@ -32,6 +34,13 @@ import type { StageType } from '../data/types.ts';
 
 export type TacticRole = 'leader' | 'sprinter' | 'breakaway' | 'domestique' | 'free';
 
+/**
+ * Team-wide effort for a stage (SPEC §5.8). Only meaningful in tours: 'conserve'
+ * saves the team's legs for a later stage at the cost of the leader's result
+ * today. A one-day race is always ridden 'race'.
+ */
+export type TeamEffort = 'race' | 'conserve';
+
 export interface RoleDef {
   id: TacticRole;
   label: string; // player-facing
@@ -54,6 +63,11 @@ export const ROLES_BY_ID: Map<TacticRole, RoleDef> = new Map(ROLES.map((r) => [r
 export interface TeamTactics {
   teamId: string;
   roles: Record<string, TacticRole>; // riderId → role
+  effort?: TeamEffort; // team-wide effort (tours only); defaults to 'race'
+}
+
+export function effortOf(tactics: TeamTactics | undefined): TeamEffort {
+  return tactics?.effort ?? 'race';
 }
 
 export function roleOf(tactics: TeamTactics | undefined, riderId: string): TacticRole {
@@ -88,10 +102,28 @@ export const BUNCH_FINISH: StageType[] = ['flat', 'hilly', 'cobbled'];
 const CLIMB_FINISH: StageType[] = ['mountain', 'summitFinish'];
 
 /**
- * Resolve the effect of one rider's role given the terrain and the team's role
- * sheet. Domestique support flows to leaders (split if a team names several).
+ * Resolve the effect of one rider's role given the terrain, the team's role sheet
+ * and the team's effort. Domestique support flows to leaders (split if a team
+ * names several). A 'conserve' effort docks the leader's result and cuts the
+ * whole team's fatigue burn (SPEC §5.8).
  */
-export function tacticsEffect(role: TacticRole, counts: RoleCounts, stageType: StageType): TacticsEffect {
+export function tacticsEffect(
+  role: TacticRole,
+  counts: RoleCounts,
+  stageType: StageType,
+  effort: TeamEffort = 'race',
+): TacticsEffect {
+  const conserving = effort === 'conserve';
+  const effortFatigue = conserving ? CONSERVE_FATIGUE_MULT : 1;
+  const base = roleEffect(role, counts, stageType);
+  return {
+    perfMod: base.perfMod - (conserving && role === 'leader' ? CONSERVE_LEADER_PENALTY : 0),
+    sigmaMult: base.sigmaMult,
+    fatigueMult: base.fatigueMult * effortFatigue,
+  };
+}
+
+function roleEffect(role: TacticRole, counts: RoleCounts, stageType: StageType): TacticsEffect {
   switch (role) {
     case 'leader': {
       const support = DOMESTIQUE_SUPPORT_BONUS * Math.min(counts.domestiques, DOMESTIQUE_SUPPORT_CAP);

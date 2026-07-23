@@ -13,9 +13,30 @@ export const SIGMA_MAX = 8;
 export const CONSISTENCY_FACTOR = 0.7;
 
 // --- Fatigue & recovery (SPEC §5.1, §5.8) ---
-export const FATIGUE_WEIGHT = 1; // per-point penalty of currentFatigue on perfScore
-export const STAMINA_FACTOR = 0.7; // how much stamina blunts across-stage fatigue gain
-export const RECOVERY_RATE = 0.6; // currentFatigue *= this between races / on rest
+export const FATIGUE_WEIGHT = 0.9; // per-point penalty of currentFatigue on perfScore
+export const STAMINA_FACTOR = 0.5; // how much stamina blunts across-stage fatigue gain
+export const RECOVERY_RATE = 0.6; // currentFatigue *= this between races / on rest (season, Phase 4)
+
+/**
+ * Across-stage fatigue accrual within a tour (SPEC §5.8):
+ *   fatigueGain = stageDifficulty · (1 − stamina/100 · STAMINA_FACTOR) · fatigueMult
+ * where stageDifficulty = FATIGUE_BASE · TYPE_WEIGHT · (lengthKm / FATIGUE_REF_KM).
+ * A mild overnight recovery between stages keeps a long tour from ballooning while
+ * still letting hard days stack up. ALL starting guesses (SPEC §10) — the whole
+ * point of Phase 3 is to watch a tour and see whether "spend today, pay tomorrow"
+ * actually bites without wrecking a leader over ten days.
+ */
+export const FATIGUE_BASE = 3.4; // scales raw fatigue gain per stage
+export const FATIGUE_REF_KM = 200; // a stage this long is "one unit" of length
+export const STAGE_RECOVERY_RATE = 0.92; // currentFatigue *= this overnight between tour stages
+export const STAGE_DIFFICULTY_BY_TYPE: Record<string, number> = {
+  flat: 0.85,
+  cobbled: 1.35,
+  hilly: 1.15,
+  descentFinish: 1.2,
+  mountain: 1.5,
+  summitFinish: 1.4,
+};
 
 // --- Rider roles (SPEC §5.5) — one role per rider, set before the stage ---
 export const LEADER_BASE_BONUS = 4; // LEADER: perfScore bonus before any support
@@ -33,6 +54,15 @@ export const ROLE_FATIGUE_SPRINTER = 0.8; // sat in all day, saved it for the ki
 export const ROLE_FATIGUE_BREAKAWAY = 1.2; // a day in the wind is expensive
 export const ROLE_FATIGUE_DOMESTIQUE = 1.3; // riding on the front for the leader
 export const ROLE_FATIGUE_FREE = 0.9;
+
+// --- Team effort lever (SPEC §5.8, stage races) ---
+// A team can "conserve for GC" on a stage: less fatigue burned across the whole
+// team (fresher legs for the queen stage), paid for with a small perf penalty to
+// the leader today. This is the giant-killing trade-off, reborn as an effort
+// setting on top of the role sheet. Only meaningful in tours (a one-day race is
+// always ridden flat-out).
+export const CONSERVE_LEADER_PENALTY = 2; // perfScore penalty to a conserving team's leader
+export const CONSERVE_FATIGUE_MULT = 0.45; // team-wide fatigue-gain multiplier when conserving
 
 // --- Incidents: crashes & punctures (SPEC §5.6) ---
 export const INCIDENT_PROB = 0.02; // per rider per stage (crash OR puncture)

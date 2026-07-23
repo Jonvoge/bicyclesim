@@ -9,15 +9,17 @@
  * (SPEC §5).
  */
 
-import { RACES } from '../data/races.ts';
+import { RACES, RACES_BY_ID } from '../data/races.ts';
 import { RIDERS, RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
-import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
+import { PLAYER_TEAM, TEAMS, TEAMS_BY_ID } from '../data/teams.ts';
 import type { Stage, StageResult } from '../data/types.ts';
 import { Rng } from './rng.ts';
 import { simulateStage } from './stageSim.ts';
+import { buildRaceStory } from './raceNarrative.ts';
 import { bestSuitedRider, buildTacticsMap, defaultTeamTactics } from './raceSetup.ts';
-import type { TacticRole, TeamTactics } from './tactics.ts';
+import { computeGc, createTour, isTourComplete, recordStageResult, ridersForStage } from './standings.ts';
+import type { TacticRole, TeamEffort, TeamTactics } from './tactics.ts';
 
 function teamName(riderId: string): string {
   const teamId = RIDERS_BY_ID.get(riderId)?.teamId;
@@ -129,6 +131,83 @@ console.log('under different role sheets (500 runs, same seeds across sheets):\n
     console.log(
       `    ${label.padEnd(24)} avg finish ${(sumPos / N).toFixed(2).padStart(5)}   ` +
         `win rate ${((winCount / N) * 100).toFixed(1)}%   (${riderName(star)})`,
+    );
+  }
+}
+console.log('');
+
+// --- 4. A full tour: GC, fatigue accrual, and the conserve lever --------------
+console.log('\n########## STAGE RACE: GC + FATIGUE ##########');
+
+/** Run one tour headlessly; player team can conserve on the named stage indices. */
+function runTour(raceId: string, seed: number, conserveStages: Set<number> = new Set()) {
+  const race = RACES_BY_ID.get(raceId)!;
+  const tour = createTour(race);
+  const rng = new Rng(seed);
+  const fatigueSnapshots: Map<string, number>[] = []; // fatigue going INTO each stage
+  while (!isTourComplete(tour)) {
+    const idx = tour.stageIndex;
+    const stage = STAGES_BY_ID.get(tour.stageIds[idx])!;
+    fatigueSnapshots[idx] = new Map(tour.fatigue);
+    const riders = ridersForStage(tour, RIDERS);
+    const tactics = new Map<string, TeamTactics>();
+    for (const team of TEAMS) {
+      const effort: TeamEffort = team.isPlayer && conserveStages.has(idx) ? 'conserve' : 'race';
+      tactics.set(team.id, { ...defaultTeamTactics(team, stage), effort });
+    }
+    const story = buildRaceStory({ stage, riders, tacticsByTeam: tactics, rng });
+    recordStageResult(tour, stage, story.result, tactics, riders);
+  }
+  return { tour, fatigueSnapshots };
+}
+
+for (const raceId of ['r-provence', 'r-aurelia']) {
+  const race = RACES_BY_ID.get(raceId)!;
+  const { tour } = runTour(raceId, 2026);
+  const gc = computeGc(tour);
+  console.log(`\n=== ${race.name} — final GC (${tour.results.length} stages) ===`);
+  console.log('  #  rider                team                  total       gap    fatigue');
+  gc.slice(0, 8).forEach((row, i) => {
+    const fat = tour.fatigue.get(row.riderId) ?? 0;
+    console.log(
+      `  ${String(i + 1).padStart(2)} ${riderName(row.riderId).padEnd(20)} ${teamName(row.riderId).padEnd(20)} ` +
+        `${fmtTime(row.totalTimeSec)}  ${fmtGap(row.gapSec).padStart(6)}   ${fat.toFixed(1).padStart(5)}`,
+    );
+  });
+  if (tour.abandoned.size > 0) console.log(`  (abandoned: ${[...tour.abandoned].map(riderName).join(', ')})`);
+}
+
+// The conserve lever: saving the leader on the non-GC stages (flat/cobbled/hilly,
+// where a climber gains nothing) should leave him fresher — and faster — on the
+// queen stage. Measured as his fatigue into the final summit finish and his gap
+// to the stage winner there (same seeds across scenarios).
+console.log('\n--- Conserve lever (Provence, 300 seeds, star = Tano Pogar) ---');
+{
+  const N = 300;
+  const star = 'gr-pogar';
+  const scenarios: [string, Set<number>][] = [
+    ['race every stage', new Set()],
+    ['conserve stages 1–3', new Set([0, 1, 2])],
+  ];
+  for (const [label, conserve] of scenarios) {
+    let sumFatigue = 0;
+    let sumQueenGap = 0;
+    let sumGcGap = 0;
+    for (let i = 0; i < N; i++) {
+      const { tour, fatigueSnapshots } = runTour('r-provence', i * 2654435761, conserve);
+      const finalIdx = tour.results.length - 1;
+      sumFatigue += fatigueSnapshots[finalIdx]?.get(star) ?? 0;
+      const queen = tour.results[finalIdx];
+      const win = queen.order.find((e) => !e.dnf)!.timeSec;
+      const mine = queen.order.find((e) => e.riderId === star);
+      if (mine && !mine.dnf) sumQueenGap += mine.timeSec - win;
+      const gc = computeGc(tour);
+      const meIdx = gc.findIndex((g) => g.riderId === star);
+      if (meIdx >= 0) sumGcGap += gc[meIdx].gapSec;
+    }
+    console.log(
+      `    ${label.padEnd(20)} fatigue→queen ${(sumFatigue / N).toFixed(1).padStart(5)}   ` +
+        `queen gap ${fmtGap(sumQueenGap / N).padStart(6)}   avg GC gap ${fmtGap(sumGcGap / N).padStart(6)}`,
     );
   }
 }
