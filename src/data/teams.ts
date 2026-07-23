@@ -15,6 +15,10 @@ export const TEAMS: Team[] = [
   { id: 't-vesma', name: 'Vesma Lease-a-Bike', isPlayer: false, riderIds: riderIdsFor('t-vesma') },
   { id: 't-uad', name: 'UAD Emirates', isPlayer: false, riderIds: riderIdsFor('t-uad') },
   { id: 't-soudo', name: 'Soudo Quick-Track', isPlayer: false, riderIds: riderIdsFor('t-soudo') },
+  { id: 't-movistrella', name: 'Movistrella', isPlayer: false, riderIds: riderIdsFor('t-movistrella') },
+  { id: 't-bora', name: 'Bora Hansburg', isPlayer: false, riderIds: riderIdsFor('t-bora') },
+  { id: 't-lido', name: 'Lido-Trec', isPlayer: false, riderIds: riderIdsFor('t-lido') },
+  { id: 't-astara', name: 'Astara Cycling', isPlayer: false, riderIds: riderIdsFor('t-astara') },
 ];
 
 export const TEAMS_BY_ID: Map<string, Team> = new Map(TEAMS.map((t) => [t.id, t]));

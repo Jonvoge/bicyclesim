@@ -69,6 +69,38 @@ export const RIDERS: Rider[] = [
   rider('so-ilan', 'Ilan Girard', 'France', 27, 't-soudo', stats(34, 54, 91, 62, 72, 70, 76)), // sprinter
   rider('so-mick', 'Mick Landa', 'Spain', 28, 't-soudo', stats(86, 60, 36, 58, 83, 78, 70)), // climber
   rider('so-reck', 'Jonas Reck', 'Germany', 25, 't-soudo', stats(56, 78, 62, 66, 78, 72, 74)), // rouleur / all-rounder
+
+  // --- Movistrella (Spanish GC / climbing squad) ---
+  rider('mv-ayuso', 'Bruno Ayoso', 'Spain', 22, 't-movistrella', stats(91, 66, 42, 74, 86, 82, 76)), // young climbing star
+  rider('mv-mas', 'Enric Maset', 'Spain', 29, 't-movistrella', stats(87, 60, 40, 62, 85, 80, 78)), // GC climber
+  rider('mv-rubio', 'Diego Rubín', 'Colombia', 27, 't-movistrella', stats(84, 58, 44, 72, 83, 78, 72)), // climber / puncheur
+  rider('mv-oliveira', 'Nuno Oliveiro', 'Portugal', 30, 't-movistrella', stats(58, 86, 60, 66, 82, 76, 78)), // rouleur / breakaway
+  rider('mv-garcia', 'Iván Gárcez', 'Spain', 25, 't-movistrella', stats(32, 60, 88, 60, 70, 68, 76)), // sprinter
+  rider('mv-romo', 'Pau Romero', 'Spain', 24, 't-movistrella', stats(80, 56, 38, 58, 82, 80, 68)), // climbing domestique
+
+  // --- Bora Hansburg (German all-round / sprint squad) ---
+  rider('bo-hindley', 'Jai Hindmarsh', 'Australia', 28, 't-bora', stats(88, 74, 44, 70, 87, 84, 80)), // GC climber
+  rider('bo-ackermann', 'Pascal Ackerson', 'Germany', 30, 't-bora', stats(28, 62, 92, 58, 68, 66, 78)), // pure sprinter
+  rider('bo-schachmann', 'Max Schachner', 'Germany', 29, 't-bora', stats(60, 76, 62, 84, 84, 78, 76)), // puncheur / classics
+  rider('bo-buchmann', 'Emil Buchner', 'Germany', 31, 't-bora', stats(85, 62, 38, 60, 84, 80, 74)), // climber
+  rider('bo-palzer', 'Anton Pfalz', 'Germany', 26, 't-bora', stats(62, 84, 56, 70, 82, 76, 70)), // rouleur / breakaway
+  rider('bo-meeus', 'Jordi Meuss', 'Belgium', 24, 't-bora', stats(30, 66, 84, 60, 70, 68, 74)), // sprinter / lead-out
+
+  // --- Lido-Trec (classics & cobbles squad) ---
+  rider('li-pedersen', 'Mark Pedersson', 'Denmark', 28, 't-lido', stats(42, 80, 74, 90, 86, 80, 82)), // classics / cobbles leader
+  rider('li-mollema', 'Bram Mollena', 'Netherlands', 33, 't-lido', stats(66, 82, 52, 72, 84, 78, 74)), // rouleur / breakaway
+  rider('li-ciccone', 'Gino Ciccardo', 'Italy', 29, 't-lido', stats(86, 60, 40, 66, 83, 78, 74)), // climber
+  rider('li-stuyven', 'Jasper Struyve', 'Belgium', 31, 't-lido', stats(34, 78, 76, 80, 82, 78, 78)), // cobbles rouleur
+  rider('li-nys', 'Thibau Nyssen', 'Belgium', 23, 't-lido', stats(52, 68, 66, 82, 78, 74, 66)), // young puncheur
+  rider('li-simmons', 'Quinn Simmons', 'USA', 24, 't-lido', stats(58, 74, 60, 68, 80, 76, 72)), // rouleur domestique
+
+  // --- Astara Cycling (GC / climbing squad) ---
+  rider('as-lopez', 'Miguel Lópes', 'Colombia', 30, 't-astara', stats(88, 62, 42, 68, 85, 80, 74)), // climber
+  rider('as-vlasov', 'Alexei Vlassenko', 'Kazakhstan', 28, 't-astara', stats(86, 84, 44, 68, 86, 82, 80)), // GC climber / rouleur
+  rider('as-fedorov', 'Yevgen Fedirko', 'Ukraine', 24, 't-astara', stats(58, 66, 60, 80, 80, 76, 72)), // puncheur
+  rider('as-scaroni', 'Cristian Scaroni', 'Italy', 28, 't-astara', stats(74, 72, 50, 66, 82, 78, 72)), // rouleur / climbing domestique
+  rider('as-nibali', 'Vito Nibaldi', 'Italy', 32, 't-astara', stats(82, 70, 48, 70, 84, 80, 78)), // all-rounder / descender
+  rider('as-gruzdev', 'Dmitri Gruzdov', 'Kazakhstan', 26, 't-astara', stats(32, 62, 87, 58, 70, 68, 76)), // sprinter
 ];
 
 export const RIDERS_BY_ID: Map<string, Rider> = new Map(RIDERS.map((r) => [r.id, r]));

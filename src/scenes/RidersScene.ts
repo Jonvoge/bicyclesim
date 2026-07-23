@@ -5,6 +5,7 @@ import { PLAYER_TEAM } from '../data/teams.ts';
 import type { BaseStatKey } from '../data/types.ts';
 import { riderStandings, type SeasonState } from '../sim/season.ts';
 import { makeButton } from '../ui/button.ts';
+import { ScrollView } from '../ui/scrollView.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
 /**
@@ -47,21 +48,23 @@ export class RidersScene extends Phaser.Scene {
       return best(b.id) - best(a.id);
     });
 
+    // the field is ~45 riders → scroll the list
+    const scroll = new ScrollView(this, 78, 844, top + order.length * rowH + 12);
     order.forEach((rider, idx) => {
       const y = top + idx * rowH + 12;
       const isPlayer = rider.teamId === PLAYER_TEAM.id;
-      if (isPlayer) this.add.rectangle(width / 2, y, width - 20, rowH - 4, COLORS.buttonSelected, 0.1);
+      if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 20, rowH - 4, COLORS.buttonSelected, 0.1));
       const col = teamColor(rider.teamId);
-      this.add.rectangle(26, y, 10, 10, col.jersey, 1);
-      this.add.text(40, y - 6, rider.name, { fontFamily: FONT, fontSize: '13px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
+      scroll.add(this.add.rectangle(26, y, 10, 10, col.jersey, 1));
+      scroll.add(this.add.text(40, y - 6, rider.name, { fontFamily: FONT, fontSize: '13px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5));
       const pts = points.get(rider.id) ?? 0;
-      this.add.text(40, y + 9, `age ${rider.age}${pts > 0 ? ` · ${pts} pts` : ''}`, { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+      scroll.add(this.add.text(40, y + 9, `age ${rider.age}${pts > 0 ? ` · ${pts} pts` : ''}`, { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0, 0.5));
 
       const bestVal = Math.max(...STAT_COLS.map((c) => rider.stats[c.key]));
       STAT_COLS.forEach((c, i) => {
         const v = rider.stats[c.key];
         const isBest = v === bestVal;
-        this.add.text(statX(i), y, `${v}`, { fontFamily: FONT, fontSize: '12px', fontStyle: isBest ? 'bold' : 'normal', color: isBest ? '#f5c518' : v >= 80 ? COLORS.text : COLORS.textMuted }).setOrigin(0.5);
+        scroll.add(this.add.text(statX(i), y, `${v}`, { fontFamily: FONT, fontSize: '12px', fontStyle: isBest ? 'bold' : 'normal', color: isBest ? '#f5c518' : v >= 80 ? COLORS.text : COLORS.textMuted }).setOrigin(0.5));
       });
     });
   }

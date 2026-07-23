@@ -10,6 +10,7 @@ import { computeGc, isTourComplete, recordStageResult, type GcRow, type TourStat
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
 import { saveSeason } from '../state/seasonStore.ts';
 import { makeButton } from '../ui/button.ts';
+import { ScrollView } from '../ui/scrollView.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
 const PLAYER_TEAM_ID = 't-grenoble';
@@ -93,6 +94,8 @@ export class StageResultsScene extends Phaser.Scene {
     this.add.text(20, 152, 'FINISHING ORDER', { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted });
     const top = 176;
     const rowH = 27;
+    // ~45 finishers → scroll the order (banner + header + button stay fixed)
+    const scroll = new ScrollView(this, 168, 792, top + order.length * rowH);
     order.forEach((e, i) => {
       const rider = RIDERS_BY_ID.get(e.riderId)!;
       const col = teamColor(rider.teamId);
@@ -100,14 +103,14 @@ export class StageResultsScene extends Phaser.Scene {
       const y = top + i * rowH;
       const prev = i > 0 ? order[i - 1] : null;
       const sameGroup = prev && !e.dnf && !prev.dnf && Math.abs(e.timeSec - prev.timeSec) < 0.01;
-      if (prev && !sameGroup) this.add.rectangle(width / 2, y - rowH / 2, width - 40, 1, COLORS.stroke, 0.6);
-      if (isPlayer) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12);
-      this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5);
-      this.add.rectangle(46, y, 9, 9, col.jersey, 1);
-      this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
-      this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5);
+      if (prev && !sameGroup) scroll.add(this.add.rectangle(width / 2, y - rowH / 2, width - 40, 1, COLORS.stroke, 0.6));
+      if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12));
+      scroll.add(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5));
+      scroll.add(this.add.rectangle(46, y, 9, 9, col.jersey, 1));
+      scroll.add(this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5));
+      scroll.add(this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       const gapLabel = e.dnf ? 'DNF' : i === 0 ? '—' : sameGroup ? 's.t.' : `+${this.fmtGap(e.timeSec - winnerTime)}`;
-      this.add.text(width - 20, y, gapLabel, { fontFamily: FONT, fontSize: '13px', color: e.dnf ? '#e23b3b' : COLORS.textMuted }).setOrigin(1, 0.5);
+      scroll.add(this.add.text(width - 20, y, gapLabel, { fontFamily: FONT, fontSize: '13px', color: e.dnf ? '#e23b3b' : COLORS.textMuted }).setOrigin(1, 0.5));
     });
     // the terminal button is added by create() (routes to season hub or menu)
   }
