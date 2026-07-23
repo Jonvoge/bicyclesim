@@ -64,6 +64,11 @@ export const ROLE_FATIGUE_FREE = 0.9;
 export const CONSERVE_LEADER_PENALTY = 2; // perfScore penalty to a conserving team's leader
 export const CONSERVE_FATIGUE_MULT = 0.45; // team-wide fatigue-gain multiplier when conserving
 
+// --- Season points & standings (SPEC §6, Phase 4) ---
+// Points a race awards its top finishers (one-day order or tour GC), scaled by
+// the race's prestige/100. This is what a rider/team's season ranking sums.
+export const SEASON_EVENT_POINTS = [100, 80, 65, 55, 48, 42, 38, 34, 30, 26, 22, 18, 14, 10, 6];
+
 // --- Incidents: crashes & punctures (SPEC §5.6) ---
 export const INCIDENT_PROB = 0.02; // per rider per stage (crash OR puncture)
 export const INCIDENT_PROB_MULTIPLIER_RISKY = 2; // doubled on cobbled / descentFinish

@@ -9,16 +9,24 @@
  * (SPEC §5).
  */
 
-import { RACES, RACES_BY_ID } from '../data/races.ts';
+import { RACES, RACES_BY_ID, SEASON_CALENDAR } from '../data/races.ts';
 import { RIDERS, RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { PLAYER_TEAM, TEAMS, TEAMS_BY_ID } from '../data/teams.ts';
-import type { Stage, StageResult } from '../data/types.ts';
+import type { Rider, Stage, StageResult } from '../data/types.ts';
 import { Rng } from './rng.ts';
 import { simulateStage } from './stageSim.ts';
 import { buildRaceStory } from './raceNarrative.ts';
 import { bestSuitedRider, buildTacticsMap, defaultTeamTactics } from './raceSetup.ts';
 import { computeGc, createTour, isTourComplete, recordStageResult, ridersForStage } from './standings.ts';
+import {
+  createSeason,
+  finishEvent,
+  isSeasonComplete,
+  riderStandings,
+  startEvent,
+  teamStandings,
+} from './season.ts';
 import type { TacticRole, TeamEffort, TeamTactics } from './tactics.ts';
 
 function teamName(riderId: string): string {
@@ -210,5 +218,39 @@ console.log('\n--- Conserve lever (Provence, 300 seeds, star = Tano Pogar) ---')
         `queen gap ${fmtGap(sumQueenGap / N).padStart(6)}   avg GC gap ${fmtGap(sumGcGap / N).padStart(6)}`,
     );
   }
+}
+console.log('');
+
+// --- 5. A full season: points, standings, and who wins what -------------------
+console.log('\n########## SEASON: CALENDAR, POINTS & STANDINGS ##########');
+{
+  const season = createSeason(SEASON_CALENDAR);
+  const rng = new Rng(2026);
+  const winners: string[] = [];
+  while (!isSeasonComplete(season)) {
+    const tour = startEvent(season, RIDERS);
+    while (!isTourComplete(tour)) {
+      const stage = STAGES_BY_ID.get(tour.stageIds[tour.stageIndex])!;
+      const riders: Rider[] = ridersForStage(tour, RIDERS);
+      const tactics = new Map(TEAMS.map((t) => [t.id, defaultTeamTactics(t, stage)]));
+      const story = buildRaceStory({ stage, riders, tacticsByTeam: tactics, rng });
+      recordStageResult(tour, stage, story.result, tactics, riders);
+    }
+    const race = RACES_BY_ID.get(tour.raceId)!;
+    const res = finishEvent(season, tour, RIDERS);
+    winners.push(`${race.name.padEnd(20)} → ${riderName(res.winnerId)}`);
+  }
+  console.log('\nRace winners:');
+  for (const w of winners) console.log(`    ${w}`);
+
+  console.log('\nRider season ranking (top 10):');
+  riderStandings(season).slice(0, 10).forEach((row, i) => {
+    console.log(`    ${String(i + 1).padStart(2)}  ${riderName(row.id).padEnd(20)} ${teamName(row.id).padEnd(20)} ${String(row.points).padStart(4)} pts`);
+  });
+
+  console.log('\nTeam season ranking:');
+  teamStandings(season, (id) => RIDERS_BY_ID.get(id)?.teamId ?? null).forEach((row, i) => {
+    console.log(`    ${i + 1}  ${(TEAMS_BY_ID.get(row.id)?.name ?? row.id).padEnd(22)} ${String(row.points).padStart(4)} pts`);
+  });
 }
 console.log('');
