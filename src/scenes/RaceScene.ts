@@ -28,6 +28,8 @@ const SPREAD_RATE = 0.62; // …and can't spread faster than this × progress (k
 const CLUSTER_GAP_SEC = 4; // riders within this render as one bunch
 const MAX_ROWS = 12;
 
+const frac = (n: number): number => n - Math.floor(n);
+
 interface Actor {
   entry: StageResultEntry;
   story: RiderStory;
@@ -241,18 +243,30 @@ export class RaceScene extends Phaser.Scene {
       }
     }
 
-    // position riders: bunch = rows of 3 stacked behind the cluster front
+    // Position each rider in a compact blob behind its cluster's front. Slots are
+    // a STABLE function of packSeed (not the frame's sort order), so riders don't
+    // jump/flicker; and the whole blob is shifted to stay on-screen so the back of
+    // the bunch never slides off the left edge.
     const headGap = clusters.length > 0 ? clusters[0].gap : 0;
+    const leftBound = this.trackLeft + 4;
     for (const c of clusters) {
       const frontX = this.xForGap(c.gap - headGap, tPos);
-      const members = [...c.members].sort((x, y) => x.a.packSeed - y.a.packSeed);
-      members.forEach((m, i) => {
-        const colIdx = Math.floor(i / 3);
-        const rowIdx = i % 3;
-        const jitter = Math.sin(time / 380 + m.a.packSeed * 1.7) * 1.5;
-        m.a.glyph.x = frontX - colIdx * 11 - (rowIdx % 2) * 4;
-        m.a.glyph.y = yMid + (rowIdx - 1) * 14 + (colIdx % 2) * 5 + jitter;
+      const size = c.members.length;
+      const depth = Math.min(Math.ceil(size / 2) * 8, 64); // horizontal spread, capped
+      const half = Math.min(6 + size * 1.3, 32); // vertical half-height (within road band)
+
+      const placed = c.members.map((m) => {
+        const u = frac(Math.sin(m.a.packSeed * 12.9898) * 43758.5453); // stable [0,1)
+        const v = frac(Math.sin(m.a.packSeed * 78.233 + 1.7) * 43758.5453);
+        const wobble = Math.sin(time / 520 + m.a.packSeed) * 1.1;
+        return { m, x: frontX - 3 - u * depth, y: yMid + (v - 0.5) * 2 * half + wobble };
       });
+      const minX = Math.min(...placed.map((p) => p.x));
+      const shift = minX < leftBound ? leftBound - minX : 0;
+      for (const p of placed) {
+        p.m.a.glyph.x = p.x + shift;
+        p.m.a.glyph.y = p.y;
+      }
 
       // incidents: flash + fade when they happen
       for (const m of c.members) {
