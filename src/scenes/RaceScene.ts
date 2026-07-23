@@ -6,6 +6,7 @@ import type { Rider, Stage, StageResultEntry } from '../data/types.ts';
 import { Rng } from '../sim/rng.ts';
 import { buildTacticsMap } from '../sim/raceSetup.ts';
 import { ridersForStage, type TourState } from '../sim/standings.ts';
+import type { SeasonState } from '../sim/season.ts';
 import {
   buildRaceStory,
   interpGap,
@@ -63,6 +64,7 @@ interface TickerLine {
  */
 export class RaceScene extends Phaser.Scene {
   private tour!: TourState;
+  private season?: SeasonState;
   private stage!: Stage;
   private tactics!: TeamTactics; // the player's role sheet for this stage
   private tacticsByTeam!: Map<string, TeamTactics>;
@@ -98,7 +100,7 @@ export class RaceScene extends Phaser.Scene {
     super('Race');
   }
 
-  create(data: { tour: TourState; playerTactics: TeamTactics }): void {
+  create(data: { tour: TourState; playerTactics: TeamTactics; season?: SeasonState }): void {
     this.actors = [];
     this.ticker = [];
     this.countLabels = [];
@@ -110,6 +112,7 @@ export class RaceScene extends Phaser.Scene {
     this.eventIdx = 0;
     this.maxFinish = 1;
     this.tour = data.tour;
+    this.season = data.season;
     this.tactics = data.playerTactics;
 
     const { width } = this.scale;
@@ -540,6 +543,7 @@ export class RaceScene extends Phaser.Scene {
       () =>
         this.scene.start('StageResults', {
           tour: this.tour,
+          season: this.season,
           stage: this.stage,
           result: this.story.result,
           stageRiders: this.stageRiders,

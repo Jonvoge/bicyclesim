@@ -13,14 +13,14 @@ type Stats = Record<StatKey, number>;
 
 function stats(
   climbing: number,
-  timeTrial: number,
+  flat: number,
   sprint: number,
   puncheur: number,
   endurance: number,
   stamina: number,
   consistency: number,
 ): Stats {
-  return { climbing, timeTrial, sprint, puncheur, endurance, stamina, consistency };
+  return { climbing, flat, sprint, puncheur, endurance, stamina, consistency };
 }
 
 function rider(
@@ -41,7 +41,7 @@ function rider(
 // STARTING VALUES — the real balance pass is Phase 8.
 export const RIDERS: Rider[] = [
   // --- Grenoble Grenadiers (player) ---
-  //                                          clm  tt  spr pun end sta con
+  //                                          clm flat spr pun end sta con
   rider('gr-pogar', 'Tano Pogar', 'Slovenia', 26, 't-grenoble', stats(92, 78, 55, 80, 86, 85, 82)), // GC climber, hills threat
   rider('gr-gann', 'Fabio Gann', 'Italy', 28, 't-grenoble', stats(55, 95, 58, 62, 82, 78, 80)), // TT/rouleur (parked until TTs)
   rider('gr-philq', 'Jesper Philquist', 'Belgium', 27, 't-grenoble', stats(30, 50, 95, 56, 72, 70, 80)), // pure sprinter — fastest in the field
