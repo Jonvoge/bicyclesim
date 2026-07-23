@@ -55,6 +55,7 @@ export function currentRace(season: SeasonState): Race | null {
 export function startEvent(season: SeasonState, startList: Rider[]): TourState {
   const race = currentRace(season)!;
   const tour = createTour(race);
+  tour.starters = new Set(startList.map((r) => r.id));
   for (const rider of startList) tour.fatigue.set(rider.id, season.fatigue.get(rider.id) ?? 0);
   return tour;
 }

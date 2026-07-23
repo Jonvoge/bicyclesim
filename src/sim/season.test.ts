@@ -122,4 +122,15 @@ describe('fatigue carries across the season', () => {
     const afterRest = season.fatigue.get('gr-pogar')!;
     expect(afterRest).toBeLessThan(afterTour);
   });
+
+  it('a rested rider (excluded from the start list) does not appear in the result and scores nothing', () => {
+    const season = createSeason(['r-sanreno']);
+    const rested = 'gr-philq'; // the player sprinter, benched on the flat day
+    const startList = RIDERS.filter((r) => r.id !== rested);
+    const res = playEvent(season, 3, startList);
+    expect(res.classification.some((row) => row.riderId === rested)).toBe(false);
+    expect(season.points.get(rested) ?? 0).toBe(0);
+    // …and the field is exactly the start list (minus any abandons)
+    expect(res.classification.every((row) => row.riderId !== rested)).toBe(true);
+  });
 });

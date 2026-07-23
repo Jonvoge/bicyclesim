@@ -23,9 +23,9 @@
 
 1. **Roster-deepening PR review.** Open, awaiting review. **All rider stats + `tuning.ts` numbers
    are starting guesses** (SPEC §10) — the real balance pass is Phase 8.
-2. **Rest lever + rival AI still deferred** — now more valuable with a 45-rider field (squad depth
-   to rotate). The explicit rest-a-rider decision and rivals using rest/effort are the natural next
-   step (a Phase 4.x, or fold into Phase 5).
+2. **Rest-a-rider lever is now built** (bench riders from a season race via a "Rest" option in the
+   pre-race palette; `TourState.starters` excludes them; they recover). **Still deferred:** rival
+   rest/effort AI (rivals always race the full roster) and the emergent-rivalries view.
 
 ## Next planned work (once Phase 4 is merged)
 
