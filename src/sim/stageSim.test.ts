@@ -234,6 +234,46 @@ describe('race narrative layer (SPEC §5.9)', () => {
     expect(inBreak / N).toBeLessThan(0.05);
   });
 
+  it('a flat stage is usually a bunch sprint: the peloton arrives together', () => {
+    const flat = stage('st-sanreno');
+    let sprints = 0;
+    let leadSum = 0;
+    const N = 600;
+    for (let i = 0; i < N; i++) {
+      const story = buildRaceStory({ stage: flat, riders: RIDERS, tacticsByTeam: allDefaults(flat), rng: new Rng(i * 2654435761 + 3) });
+      if (story.shape === 'sprint') sprints++;
+      leadSum += story.groups[0]?.ids.length ?? 0;
+    }
+    expect(sprints / N).toBeGreaterThan(0.6); // most flat days end in a bunch kick
+    expect(leadSum / N).toBeGreaterThan(10); // …with a big lead group, not a handful
+  });
+
+  it('a summit finish shatters the field: no bunch sprint, tiny lead group', () => {
+    const summit = stage('st-lombardo');
+    let sprints = 0;
+    let leadSum = 0;
+    const N = 400;
+    for (let i = 0; i < N; i++) {
+      const story = buildRaceStory({ stage: summit, riders: RIDERS, tacticsByTeam: allDefaults(summit), rng: new Rng(i * 40503 + 9) });
+      if (story.shape === 'sprint') sprints++;
+      leadSum += story.groups[0]?.ids.length ?? 0;
+    }
+    expect(sprints / N).toBeLessThan(0.05);
+    expect(leadSum / N).toBeLessThan(4);
+  });
+
+  it('respects the role sheet: a player DOMESTIQUE is not swept into the morning break', () => {
+    const s2 = stage('st-fleche'); // break-friendly hilly day
+    const sheet = playerSheet({ 'gr-vance': 'domestique', 'gr-berg': 'domestique' });
+    let inBreak = 0;
+    const N = 1000;
+    for (let i = 0; i < N; i++) {
+      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: withPlayer(s2, sheet), rng: new Rng(i * 7919 + 5) });
+      if (story.breakIds.includes('gr-vance') || story.breakIds.includes('gr-berg')) inBreak++;
+    }
+    expect(inBreak).toBe(0); // a working rider never rides into the break
+  });
+
   it('punctures never cause an abandon; crashes rarely do', () => {
     let punctureDnf = 0;
     let crashes = 0;

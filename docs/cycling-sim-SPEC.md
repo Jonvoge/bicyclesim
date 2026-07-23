@@ -243,7 +243,13 @@ race radio. Surfaced from **Phase 2** as visible drama rather than waiting for P
 ### 5.7 Result → times
 
 - Winner base time = `lengthKm / REFERENCE_SPEED_KMH * 3600`.
-- Gaps derived from `perfScore` differences × `GAP_SPREAD` (seconds per point).
+- Gaps derived from `perfScore` differences × `GAP_SPREAD` (seconds per point), **× a terrain
+  compression** (`GAP_COMPRESSION_BY_TYPE`). This is what makes a **bunch sprint** a bunch sprint:
+  on a flat day the compression is small (~0.12), so ability differences barely open time and the
+  whole peloton rolls in on one time; on a summit finish it's ~1.0, so the climbers ride everyone
+  off and the field shatters. Real time losses (crashes, a break's winning margin) are added
+  separately and are **not** compressed. Consequence: flat/rolling stages barely move GC — the
+  classification is decided in the mountains, where fresh vs. tired legs matters most.
 - **Finish groups (pro convention):** finishers are clustered — a rider within
   `GROUP_GAP_THRESHOLD_SEC` of the rider ahead joins their group, and **everyone in a group
   gets the same time** (shown as `s.t.` after the first rider). The threshold is terrain-aware:

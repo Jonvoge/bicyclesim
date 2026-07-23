@@ -8,14 +8,22 @@ import { COLORS } from './theme.ts';
  * "where on the stage are we" map.
  */
 
-// relative peak heights (fraction of panel height) sampled along the route
+// Relative elevation (fraction of panel height) sampled densely along the route.
+// Hand-authored to read like real race profiles, not a single bump: rolling false
+// flat, categorised climbs with descents between them, valley run-ins, etc.
 const SHAPES: Record<StageType, number[]> = {
-  flat: [0.08, 0.14, 0.09, 0.16, 0.1, 0.08, 0.08],
-  hilly: [0.1, 0.38, 0.16, 0.48, 0.22, 0.42, 0.18, 0.36, 0.12],
-  mountain: [0.1, 0.52, 0.26, 0.72, 0.36, 0.62, 0.22, 0.68, 0.3],
-  summitFinish: [0.08, 0.12, 0.2, 0.32, 0.45, 0.6, 0.78, 0.95],
-  descentFinish: [0.1, 0.32, 0.56, 0.82, 0.92, 0.55, 0.24, 0.08],
-  cobbled: [0.1, 0.24, 0.13, 0.28, 0.15, 0.26, 0.17, 0.24, 0.1],
+  // gently undulating all day, a nervous flat run to a bunch sprint
+  flat: [0.08, 0.11, 0.09, 0.13, 0.1, 0.15, 0.11, 0.09, 0.12, 0.1, 0.08, 0.1, 0.08, 0.07],
+  // classics terrain: a string of short punchy climbs, last one into the finish
+  hilly: [0.12, 0.34, 0.16, 0.46, 0.2, 0.3, 0.5, 0.24, 0.44, 0.22, 0.52, 0.28, 0.4, 0.18],
+  // two big passes and a final cat-1, valleys between — a proper mountain day
+  mountain: [0.12, 0.22, 0.6, 0.34, 0.7, 0.4, 0.28, 0.66, 0.36, 0.82, 0.5, 0.72, 0.44, 0.3],
+  // rolling start, then a relentless step-ladder to the line at the summit
+  summitFinish: [0.1, 0.16, 0.12, 0.24, 0.32, 0.22, 0.4, 0.34, 0.52, 0.62, 0.74, 0.86, 0.96, 1.0],
+  // climb the big one mid-stage, crest high, then plunge to a valley finish
+  descentFinish: [0.1, 0.2, 0.16, 0.44, 0.66, 0.86, 0.94, 0.78, 0.5, 0.68, 0.4, 0.2, 0.12, 0.08],
+  // flat-ish but studded with cobbled sectors — jagged little teeth, no real climb
+  cobbled: [0.1, 0.14, 0.24, 0.13, 0.26, 0.15, 0.28, 0.16, 0.3, 0.17, 0.24, 0.14, 0.2, 0.1],
 };
 
 export class StageProfileView {

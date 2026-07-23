@@ -148,6 +148,21 @@ The race view is deliberately **broadcast/TV-coverage style, group-centric**:
   Do NOT put the model identifier in commits/PRs otherwise.
 - `vite.config.ts` reads `process.env.BASE_PATH` via a minimal ambient `declare` (no `@types/node`).
 
+## Realism polish pass (post-Phase-3 playtest) — done
+
+Landed as its own follow-up after Phase 3, from user feedback:
+- **Bunch sprints now happen.** Root cause: finishing gaps were `perfDiff × GAP_SPREAD` on every
+  terrain, so the field always strung out like a TT (flat lead group ~2 riders, 0% sprints). Added
+  **terrain gap compression** (`GAP_COMPRESSION_BY_TYPE`): flat ≈ 0.12 → the whole peloton arrives
+  on one time (now ~85% bunch sprints, lead group ~18), summit = 1.0 → shattered. Real time losses
+  (crashes, break margins) are added after and stay uncompressed. Bonus: flat stages barely move
+  GC, so the classification is decided in the mountains.
+- **Roles are respected in the break.** A player's leader/sprinter/domestique is no longer randomly
+  swept into the morning break (was happening 63–75% of the time) — only `breakaway`/`free` riders
+  are opportunists. Rivals stay a free pool until Phase 4 AI.
+- **Stage profiles** rewritten as multi-feature silhouettes (a mountain day is passes + valleys, a
+  hilly day is a string of punches) instead of a single bump.
+
 ## Known minor issues (not blocking)
 
 - Very early in a race (first ~2 s) the break and peloton formations sit adjacent and read as
@@ -156,9 +171,9 @@ The race view is deliberately **broadcast/TV-coverage style, group-centric**:
 - On a flat day, stage "favourites" are the top-6 by that day's perf (sprinters), so a strong
   climber can legitimately turn up in the morning break — reads odd occasionally, revisit if it
   grates.
-- The **conserve lever is a real but small edge** (fresher legs ≈ a couple of seconds on the queen
-  stage). It reads as marginal-gains, not a no-brainer — which is intended, but if playtesting
-  wants it to bite harder, `CONSERVE_FATIGUE_MULT` / `FATIGUE_BASE` / `STAGE_RECOVERY_RATE` are the
-  knobs (all Phase-8 balance territory).
+- **Energy is deferred to the season (Phase 4).** The conserve lever is a deliberately small
+  in-tour edge; per playtest, energy becomes a meaningful decision only once fatigue carries
+  **across races** over a ~15-race season (see the Phase 4 note in the build plan). Don't crank the
+  in-tour fatigue knobs to force it — that just makes single tours grindy.
 - Rival teams don't use the conserve lever (they always `race`) and re-pick a default sheet each
   stage — that's Phase 4 rival AI, not built yet.
