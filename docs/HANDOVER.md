@@ -7,28 +7,25 @@
 
 ## TL;DR — current state
 
-- **Phases 0 → 3 are merged to `main`** (PRs #1–#5), plus a **realism & balance polish** pass (PR #6:
-  bunch sprints via terrain gap-compression, role-respecting breaks, multi-feature stage profiles,
-  and the terrain-specialist roster rebalance). The Phase 2 fun gate passed on the user's phone.
-- **Phase 4 (season calendar & world layer) is BUILT** on branch
-  **`claude/rider-roles-simulation-viz-j0i7e2`** (restarted from `main` after each merge) — open as
-  its Phase 4 PR, awaiting review. It adds a 14-event `SEASON_CALENDAR`, the headless season engine
-  (`src/sim/season.ts`: points + cross-race fatigue), localStorage persistence
-  (`src/state/seasonStore.ts`), and the season UI (SeasonHub + Standings/Riders/Archive world layer).
-  See the Architecture section for how it threads through the race scenes.
-- Also on this branch: **`timeTrial` renamed → `flat`** (flat-road power) and made a real secondary
-  stat on flatter terrain + a break-survival factor (the "solo strength" slot).
+- **Phases 0 → 4 are merged to `main`** (PRs #1–#5, #7), plus a **realism & balance polish** pass
+  (PR #6). Phase 4 = season calendar & world layer + the `timeTrial`→`flat` stat. The Phase 2 fun
+  gate passed on the user's phone.
+- **Current branch `claude/rider-roles-simulation-viz-j0i7e2`** (restarted from `main`) **deepens
+  the peloton**: **8 teams / 45 riders** (added Movistrella, Bora Hansburg, Lido-Trec, Astara — 24
+  new riders across all specialties + jersey colours). Re-balanced so specialists still own terrain
+  (wins now spread across more riders; e.g. flat wins split among ~6 sprinters, Pedersson is a new
+  cobbles star). Long lists (peloton, one-day finishing order) now use a `ScrollView`
+  (`src/ui/scrollView.ts`) since ~45 riders overflow a phone screen. Open as its own PR.
 - The app is deployed and playable on a phone: **https://jonvoge.github.io/bicyclesim/**
   (auto-redeploys on push to `main` or the feature branch — last push wins).
 
 ## Outstanding decisions (need the user)
 
-1. **Phase 4 review.** The Phase 4 PR is open. Per CLAUDE.md, don't roll into Phase 5 (management)
-   until it's reviewed/merged. **All new numbers in `tuning.ts` are starting guesses** (SPEC §10) —
-   the real balance pass is Phase 8.
-2. **Rest lever + rival AI are deferred** (see the Phase 4 build-plan note): the explicit
-   rest-a-rider decision and rivals using rest/effort aren't wired yet — a natural next step (Phase
-   4.x or fold into Phase 5).
+1. **Roster-deepening PR review.** Open, awaiting review. **All rider stats + `tuning.ts` numbers
+   are starting guesses** (SPEC §10) — the real balance pass is Phase 8.
+2. **Rest lever + rival AI still deferred** — now more valuable with a 45-rider field (squad depth
+   to rotate). The explicit rest-a-rider decision and rivals using rest/effort are the natural next
+   step (a Phase 4.x, or fold into Phase 5).
 
 ## Next planned work (once Phase 4 is merged)
 
