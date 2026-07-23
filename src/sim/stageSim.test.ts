@@ -7,8 +7,8 @@ import type { Stage } from '../data/types.ts';
 import { Rng } from './rng.ts';
 import { baseScore, simulateStage } from './stageSim.ts';
 import { buildRaceStory, interpGap } from './raceNarrative.ts';
-import { bestSuitedRider } from './raceSetup.ts';
-import type { Strategy, TeamTactics } from './tactics.ts';
+import { defaultTeamTactics } from './raceSetup.ts';
+import type { TacticRole, TeamTactics } from './tactics.ts';
 
 function stage(id: string): Stage {
   return STAGES_BY_ID.get(id)!;
@@ -18,20 +18,26 @@ function topBaseScoreRider(s: Stage): string {
   return [...RIDERS].sort((a, b) => baseScore(b, s) - baseScore(a, s))[0].id;
 }
 
-/** Every team (incl. player) protects its best rider, PROTECT_LEADER. */
-function allProtectLeader(s: Stage): Map<string, TeamTactics> {
+/** Every team (incl. player) rides its default role sheet for the stage. */
+function allDefaults(s: Stage): Map<string, TeamTactics> {
   const map = new Map<string, TeamTactics>();
-  for (const team of TEAMS) {
-    map.set(team.id, { teamId: team.id, protectedRiderId: bestSuitedRider(team.riderIds, s), strategy: 'PROTECT_LEADER' });
-  }
+  for (const team of TEAMS) map.set(team.id, defaultTeamTactics(team, s));
   return map;
 }
 
-/** Rivals protect their best; player tactics passed explicitly. */
+/** Rivals ride defaults; the player's role sheet is passed explicitly. */
 function withPlayer(s: Stage, player: TeamTactics): Map<string, TeamTactics> {
-  const map = allProtectLeader(s);
+  const map = allDefaults(s);
   map.set(player.teamId, player);
   return map;
+}
+
+/** Player sheet: named roles, everyone else FREE. */
+function playerSheet(roles: Record<string, TacticRole>): TeamTactics {
+  const team = TEAMS.find((t) => t.isPlayer)!;
+  const sheet: Record<string, TacticRole> = {};
+  for (const id of team.riderIds) sheet[id] = roles[id] ?? 'free';
+  return { teamId: team.id, roles: sheet };
 }
 
 describe('baseScore — right stat for the right stage type', () => {
@@ -56,14 +62,14 @@ describe('simulateStage — structural invariants', () => {
   const s = stage('st-lombardo');
 
   it('is deterministic under a seed', () => {
-    const t = allProtectLeader(s);
+    const t = allDefaults(s);
     const a = simulateStage({ stage: s, riders: RIDERS, tacticsByTeam: t, rng: new Rng(42) });
     const b = simulateStage({ stage: s, riders: RIDERS, tacticsByTeam: t, rng: new Rng(42) });
     expect(a.order.map((e) => e.riderId)).toEqual(b.order.map((e) => e.riderId));
   });
 
   it('returns every rider once, sorted best-first (perf desc, time asc)', () => {
-    const r = simulateStage({ stage: s, riders: RIDERS, tacticsByTeam: allProtectLeader(s), rng: new Rng(7) });
+    const r = simulateStage({ stage: s, riders: RIDERS, tacticsByTeam: allDefaults(s), rng: new Rng(7) });
     expect(r.order).toHaveLength(RIDERS.length);
     expect(new Set(r.order.map((e) => e.riderId)).size).toBe(RIDERS.length);
     for (let i = 1; i < r.order.length; i++) {
@@ -80,7 +86,7 @@ describe('favourites usually — but not always — win', () => {
     let favWins = 0;
     const N = 2000;
     for (let i = 0; i < N; i++) {
-      const r = simulateStage({ stage: s, riders: RIDERS, tacticsByTeam: allProtectLeader(s), rng: new Rng(i * 2654435761) });
+      const r = simulateStage({ stage: s, riders: RIDERS, tacticsByTeam: allDefaults(s), rng: new Rng(i * 2654435761) });
       if (r.order[0].riderId === fav) favWins++;
     }
     const rate = favWins / N;
@@ -89,21 +95,38 @@ describe('favourites usually — but not always — win', () => {
   });
 });
 
-describe('tactics visibly change outcomes', () => {
-  it('PROTECT_LEADER improves the protected rider vs CONSERVE', () => {
+describe('rider roles visibly change outcomes', () => {
+  const avgPos = (s: Stage, riderId: string, sheet: TeamTactics): number => {
+    const N = 800;
+    let sum = 0;
+    for (let i = 0; i < N; i++) {
+      const r = simulateStage({ stage: s, riders: RIDERS, tacticsByTeam: withPlayer(s, sheet), rng: new Rng(i * 40503 + 7) });
+      sum += r.order.findIndex((e) => e.riderId === riderId) + 1;
+    }
+    return sum / N;
+  };
+
+  it('a backed LEADER with domestiques beats riding everyone free', () => {
     const s = stage('st-lombardo');
     const star = 'gr-pogar';
-    const avgPos = (strategy: Strategy): number => {
-      const N = 800;
-      let sum = 0;
-      for (let i = 0; i < N; i++) {
-        const p: TeamTactics = { teamId: 't-grenoble', protectedRiderId: star, strategy };
-        const r = simulateStage({ stage: s, riders: RIDERS, tacticsByTeam: withPlayer(s, p), rng: new Rng(i * 40503 + 7) });
-        sum += r.order.findIndex((e) => e.riderId === star) + 1;
-      }
-      return sum / N;
-    };
-    expect(avgPos('PROTECT_LEADER')).toBeLessThan(avgPos('CONSERVE'));
+    const others = TEAMS.find((t) => t.isPlayer)!.riderIds.filter((id) => id !== star);
+    const backed = playerSheet({ [star]: 'leader', ...Object.fromEntries(others.map((id) => [id, 'domestique' as TacticRole])) });
+    expect(avgPos(s, star, backed)).toBeLessThan(avgPos(s, star, playerSheet({})));
+  });
+
+  it('more domestiques → a stronger leader', () => {
+    const s = stage('st-lombardo');
+    const star = 'gr-pogar';
+    const others = TEAMS.find((t) => t.isPlayer)!.riderIds.filter((id) => id !== star);
+    const withFour = playerSheet({ [star]: 'leader', ...Object.fromEntries(others.slice(0, 4).map((id) => [id, 'domestique' as TacticRole])) });
+    const alone = playerSheet({ [star]: 'leader' });
+    expect(avgPos(s, star, withFour)).toBeLessThan(avgPos(s, star, alone));
+  });
+
+  it('the SPRINTER role helps a fast finisher on a flat day', () => {
+    const s = stage('st-sanreno');
+    const sprinter = 'gr-philq';
+    expect(avgPos(s, sprinter, playerSheet({ [sprinter]: 'sprinter' }))).toBeLessThan(avgPos(s, sprinter, playerSheet({})));
   });
 });
 
@@ -111,7 +134,7 @@ describe('race narrative layer (SPEC §5.9)', () => {
   const s = stage('st-lombardo');
 
   it('is deterministic under a seed (result, groups, and radio events)', () => {
-    const t = allProtectLeader(s);
+    const t = allDefaults(s);
     const a = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: t, rng: new Rng(99) });
     const b = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: t, rng: new Rng(99) });
     expect(a.result.order.map((e) => e.riderId)).toEqual(b.result.order.map((e) => e.riderId));
@@ -121,7 +144,7 @@ describe('race narrative layer (SPEC §5.9)', () => {
   });
 
   it('gives every rider a story that ends at their final gap, with a leader at all times', () => {
-    const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allProtectLeader(s), rng: new Rng(3) });
+    const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allDefaults(s), rng: new Rng(3) });
     expect(story.stories.size).toBe(RIDERS.length);
     const winnerTime = story.result.order[0].timeSec;
     for (const entry of story.result.order) {
@@ -139,7 +162,7 @@ describe('race narrative layer (SPEC §5.9)', () => {
 
   it('finishers arrive in groups; whole group shares a time (SPEC §5.7)', () => {
     for (const seed of [1, 7, 42, 1234]) {
-      const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allProtectLeader(s), rng: new Rng(seed) });
+      const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allDefaults(s), rng: new Rng(seed) });
       const nonDnf = story.result.order.filter((e) => !e.dnf);
       // groups partition the finishers
       expect(story.groups.flatMap((g) => g.ids).sort()).toEqual(nonDnf.map((e) => e.riderId).sort());
@@ -156,7 +179,7 @@ describe('race narrative layer (SPEC §5.9)', () => {
   });
 
   it('narrates the race: break composition on the radio', () => {
-    const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allProtectLeader(s), rng: new Rng(5) });
+    const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allDefaults(s), rng: new Rng(5) });
     if (story.breakIds.length > 0) {
       const breakEvent = story.events.find((e) => e.kind === 'break');
       expect(breakEvent).toBeDefined();
@@ -169,29 +192,34 @@ describe('race narrative layer (SPEC §5.9)', () => {
     expect(story.events.some((e) => e.t >= 0.7)).toBe(true);
   });
 
-  const survivalRate = (stageId: string, strategy: Strategy, protectedId: string, n = 1000): number => {
+  const survivalRate = (stageId: string, roles: Record<string, TacticRole>, n = 1000): number => {
     const s2 = stage(stageId);
     let survived = 0;
     for (let i = 0; i < n; i++) {
-      const p: TeamTactics = { teamId: 't-grenoble', protectedRiderId: protectedId, strategy };
-      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: withPlayer(s2, p), rng: new Rng(i * 2246822519) });
+      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: withPlayer(s2, playerSheet(roles)), rng: new Rng(i * 2246822519) });
       if (story.breakSurvived) survived++;
     }
     return survived / n;
   };
 
-  // gr-vance is a clear non-favourite → committing him puts him in the morning break
-  it('committing a domestique to the break raises its survival odds (but stays bounded)', () => {
-    const withBreak = survivalRate('st-roubey', 'BREAKAWAY', 'gr-vance');
-    const without = survivalRate('st-roubey', 'PROTECT_LEADER', 'gr-vance');
+  // gr-vance is a clear non-favourite → the BREAKAWAY role puts him in the morning break
+  it('a committed BREAKAWAY rider raises the break survival odds (but stays bounded)', () => {
+    const withBreak = survivalRate('st-roubey', { 'gr-vance': 'breakaway' });
+    const without = survivalRate('st-roubey', { 'gr-vance': 'domestique' });
     expect(without).toBeLessThan(0.3);
     expect(withBreak).toBeGreaterThan(without + 0.06);
     expect(withBreak).toBeLessThan(0.6);
   });
 
+  it('a second committed rider helps again, up to the cap', () => {
+    const one = survivalRate('st-roubey', { 'gr-vance': 'breakaway' }, 600);
+    const two = survivalRate('st-roubey', { 'gr-vance': 'breakaway', 'gr-berg': 'breakaway' }, 600);
+    expect(two).toBeGreaterThan(one + 0.03);
+  });
+
   it('terrain matters: breaks survive more often on a hilly day than a flat one', () => {
-    const hilly = survivalRate('st-fleche', 'BREAKAWAY', 'gr-vance', 600);
-    const flat = survivalRate('st-sanreno', 'BREAKAWAY', 'gr-vance', 600);
+    const hilly = survivalRate('st-fleche', { 'gr-vance': 'breakaway' }, 600);
+    const flat = survivalRate('st-sanreno', { 'gr-vance': 'breakaway' }, 600);
     expect(hilly).toBeGreaterThan(flat + 0.05);
   });
 
@@ -200,7 +228,7 @@ describe('race narrative layer (SPEC §5.9)', () => {
     let inBreak = 0;
     const N = 1000;
     for (let i = 0; i < N; i++) {
-      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: allProtectLeader(s2), rng: new Rng(i * 40503 + 11) });
+      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: allDefaults(s2), rng: new Rng(i * 40503 + 11) });
       if (story.breakIds.includes('vm-vinge')) inBreak++;
     }
     expect(inBreak / N).toBeLessThan(0.05);
@@ -212,7 +240,7 @@ describe('race narrative layer (SPEC §5.9)', () => {
     let crashDnf = 0;
     const s2 = stage('st-roubey');
     for (let i = 0; i < 2500; i++) {
-      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: allProtectLeader(s2), rng: new Rng(i * 7919 + 1) });
+      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: allDefaults(s2), rng: new Rng(i * 7919 + 1) });
       for (const st of story.stories.values()) {
         if (!st.incident) continue;
         if (st.incident.type === 'puncture') {
@@ -233,7 +261,7 @@ describe('race narrative layer (SPEC §5.9)', () => {
     for (const stg of ['st-lombardo', 'st-fleche', 'st-roubey', 'st-sanreno']) {
       const s2 = stage(stg);
       for (let i = 0; i < 250; i++) {
-        const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: allProtectLeader(s2), rng: new Rng(i * 2654435761 + stg.length) });
+        const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: allDefaults(s2), rng: new Rng(i * 2654435761 + stg.length) });
         shapes.add(story.shape);
         if (story.attackerId) expect(story.breakIds).not.toContain(story.attackerId);
       }

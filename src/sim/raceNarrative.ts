@@ -10,6 +10,7 @@ import {
   BREAK_SURVIVE_BASE,
   BREAK_SURVIVE_MAX,
   BREAK_SURVIVE_TACTIC_BONUS,
+  BREAK_SURVIVE_TACTIC_CAP,
   BREAK_SURVIVE_TERRAIN_W,
   BREAK_WIN_MARGIN_SEC,
   CATCH_T_MAX,
@@ -147,9 +148,13 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
 
   const byPerfDesc = [...scored].sort((a, b) => b.perfScore - a.perfScore);
   const favourites = new Set(byPerfDesc.slice(0, FAVOURITE_COUNT).map((s) => s.riderId));
+  // riders given the BREAKAWAY role: non-favourites join the morning break,
+  // favourites are saved for a committed late attack instead (§5.9)
   const committed = new Set<string>();
   for (const t of input.tacticsByTeam.values()) {
-    if (t.strategy === 'BREAKAWAY') committed.add(t.protectedRiderId);
+    for (const [riderId, role] of Object.entries(t.roles)) {
+      if (role === 'breakaway') committed.add(riderId);
+    }
   }
 
   // --- morning break: opportunists ONLY (favourites save it for later) --------
@@ -161,7 +166,8 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
     const j = rng.int(i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  const breakIds = [...committedOpportunists];
+  // every committed rider goes (even past the usual size), then fill with randoms
+  const breakIds = committedOpportunists.slice(0, BREAK_MAX_SIZE);
   for (const id of shuffled) {
     if (breakIds.length >= size) break;
     breakIds.push(id);
@@ -191,11 +197,12 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   }
 
   // --- does the morning break survive? ---------------------------------------
+  const committedInBreak = breakIds.filter((id) => committed.has(id)).length;
   const breakSurviveChance = Math.min(
     BREAK_SURVIVE_MAX,
     BREAK_SURVIVE_BASE +
       BREAK_SURVIVE_TERRAIN_W * friendliness +
-      (committedOpportunists.some((id) => breakSet.has(id)) ? BREAK_SURVIVE_TACTIC_BONUS : 0),
+      Math.min(BREAK_SURVIVE_TACTIC_CAP, BREAK_SURVIVE_TACTIC_BONUS * committedInBreak),
   );
   let breakSurvived = false;
   let breakWinnerId: string | null = null;
@@ -211,6 +218,7 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   let attackerId: string | null = null;
   let attackSucceeds = false;
   if (!breakSurvived) {
+    // a favourite with the BREAKAWAY role is a committed late attacker
     const committedFav = byPerfDesc.find((s) => committed.has(s.riderId) && favourites.has(s.riderId) && !dnfIds.has(s.riderId));
     const attackOccurs = committedFav
       ? true
@@ -318,7 +326,9 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
     else role = 'peloton';
 
     const fT = Math.min(0.97, finaleT + idJitter(id, 7) * 0.03);
-    const pT = Math.max(0.15, breakPeakT + idJitter(id, 13) * 0.04);
+    // keep the peak jitter tiny: bigger values spread the pack's gap curves so far
+    // apart mid-race that the peloton visually shatters into phantom groups
+    const pT = Math.max(0.15, breakPeakT + idJitter(id, 13) * 0.005);
 
     let gaps = buildGaps({
       role,

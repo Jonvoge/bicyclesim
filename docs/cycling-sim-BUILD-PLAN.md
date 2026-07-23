@@ -36,7 +36,8 @@
 - `rng.ts`: seedable RNG + `gaussian(mean, sigma)` via Box–Muller.
 - `stageWeights.ts`: the table from **SPEC §5.2**.
 - `form.ts`: `sigma(consistency)` + form draw (**SPEC §5.3**).
-- `tactics.ts`: protected rider + strategy effects (**SPEC §5.5**).
+- `tactics.ts`: tactics effects (**SPEC §5.5**; built as protected-rider + strategy, later
+  reworked into per-rider roles in the Phase 2 fun-gate iteration).
 - `stageSim.ts`: the single-stage algorithm (**SPEC §5.1**) → returns a `StageResult`.
 - **Test harness** (a script / test file, no Phaser): run each stage, print finishing order +
   perfScores. Run it many times to eyeball that: the right stat wins the right stage type,
@@ -69,8 +70,13 @@ Phases 1–2 before going further.
 **Fun-gate iteration (post-playtest).** Added to make the race read like a real race rather than
 a line-up at the finish: a **race narrative layer** (SPEC §5.9) — breakaway, chase, finale
 splinter, and **incidents (crash/puncture) pulled forward from Phase 3** as visible drama — plus
-a **race-type-aware strategy palette** (SPEC §5.5: PROTECT_LEADER / BREAKAWAY / SPRINT_FINISH for
-one-day races). The finish now shows the field arriving in groups with real gaps.
+team tactics. The finish now shows the field arriving in groups with real gaps.
+
+**Fun-gate iteration 2 (rider roles + race-view rework).** Tactics became a **role per rider**
+(SPEC §5.5: LEADER / SPRINTER / BREAKAWAY / DOMESTIQUE / FREE — the role sheet replaces
+"protected rider + one strategy"), and the race view was rebuilt around always-visible rider
+glyphs in eased paceline formations (no more pack blob), with on-road group counts, live gaps,
+and a finish run-in synced to the results reveal.
 
 ---
 
@@ -83,7 +89,8 @@ one-day races). The finish now shows the field arriving in groups with real gaps
 - `standings.ts`: GC by cumulative time; running leaderboard between stages.
 - Fatigue accumulation + recovery (**SPEC §5.8**); wire `roleMultiplier` from tactics into it.
 - Crashes/illness (**SPEC §5.6**) already surfaced as drama in Phase 2; here, fold their time
-  loss into GC and add the `CONSERVE` (save-for-GC) strategy to the stage-race palette.
+  loss into GC and add a team-level "conserve for GC" lever on top of the role sheet (the old
+  `CONSERVE` strategy, reborn as an effort setting).
 - (Time trials & TTT are deferred for now — see SPEC §4 — so no TTT special-case yet.)
 
 **Acceptance:** a grand tour plays across stages; protecting a leader early visibly costs stamina

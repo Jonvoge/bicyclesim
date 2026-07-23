@@ -3,7 +3,7 @@ import { FATIGUE_WEIGHT, GAP_SPREAD, REFERENCE_SPEED_KMH } from '../data/tuning.
 import type { BaseStatKey, Rider, Stage, StageResult, StageResultEntry } from '../data/types.ts';
 import { drawFormSwing } from './form.ts';
 import type { Rng } from './rng.ts';
-import { tacticsEffect, type TeamTactics } from './tactics.ts';
+import { roleCounts, roleOf, tacticsEffect, type RoleCounts, type TeamTactics } from './tactics.ts';
 
 /**
  * Single-stage algorithm (SPEC §5.1). Split into two steps so the race-narrative
@@ -41,10 +41,13 @@ export interface StageSimInput {
 /** Per-rider performance for the day (before any narrative events). */
 export function scoreRiders(input: StageSimInput): ScoredRider[] {
   const { stage, riders, tacticsByTeam, rng } = input;
+  const countsByTeam = new Map<string, RoleCounts>();
+  for (const [teamId, tactics] of tacticsByTeam) countsByTeam.set(teamId, roleCounts(tactics));
+  const noRoles: RoleCounts = { leaders: 0, domestiques: 0 };
+
   return riders.map((rider) => {
     const tactics = rider.teamId ? tacticsByTeam.get(rider.teamId) : undefined;
-    const isProtected = tactics?.protectedRiderId === rider.id;
-    const effect = tacticsEffect(tactics, isProtected, stage.type);
+    const effect = tacticsEffect(roleOf(tactics, rider.id), countsByTeam.get(rider.teamId ?? '') ?? noRoles, stage.type);
 
     const base = baseScore(rider, stage);
     const formSwing = drawFormSwing(rng, rider.stats.consistency, effect.sigmaMult);
