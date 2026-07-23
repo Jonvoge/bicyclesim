@@ -69,6 +69,17 @@ export const CONSERVE_FATIGUE_MULT = 0.45; // team-wide fatigue-gain multiplier 
 // the race's prestige/100. This is what a rider/team's season ranking sums.
 export const SEASON_EVENT_POINTS = [100, 80, 65, 55, 48, 42, 38, 34, 30, 26, 22, 18, 14, 10, 6];
 
+// --- Rival AI: season-aware resting (Phase 4 follow-up) ---
+// Rival teams manage their squads like the player: they bench a rider who is
+// both poorly suited to today's race (can't contest it) AND carrying real
+// fatigue, to save them for races they suit. A rider whose suitability
+// (baseScore ÷ the field's best for this terrain) is below the cap, once their
+// season fatigue exceeds the floor, sits it out. Team leaders (suit ≈ 1) never
+// rest; each team always keeps a minimum number of starters.
+export const RIVAL_REST_SUIT_MAX = 0.82;
+export const RIVAL_REST_FATIGUE_MIN = 6;
+export const RIVAL_MIN_STARTERS = 3;
+
 // --- Incidents: crashes & punctures (SPEC §5.6) ---
 export const INCIDENT_PROB = 0.02; // per rider per stage (crash OR puncture)
 export const INCIDENT_PROB_MULTIPLIER_RISKY = 2; // doubled on cobbled / descentFinish
