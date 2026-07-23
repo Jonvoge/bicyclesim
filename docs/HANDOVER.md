@@ -7,36 +7,35 @@
 
 ## TL;DR — current state
 
-- **Phase 0 → 2 are merged to `main`.** Phase 0 (scaffold, PR #1), Phase 1 (headless sim, PR #2),
-  Phase 2 (race presentation, PR #3) + the **rider-roles / race-view rework** (PR #4). The Phase 2
-  fun gate **passed** — the user played it on their phone and said merge.
-- **Phase 3 (stage races, GC & fatigue) is BUILT** on branch
-  **`claude/rider-roles-simulation-viz-j0i7e2`** (restarted from `main` after the merges), open as
-  its Phase 3 PR — awaiting review. What it adds:
-  - **`src/sim/standings.ts`** (pure/headless): `TourState` (fatigue map + abandon set + banked
-    results), `computeGc`, across-stage fatigue with overnight recovery, the conserve lever. The
-    global roster is never mutated — each stage rides fatigued rider **copies**.
-  - **Two tours** in data: Tour de Provence (5 stages), Giro d'Aurelia (9).
-  - **Tour UI**: the scene loop is unified (a one-day race is a one-stage tour). PreRace shows the
-    stage number, carried fatigue per rider ("legs" bars), a GC context line, and a Race/Conserve
-    **team-effort** toggle (tours only). StageResults banks the stage (fatigue + GC + abandons)
-    then shows stage result + live GC, routing to the next stage or a final GC screen.
+- **Phases 0 → 3 are merged to `main`** (PRs #1–#5), plus a **realism & balance polish** pass (PR #6:
+  bunch sprints via terrain gap-compression, role-respecting breaks, multi-feature stage profiles,
+  and the terrain-specialist roster rebalance). The Phase 2 fun gate passed on the user's phone.
+- **Phase 4 (season calendar & world layer) is BUILT** on branch
+  **`claude/rider-roles-simulation-viz-j0i7e2`** (restarted from `main` after each merge) — open as
+  its Phase 4 PR, awaiting review. It adds a 14-event `SEASON_CALENDAR`, the headless season engine
+  (`src/sim/season.ts`: points + cross-race fatigue), localStorage persistence
+  (`src/state/seasonStore.ts`), and the season UI (SeasonHub + Standings/Riders/Archive world layer).
+  See the Architecture section for how it threads through the race scenes.
+- Also on this branch: **`timeTrial` renamed → `flat`** (flat-road power) and made a real secondary
+  stat on flatter terrain + a break-survival factor (the "solo strength" slot).
 - The app is deployed and playable on a phone: **https://jonvoge.github.io/bicyclesim/**
   (auto-redeploys on push to `main` or the feature branch — last push wins).
 
 ## Outstanding decisions (need the user)
 
-1. **Phase 3 review.** The Phase 3 PR is open. Per CLAUDE.md, don't roll into Phase 4 (season
-   calendar) until it's reviewed/merged. **All fatigue + conserve numbers in `tuning.ts` are
-   starting guesses** (SPEC §10) — the real balance pass is Phase 8; flag if the tour feels off
-   rather than treating them as settled.
+1. **Phase 4 review.** The Phase 4 PR is open. Per CLAUDE.md, don't roll into Phase 5 (management)
+   until it's reviewed/merged. **All new numbers in `tuning.ts` are starting guesses** (SPEC §10) —
+   the real balance pass is Phase 8.
+2. **Rest lever + rival AI are deferred** (see the Phase 4 build-plan note): the explicit
+   rest-a-rider decision and rivals using rest/effort aren't wired yet — a natural next step (Phase
+   4.x or fold into Phase 5).
 
-## Next planned work (once Phase 3 is merged)
+## Next planned work (once Phase 4 is merged)
 
-- **Phase 4 — season calendar & world layer** (SPEC §6): a ~15-race season, rival team AI (rivals
-  currently ride a fixed default sheet and always `race` — no conserve), prestige/points.
-- Deferred and waiting: time trials + TTT (their own model), points/climbing classifications
-  (only if fun).
+- **Phase 5 — management layer** (SPEC §7+): transfers/contracts, budget. Or first: the deferred
+  Phase-4 follow-ups (rest-a-rider lever, rival rest/effort AI).
+- Deferred and waiting: time trials + TTT (their own model — `flat` becomes their stat), points/
+  climbing classifications (only if fun).
 
 ## How to run / verify
 
@@ -44,7 +43,7 @@
 npm install
 npm run dev            # local dev (add: -- --host  → open the Network URL on a phone on same wifi)
 npm run build          # tsc && vite build  (must pass; CI runs it)
-npm test               # vitest, 30 tests   (CI runs it)
+npm test               # vitest, 42 tests   (CI runs it)
 npm run sim            # headless harness (tsx): stage orders, win-freq, role effect, tour GC + conserve lever
 ```
 
@@ -85,12 +84,19 @@ There is no persistent browser dep. When you need to view/record the running app
     `computeGc`, fatigue accrual/recovery, `ridersForStage` = fatigued copies; never mutates the
     global roster).
 - **`src/data`** — `types.ts`, **`tuning.ts` (EVERY magic number lives here, `UPPER_SNAKE`)**,
-  `riders/teams/stages/races.ts` (stages/races now include the two tours), `stageWeights.ts`,
+  `riders/teams/stages/races.ts` (races include the two tours + `SEASON_CALENDAR`), `stageWeights.ts`,
   `teamColors.ts`.
-- **`src/scenes`** — Boot → MainMenu (race picker) → PreRace (role sheet + tour effort/fatigue) →
-  Race (the animated view) → StageResults (stage + GC; banks the stage into the tour) → loops back
-  to PreRace for the next stage, or a final GC screen. **A one-day race is a one-stage tour** — the
-  flow is uniform; `TourState` is threaded through scene data (MainMenu `createTour` → … → back).
+- **`src/sim/season.ts`** (Phase 4, headless) — `SeasonState` over a calendar: season points +
+  fatigue that carries across events (`startEvent` seeds an event's `TourState` from carried
+  fatigue; `finishEvent` awards prestige-scaled points, recovers + carries fatigue, archives).
+- **`src/state/seasonStore.ts`** — localStorage save/load of the season (Maps (de)serialised).
+- **`src/scenes`** — **MainMenu** (title: Continue/New Season/Quick Race) → **SeasonHub** (calendar,
+  standings glance, ride-next) → PreRace (role sheet + tour effort/fatigue) → Race (animated view) →
+  StageResults (stage + GC; banks the stage into the tour, and on event completion `finishEvent` +
+  save, routing back to SeasonHub). World layer: **Standings** (rider/team), **Riders** (peloton
+  profiles), **Archive** (a past event's classification). **QuickRace** = the old one-off picker.
+  **A one-day race is a one-stage tour** — the flow is uniform; `TourState` threads through scene
+  data, plus an optional `season` (present → the season loop; absent → a quick one-off).
 - **`src/render`** — `riderRenderer.ts` (interface) + `codeDrawnRenderer.ts`. Phase 7 adds a
   SpriteRenderer behind the same interface.
 - **`src/ui`** — `button.ts`, `theme.ts`, `stageProfile.ts` (silhouette + live group markers).

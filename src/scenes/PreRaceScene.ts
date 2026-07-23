@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
-import { RIDERS_BY_ID } from '../data/riders.ts';
+import { RIDERS, RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { PLAYER_TEAM } from '../data/teams.ts';
 import type { Stage, StageType } from '../data/types.ts';
 import { baseScore } from '../sim/stageSim.ts';
 import { defaultTeamTactics } from '../sim/raceSetup.ts';
-import { computeGc, type TourState } from '../sim/standings.ts';
+import { currentRace, startEvent, type SeasonState } from '../sim/season.ts';
+import { computeGc, createTour, type TourState } from '../sim/standings.ts';
 import { ROLES, ROLES_BY_ID, type TacticRole, type TeamEffort, type TeamTactics } from '../sim/tactics.ts';
 import { Button, makeButton } from '../ui/button.ts';
 import { StageProfileView } from '../ui/stageProfile.ts';
@@ -35,6 +36,7 @@ interface RiderRow {
  */
 export class PreRaceScene extends Phaser.Scene {
   private tour!: TourState;
+  private season?: SeasonState;
   private stage!: Stage;
   private roles!: Record<string, TacticRole>;
   private effort: TeamEffort = 'race';
@@ -48,20 +50,28 @@ export class PreRaceScene extends Phaser.Scene {
     super('PreRace');
   }
 
-  create(data: { tour: TourState }): void {
+  create(data: { tour?: TourState; raceId?: string; season?: SeasonState }): void {
     this.rows = [];
     this.roleButtons = [];
     this.effortButtons = [];
     this.effort = 'race';
-    this.tour = data.tour;
+    this.season = data.season;
+    // Three ways in: mid-tour between stages (tour passed through), the start of a
+    // season event (create a tour seeded with carried season fatigue), or a quick
+    // one-off race (a fresh tour). Only create the tour once, at the event start.
+    if (data.tour) this.tour = data.tour;
+    else if (data.season) this.tour = startEvent(data.season, RIDERS);
+    else this.tour = createTour(RACES_BY_ID.get(data.raceId!)!);
+
     const { width } = this.scale;
-    const race = RACES_BY_ID.get(this.tour.raceId)!;
+    const race = this.season ? currentRace(this.season)! : RACES_BY_ID.get(this.tour.raceId)!;
     this.stage = STAGES_BY_ID.get(this.tour.stageIds[this.tour.stageIndex])!;
     const isTour = this.tour.stageIds.length > 1;
     const stageNo = this.tour.stageIndex + 1;
 
     // header
-    makeButton(this, 40, 36, '‹', () => this.scene.start('MainMenu'), { width: 40, height: 34, fontSize: 20 });
+    const back = this.season ? () => this.scene.start('SeasonHub', { season: this.season }) : () => this.scene.start('QuickRace');
+    makeButton(this, 40, 36, '‹', back, { width: 40, height: 34, fontSize: 20 });
     this.add.text(width / 2, 30, race.name, { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
     const sub = isTour ? `Stage ${stageNo}/${this.tour.stageIds.length} · ${this.stage.type} · ${this.stage.lengthKm} km` : `${this.stage.type} · ${this.stage.lengthKm} km`;
     this.add.text(width / 2, 54, sub, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
@@ -212,7 +222,7 @@ export class PreRaceScene extends Phaser.Scene {
 
   private start(): void {
     const playerTactics: TeamTactics = { teamId: PLAYER_TEAM.id, roles: { ...this.roles }, effort: this.effort };
-    this.scene.start('Race', { tour: this.tour, playerTactics });
+    this.scene.start('Race', { tour: this.tour, playerTactics, season: this.season });
   }
 }
 

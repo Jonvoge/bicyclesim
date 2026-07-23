@@ -4,8 +4,11 @@ import { RIDERS_BY_ID } from '../data/riders.ts';
 import { teamColor } from '../data/teamColors.ts';
 import { TEAMS_BY_ID } from '../data/teams.ts';
 import type { Rider, Stage, StageResult } from '../data/types.ts';
+import { RIDERS } from '../data/riders.ts';
+import { finishEvent, type SeasonState } from '../sim/season.ts';
 import { computeGc, isTourComplete, recordStageResult, type GcRow, type TourState } from '../sim/standings.ts';
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
+import { saveSeason } from '../state/seasonStore.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
@@ -13,6 +16,7 @@ const PLAYER_TEAM_ID = 't-grenoble';
 
 interface ResultsData {
   tour: TourState;
+  season?: SeasonState;
   stage: Stage;
   result: StageResult;
   stageRiders: Rider[];
@@ -33,41 +37,41 @@ export class StageResultsScene extends Phaser.Scene {
 
   create(data: ResultsData): void {
     const { width } = this.scale;
-    const { tour, stage, result } = data;
+    const { tour, stage, result, season } = data;
     const isTour = tour.stageIds.length > 1;
 
     // BANK the stage: fatigue + GC + abandons, and advance the tour.
     recordStageResult(tour, stage, result, data.tacticsByTeam, data.stageRiders);
     const complete = isTourComplete(tour);
 
+    // Event over? Bank it into the season (points + carried fatigue) and persist.
+    if (season && complete) {
+      finishEvent(season, tour, RIDERS);
+      saveSeason(season);
+    }
+
+    // terminal action: next stage, back to the season hub, or back to the menu
+    const advance = () => {
+      if (!complete) this.scene.start('PreRace', { tour, season });
+      else if (season) this.scene.start('SeasonHub', { season });
+      else this.scene.start('MainMenu');
+    };
+    const label = !complete ? 'Next stage →' : season ? 'Back to Season →' : 'Continue →';
+
     if (!isTour) {
       this.buildOneDay(width, stage, result);
-      return;
+    } else {
+      this.buildHeader(width, stage, tour, complete);
+      const gc = computeGc(tour);
+      if (complete) {
+        this.buildFinalGc(width, gc);
+      } else {
+        this.buildStageColumn(width, result, data.playerTactics, 150);
+        this.buildGcColumn(width, gc, data.playerTactics, 150);
+      }
     }
 
-    this.buildHeader(width, stage, tour, complete);
-    const gc = computeGc(tour);
-
-    if (complete) {
-      this.buildFinalGc(width, gc);
-      makeButton(this, width / 2, 812, 'Back to menu →', () => this.scene.start('MainMenu'), {
-        width: 240,
-        height: 46,
-        fontSize: 18,
-        fill: COLORS.buttonSelected,
-      });
-      return;
-    }
-
-    // mid-tour: stage result (compact) + current GC, side by side sections
-    this.buildStageColumn(width, result, data.playerTactics, 150);
-    this.buildGcColumn(width, gc, data.playerTactics, 150);
-    makeButton(this, width / 2, 812, 'Next stage →', () => this.scene.start('PreRace', { tour }), {
-      width: 240,
-      height: 46,
-      fontSize: 18,
-      fill: COLORS.buttonSelected,
-    });
+    makeButton(this, width / 2, 812, label, advance, { width: 260, height: 46, fontSize: 18, fill: COLORS.buttonSelected });
   }
 
   // --- one-day race: the full finishing order (unchanged behaviour) -----------
@@ -105,13 +109,7 @@ export class StageResultsScene extends Phaser.Scene {
       const gapLabel = e.dnf ? 'DNF' : i === 0 ? '—' : sameGroup ? 's.t.' : `+${this.fmtGap(e.timeSec - winnerTime)}`;
       this.add.text(width - 20, y, gapLabel, { fontFamily: FONT, fontSize: '13px', color: e.dnf ? '#e23b3b' : COLORS.textMuted }).setOrigin(1, 0.5);
     });
-
-    makeButton(this, width / 2, top + order.length * rowH + 30, 'Continue →', () => this.scene.start('MainMenu'), {
-      width: 240,
-      height: 46,
-      fontSize: 18,
-      fill: COLORS.buttonSelected,
-    });
+    // the terminal button is added by create() (routes to season hub or menu)
   }
 
   private buildHeader(width: number, stage: Stage, tour: TourState, complete: boolean): void {

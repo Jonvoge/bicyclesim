@@ -1,6 +1,11 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene.ts';
 import { MainMenuScene } from './scenes/MainMenuScene.ts';
+import { SeasonHubScene } from './scenes/SeasonHubScene.ts';
+import { StandingsScene } from './scenes/StandingsScene.ts';
+import { RidersScene } from './scenes/RidersScene.ts';
+import { ArchiveScene } from './scenes/ArchiveScene.ts';
+import { QuickRaceScene } from './scenes/QuickRaceScene.ts';
 import { PreRaceScene } from './scenes/PreRaceScene.ts';
 import { RaceScene } from './scenes/RaceScene.ts';
 import { StageResultsScene } from './scenes/StageResultsScene.ts';
@@ -16,7 +21,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 390,
     height: 844,
   },
-  scene: [BootScene, MainMenuScene, PreRaceScene, RaceScene, StageResultsScene],
+  scene: [BootScene, MainMenuScene, SeasonHubScene, StandingsScene, RidersScene, ArchiveScene, QuickRaceScene, PreRaceScene, RaceScene, StageResultsScene],
 };
 
 const game = new Phaser.Game(config);

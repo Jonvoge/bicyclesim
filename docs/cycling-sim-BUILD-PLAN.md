@@ -140,6 +140,24 @@ target, when to rest riders, and when to spend the team — burning out a leader
 cost you the races that matter. Keep the Phase 3 within-tour tuning as-is (marginal gains); make
 the scarcity bite at the season scale. Rival AI should use rest/effort too (not always `race`).
 
+**Built (this phase).** A 14-event `SEASON_CALENDAR` (12 one-day classics + the two tours),
+ordered like a real year. `src/sim/season.ts` (headless): a `SeasonState` carries a points tally
+and **fatigue that persists across events** with `RECOVERY_RATE` recovery on the gaps — reusing the
+Phase 3 `TourState` (an event is seeded from each rider's carried season fatigue). Points come from
+each event's final classification (one-day order / tour GC) × prestige; rider + team standings sum
+them. `src/state/seasonStore.ts` persists the season to **localStorage** so it survives a
+refresh/close (SPEC §2). UI: `SeasonHubScene` (calendar, season lead, ride-next, navigation),
+`StandingsScene` (rider/team), `RidersScene` (whole-peloton profiles with stats), `ArchiveScene`
+(past results); the season threads through PreRace → Race → StageResults, which banks each event.
+`MainMenuScene` is now a title (Continue / New Season / Quick Race); the old picker moved to
+`QuickRaceScene`.
+
+**Deferred to a follow-up (noted).** The explicit **rest-a-rider** lever (bench a rider from an
+event so they recover) isn't wired yet — the field is the whole roster each event. Season energy
+still functions (fatigue carries + the tour conserve lever), but the active "rest for a target
+race" decision, and **rival rest/effort AI**, are the next step. Emergent-rivalries view also
+deferred.
+
 ---
 
 ## Phase 5 — Management layer
