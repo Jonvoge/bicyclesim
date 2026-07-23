@@ -58,6 +58,47 @@ describe('baseScore — right stat for the right stage type', () => {
   });
 });
 
+describe('the winner pool rotates by terrain (no all-terrain stars)', () => {
+  // The commonest winner over many seeds, per stage type (full race, incl. narrative).
+  const modalWinner = (stageId: string, N = 1500): string => {
+    const s = stage(stageId);
+    const wins = new Map<string, number>();
+    for (let i = 0; i < N; i++) {
+      const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allDefaults(s), rng: new Rng(i * 2654435761 + stageId.length) });
+      const w = story.result.order[0].riderId;
+      wins.set(w, (wins.get(w) ?? 0) + 1);
+    }
+    return [...wins.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  };
+
+  it('the flat, summit and hilly days are won by three different specialists', () => {
+    const flat = modalWinner('st-sanreno');
+    const summit = modalWinner('st-lombardo');
+    const hilly = modalWinner('st-fleche');
+    expect(new Set([flat, summit, hilly]).size).toBe(3);
+    // and each is the right kind of rider for the terrain
+    expect(RIDERS_BY_ID.get(flat)!.stats.sprint).toBeGreaterThanOrEqual(88);
+    expect(RIDERS_BY_ID.get(summit)!.stats.climbing).toBeGreaterThanOrEqual(88);
+    expect(RIDERS_BY_ID.get(hilly)!.stats.puncheur).toBeGreaterThanOrEqual(84);
+  });
+
+  it('a broad field can win: 12+ different riders take a top-5 across the four terrains', () => {
+    const inTop5 = new Set<string>();
+    for (const stageId of ['st-sanreno', 'st-fleche', 'st-roubey', 'st-lombardo']) {
+      const s = stage(stageId);
+      const wins = new Map<string, number>();
+      const N = 1500;
+      for (let i = 0; i < N; i++) {
+        const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allDefaults(s), rng: new Rng(i * 40503 + stageId.length) });
+        const w = story.result.order[0].riderId;
+        wins.set(w, (wins.get(w) ?? 0) + 1);
+      }
+      [...wins.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).forEach(([id]) => inTop5.add(id));
+    }
+    expect(inTop5.size).toBeGreaterThanOrEqual(12);
+  });
+});
+
 describe('simulateStage — structural invariants', () => {
   const s = stage('st-lombardo');
 

@@ -162,6 +162,14 @@ Landed as its own follow-up after Phase 3, from user feedback:
   are opportunists. Rivals stay a free pool until Phase 4 AI.
 - **Stage profiles** rewritten as multi-feature silhouettes (a mountain day is passes + valleys, a
   hilly day is a string of punches) instead of a single bump.
+- **Winner pool widened (roster + weights).** Playtest: the same ~10 riders won across all terrain.
+  Cause was a universal ~0.3 `endurance` weight plus star riders authored elite in several
+  disciplines. Fix: sharpened `STAGE_WEIGHTS` (signature stat dominant, endurance ~0.2) **and** a
+  roster pass so the all-rounder stars (Pogar/van Aerts/van der Piel) are elite at only 1–2
+  terrains and pure specialists top their discipline. Result: distinct top-5 riders 10→14, no rider
+  in the top-5 on 3+ terrains, sprinters own the flats / climbers the summits / puncheurs the hills.
+  Locked by tests ("winner pool rotates by terrain"). `timeTrial` is now near-vestigial (only a
+  small cobbled weight) — parked until time trials return.
 
 ## Known minor issues (not blocking)
 
