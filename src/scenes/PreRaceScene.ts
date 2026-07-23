@@ -80,7 +80,13 @@ export class PreRaceScene extends Phaser.Scene {
         fontSize: 16,
       });
       this.add
-        .text(width / 2, y + 22, def.blurb, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted })
+        .text(width / 2, y + 22, def.blurb, {
+          fontFamily: FONT,
+          fontSize: '11px',
+          color: COLORS.textMuted,
+          align: 'center',
+          wordWrap: { width: 320 },
+        })
         .setOrigin(0.5)
         .setDepth(2);
       this.strategyButtons.push({ strategy: def.id, btn });

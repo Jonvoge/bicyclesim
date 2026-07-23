@@ -19,4 +19,13 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, MainMenuScene, PreRaceScene, RaceScene, StageResultsScene],
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+// Re-fit when iOS Safari shows/hides its toolbars (which changes the visible
+// viewport height). FIT then rescales the whole design to stay fully on-screen.
+const refit = (): void => {
+  game.scale.refresh();
+};
+window.addEventListener('resize', refit);
+window.addEventListener('orientationchange', refit);
+window.visualViewport?.addEventListener('resize', refit);

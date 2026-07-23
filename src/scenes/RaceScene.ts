@@ -27,6 +27,9 @@ const MAX_SPREAD = 0.5; // field never spans more than this fraction of the road
 const SPREAD_RATE = 0.62; // …and can't spread faster than this × progress (keeps everyone moving up)
 const CLUSTER_GAP_SEC = 4; // riders within this render as one bunch
 const MAX_ROWS = 12;
+const PACK_MIN = 6; // a group this big renders as a single "pack" blob, not individuals
+const MAX_BLOBS = 4;
+const SMOOTH = 0.2; // position easing for distinct riders (0..1)
 
 const frac = (n: number): number => n - Math.floor(n);
 
@@ -43,6 +46,15 @@ interface Actor {
 
 interface TickerLine {
   text: Phaser.GameObjects.Text;
+}
+
+/** A reusable "peloton" blob: an ellipse with a rider count + how many are yours. */
+interface PackBlob {
+  bg: Phaser.GameObjects.Ellipse;
+  label: Phaser.GameObjects.Text;
+  playerLabel: Phaser.GameObjects.Text;
+  tx: number;
+  ty: number;
 }
 
 export class RaceScene extends Phaser.Scene {
@@ -71,6 +83,7 @@ export class RaceScene extends Phaser.Scene {
   private profile!: StageProfileView;
   private speedBtn!: Button;
   private ticker: TickerLine[] = [];
+  private blobs: PackBlob[] = [];
 
   constructor() {
     super('Race');
@@ -79,6 +92,7 @@ export class RaceScene extends Phaser.Scene {
   create(data: { stageId: string; tactics: TeamTactics }): void {
     this.actors = [];
     this.ticker = [];
+    this.blobs = [];
     this.t = 0;
     this.speed = 1;
     this.done = false;
@@ -144,6 +158,15 @@ export class RaceScene extends Phaser.Scene {
   private buildRoad(protectedId: string): void {
     const renderer = new CodeDrawnRenderer();
     const order = this.story.result.order;
+    const yMid = (this.roadTop + this.roadBottom) / 2;
+
+    // pack blobs (created first → drawn beneath the distinct-rider glyphs)
+    for (let i = 0; i < MAX_BLOBS; i++) {
+      const bg = this.add.ellipse(0, yMid, 80, 30, COLORS.panelAlt, 0.95).setStrokeStyle(2, COLORS.stroke).setVisible(false);
+      const label = this.add.text(0, yMid, '', { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5).setVisible(false);
+      const playerLabel = this.add.text(0, yMid, '', { fontFamily: FONT, fontSize: '12px', color: '#18b39a' }).setOrigin(0, 0.5).setVisible(false);
+      this.blobs.push({ bg, label, playerLabel, tx: 0, ty: yMid });
+    }
 
     // stable pack slots so bunch positions don't flicker
     const seeds = Array.from({ length: order.length }, (_, i) => i);
@@ -243,44 +266,63 @@ export class RaceScene extends Phaser.Scene {
       }
     }
 
-    // Position each rider in a compact blob behind its cluster's front. Slots are
-    // a STABLE function of packSeed (not the frame's sort order), so riders don't
-    // jump/flicker; and the whole blob is shifted to stay on-screen so the back of
-    // the bunch never slides off the left edge.
+    // Big groups (the peloton) render as ONE smooth "pack" blob — no shuffling
+    // riders. Small groups, breakaways, attackers and dropped riders show as
+    // distinct cyclists (eased so they move smoothly).
     const headGap = clusters.length > 0 ? clusters[0].gap : 0;
     const leftBound = this.trackLeft + 4;
+    for (const b of this.blobs) {
+      b.bg.setVisible(false);
+      b.label.setVisible(false);
+      b.playerLabel.setVisible(false);
+    }
+    let bi = 0;
+
     for (const c of clusters) {
       const frontX = this.xForGap(c.gap - headGap, tPos);
       const size = c.members.length;
-      const depth = Math.min(Math.ceil(size / 2) * 8, 64); // horizontal spread, capped
-      const half = Math.min(6 + size * 1.3, 32); // vertical half-height (within road band)
+      const playerCount = c.members.filter((m) => m.a.isPlayer).length;
 
-      const placed = c.members.map((m) => {
-        const u = frac(Math.sin(m.a.packSeed * 12.9898) * 43758.5453); // stable [0,1)
-        const v = frac(Math.sin(m.a.packSeed * 78.233 + 1.7) * 43758.5453);
-        const wobble = Math.sin(time / 520 + m.a.packSeed) * 1.1;
-        return { m, x: frontX - 3 - u * depth, y: yMid + (v - 0.5) * 2 * half + wobble };
-      });
-      const minX = Math.min(...placed.map((p) => p.x));
-      const shift = minX < leftBound ? leftBound - minX : 0;
-      for (const p of placed) {
-        p.m.a.glyph.x = p.x + shift;
-        p.m.a.glyph.y = p.y;
-      }
-
-      // incidents: flash + fade when they happen
-      for (const m of c.members) {
-        const inc = m.a.story.incident;
-        if (inc && !m.a.incidentShown && tPos >= inc.t) {
-          m.a.incidentShown = true;
-          const flash = this.add.circle(m.a.glyph.x, m.a.glyph.y, 11, 0xe23b3b, 0.9);
-          this.tweens.add({ targets: flash, alpha: 0, scale: 1.9, duration: 550, onComplete: () => flash.destroy() });
-          if (inc.dnf) {
-            this.tweens.add({ targets: m.a.glyph, alpha: 0, duration: 1400, onComplete: () => (m.a.out = true) });
+      if (size >= PACK_MIN && bi < this.blobs.length) {
+        const blob = this.blobs[bi++];
+        const rx = Math.min(24 + size * 1.5, 66);
+        let cx = frontX - rx * 0.5;
+        cx = Math.max(cx, leftBound + rx);
+        cx = Math.min(cx, this.frontX - 4);
+        if (!blob.bg.visible) {
+          blob.tx = cx;
+          blob.ty = yMid;
+        } else {
+          blob.tx += (cx - blob.tx) * SMOOTH;
+          blob.ty += (yMid - blob.ty) * SMOOTH;
+        }
+        blob.bg.setPosition(blob.tx, blob.ty).setVisible(true);
+        blob.bg.scaleX = rx / 40;
+        blob.bg.setStrokeStyle(2, playerCount > 0 ? 0x18b39a : COLORS.stroke);
+        blob.label.setPosition(blob.tx, blob.ty).setText(`${size}`).setVisible(true);
+        if (playerCount > 0) {
+          blob.playerLabel.setPosition(blob.tx + rx + 6, blob.ty).setText(`◆${playerCount}`).setVisible(true);
+        }
+        for (const m of c.members) m.a.glyph.setVisible(false);
+        this.handleIncidents(c.members, tPos, blob.tx, blob.ty);
+      } else {
+        const depth = Math.min(Math.ceil(size / 2) * 9, 28);
+        const half = Math.min(6 + size * 2.4, 20);
+        for (const m of c.members) {
+          const u = frac(Math.sin(m.a.packSeed * 12.9898) * 43758.5453);
+          const v = frac(Math.sin(m.a.packSeed * 78.233 + 1.7) * 43758.5453);
+          const wob = Math.sin(time / 520 + m.a.packSeed) * 1.0;
+          const tx = Math.max(leftBound, frontX - 3 - u * depth);
+          const ty = yMid + (v - 0.5) * 2 * half + wob;
+          const g = m.a.glyph;
+          if (!g.visible) {
+            g.setVisible(true).setPosition(tx, ty);
           } else {
-            m.a.glyph.setAlpha(0.6);
+            g.x += (tx - g.x) * SMOOTH;
+            g.y += (ty - g.y) * SMOOTH;
           }
         }
+        this.handleIncidents(c.members, tPos);
       }
     }
 
@@ -290,6 +332,22 @@ export class RaceScene extends Phaser.Scene {
     const headGap2 = clusters.length > 0 ? clusters[0].gap : 0;
     const fracs = clusters.slice(0, 6).map((c) => Math.max(0, tPos - Math.min(0.16, (c.gap - headGap2) * 0.0008)));
     this.profile.setMarkers(fracs);
+  }
+
+  /** Crash/puncture drama: a red flash, and DNFs fade off the road. */
+  private handleIncidents(members: { a: Actor }[], tPos: number, atX?: number, atY?: number): void {
+    for (const m of members) {
+      const inc = m.a.story.incident;
+      if (inc && !m.a.incidentShown && tPos >= inc.t) {
+        m.a.incidentShown = true;
+        const fx = atX ?? m.a.glyph.x;
+        const fy = atY ?? m.a.glyph.y;
+        const flash = this.add.circle(fx, fy, 11, 0xe23b3b, 0.9);
+        this.tweens.add({ targets: flash, alpha: 0, scale: 1.9, duration: 550, onComplete: () => flash.destroy() });
+        if (inc.dnf) this.tweens.add({ targets: m.a.glyph, alpha: 0, duration: 1400, onComplete: () => (m.a.out = true) });
+        else m.a.glyph.setAlpha(0.6);
+      }
+    }
   }
 
   private updateGroupsStrip(clusters: { gap: number; members: { a: Actor }[] }[], tPos: number): void {

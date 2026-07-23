@@ -39,7 +39,7 @@ export const STRATEGIES: StrategyDef[] = [
   {
     id: 'BREAKAWAY',
     label: 'Attack',
-    blurb: 'Back your rider to go clear — a domestique in the morning break, or a leader attacking late.',
+    blurb: 'Back a rider to go clear — an early break or a late leader move.',
     raceTypes: ['oneDay', 'shortTour', 'grandTour'],
   },
   {

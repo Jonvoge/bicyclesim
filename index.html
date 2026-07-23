@@ -21,13 +21,18 @@
         padding: 0;
         background: #1a1a2e;
         overflow: hidden;
-        height: 100%;
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100vh; /* fallback */
+        height: 100dvh; /* fits the *visible* viewport on iOS Safari (excludes toolbars) */
         overscroll-behavior: none;
         -webkit-tap-highlight-color: transparent;
       }
       #game {
         width: 100vw;
         height: 100vh;
+        height: 100dvh;
       }
     </style>
   </head>
