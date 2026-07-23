@@ -37,12 +37,15 @@ interface RiderRow {
 export class PreRaceScene extends Phaser.Scene {
   private tour!: TourState;
   private season?: SeasonState;
+  private canRest = false; // season event start → the player may bench riders
+  private rested = new Set<string>();
   private stage!: Stage;
   private roles!: Record<string, TacticRole>;
   private effort: TeamEffort = 'race';
   private selectedRiderId!: string;
   private rows: RiderRow[] = [];
   private roleButtons: { role: TacticRole; btn: Button }[] = [];
+  private restButton?: Button;
   private effortButtons: { effort: TeamEffort; btn: Button }[] = [];
   private roleBlurb!: Phaser.GameObjects.Text;
 
@@ -54,6 +57,8 @@ export class PreRaceScene extends Phaser.Scene {
     this.rows = [];
     this.roleButtons = [];
     this.effortButtons = [];
+    this.restButton = undefined;
+    this.rested = new Set();
     this.effort = 'race';
     this.season = data.season;
     // Three ways in: mid-tour between stages (tour passed through), the start of a
@@ -62,6 +67,8 @@ export class PreRaceScene extends Phaser.Scene {
     if (data.tour) this.tour = data.tour;
     else if (data.season) this.tour = startEvent(data.season, RIDERS);
     else this.tour = createTour(RACES_BY_ID.get(data.raceId!)!);
+    // Resting is decided once, at the start of a season event (not between stages).
+    this.canRest = !!data.season && !data.tour;
 
     const { width } = this.scale;
     const race = this.season ? currentRace(this.season)! : RACES_BY_ID.get(this.tour.raceId)!;
@@ -88,7 +95,8 @@ export class PreRaceScene extends Phaser.Scene {
     this.selectedRiderId = PLAYER_TEAM.riderIds.find((id) => this.roles[id] === 'leader') ?? PLAYER_TEAM.riderIds[0];
 
     const top = isTour && this.tour.results.length > 0 ? 210 : 196;
-    this.add.text(width / 2, top - 14, 'RIDER ROLES — tap a rider, then a role', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
+    const hint = this.canRest ? 'RIDER ROLES — tap a rider, then a role or Rest' : 'RIDER ROLES — tap a rider, then a role';
+    this.add.text(width / 2, top - 14, hint, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
 
     const rowH = 40;
     PLAYER_TEAM.riderIds.forEach((id, i) => {
@@ -101,20 +109,21 @@ export class PreRaceScene extends Phaser.Scene {
       bg.on('pointerup', () => this.selectRider(id));
       this.add.text(30, y, rider.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
 
-      // fit + (in a tour) carried fatigue
+      // fit + (in the season) carried fatigue — the input to the rest decision
       this.add.text(30, y + 13, `fit ${Math.round(baseScore(rider, this.stage))}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
-      if (isTour) this.buildFatiguePip(148, y, this.tour.fatigue.get(id) ?? 0);
+      if (this.season) this.buildFatiguePip(148, y, this.tour.fatigue.get(id) ?? 0);
 
       const chip = this.add.rectangle(width - 72, y, 98, 24, COLORS.panelAlt, 1);
       const chipText = this.add.text(width - 72, y, '', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: COLORS.textDark }).setOrigin(0.5);
       this.rows.push({ id, bg, chip, chipText });
     });
 
-    // role palette
+    // role palette (+ a Rest button on season events)
     const palY = top + 18 + 6 * rowH + 6;
-    const btnW = 66;
+    const count = ROLES.length + (this.canRest ? 1 : 0);
     const gap = 6;
-    const totalW = ROLES.length * btnW + (ROLES.length - 1) * gap;
+    const btnW = Math.floor((width - 24 - (count - 1) * gap) / count);
+    const totalW = count * btnW + (count - 1) * gap;
     const startX = (width - totalW) / 2 + btnW / 2;
     ROLES.forEach((def, i) => {
       const btn = makeButton(this, startX + i * (btnW + gap), palY, def.label.split(' ')[0], () => this.assignRole(def.id), {
@@ -124,6 +133,9 @@ export class PreRaceScene extends Phaser.Scene {
       });
       this.roleButtons.push({ role: def.id, btn });
     });
+    if (this.canRest) {
+      this.restButton = makeButton(this, startX + ROLES.length * (btnW + gap), palY, 'Rest', () => this.toggleRest(), { width: btnW, height: 38, fontSize: 11 });
+    }
     this.roleBlurb = this.add
       .text(width / 2, palY + 30, '', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted, align: 'center', wordWrap: { width: 340 } })
       .setOrigin(0.5, 0);
@@ -194,7 +206,18 @@ export class PreRaceScene extends Phaser.Scene {
   }
 
   private assignRole(role: TacticRole): void {
+    this.rested.delete(this.selectedRiderId); // giving a rider a job un-rests them
     this.roles[this.selectedRiderId] = role;
+    this.refresh();
+  }
+
+  private toggleRest(): void {
+    const id = this.selectedRiderId;
+    if (this.rested.has(id)) {
+      this.rested.delete(id);
+    } else if (this.rested.size < PLAYER_TEAM.riderIds.length - 1) {
+      this.rested.add(id); // keep at least one rider in the race
+    }
     this.refresh();
   }
 
@@ -204,24 +227,43 @@ export class PreRaceScene extends Phaser.Scene {
   }
 
   private refresh(): void {
+    const GREY = 0x5a5a8e;
     for (const row of this.rows) {
+      const isRested = this.rested.has(row.id);
       const def = ROLES_BY_ID.get(this.roles[row.id] ?? 'free')!;
       const selected = row.id === this.selectedRiderId;
       row.bg.setStrokeStyle(selected ? 2 : 1, selected ? COLORS.buttonSelected : COLORS.stroke);
       row.bg.setFillStyle(selected ? COLORS.panelAlt : COLORS.panel);
-      row.chip.setFillStyle(def.color);
-      row.chipText.setText(def.label);
+      row.bg.setAlpha(isRested ? 0.55 : 1);
+      row.chip.setFillStyle(isRested ? GREY : def.color);
+      row.chipText.setText(isRested ? 'Rest' : def.label);
+      row.chipText.setColor(isRested ? COLORS.text : COLORS.textDark);
     }
+    const isRested = this.rested.has(this.selectedRiderId);
     const currentRole = this.roles[this.selectedRiderId] ?? 'free';
-    for (const { role, btn } of this.roleButtons) btn.setSelected(role === currentRole);
+    for (const { role, btn } of this.roleButtons) btn.setSelected(!isRested && role === currentRole);
+    this.restButton?.setSelected(isRested);
     for (const { effort, btn } of this.effortButtons) btn.setSelected(effort === this.effort);
-    const def = ROLES_BY_ID.get(currentRole)!;
     const name = RIDERS_BY_ID.get(this.selectedRiderId)!.name.split(' ').slice(-1)[0];
-    this.roleBlurb.setText(`${name} — ${def.label}: ${def.blurb}`);
+    if (isRested) {
+      this.roleBlurb.setText(`${name} — Resting: sits this race out and recovers for the next.`);
+    } else {
+      const def = ROLES_BY_ID.get(currentRole)!;
+      this.roleBlurb.setText(`${name} — ${def.label}: ${def.blurb}`);
+    }
   }
 
   private start(): void {
-    const playerTactics: TeamTactics = { teamId: PLAYER_TEAM.id, roles: { ...this.roles }, effort: this.effort };
+    // rested player riders don't take the start (excluded from the field), and
+    // their role no longer counts (a benched domestique gives the leader nothing)
+    const roles = { ...this.roles };
+    if (this.canRest && this.tour.starters) {
+      for (const id of this.rested) {
+        this.tour.starters.delete(id);
+        delete roles[id];
+      }
+    }
+    const playerTactics: TeamTactics = { teamId: PLAYER_TEAM.id, roles, effort: this.effort };
     this.scene.start('Race', { tour: this.tour, playerTactics, season: this.season });
   }
 }

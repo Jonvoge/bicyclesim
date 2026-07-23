@@ -22,6 +22,7 @@ export interface TourState {
   fatigue: Map<string, number>; // riderId → currentFatigue going into the next stage
   abandoned: Set<string>; // DNF'd — out of the tour and out of GC
   results: StageResult[]; // completed stages, in order
+  starters?: Set<string>; // riders who took the start (undefined = the whole field); rested riders are excluded
 }
 
 export interface GcRow {
@@ -60,11 +61,12 @@ export function isTourComplete(tour: TourState): boolean {
 
 /**
  * Rider copies for the upcoming stage: the still-racing field, each carrying the
- * fatigue they've accumulated. Abandoned riders are dropped from the start list.
+ * fatigue they've accumulated. Abandoned riders are dropped; if a start list was
+ * set (rested riders excluded), only starters take part.
  */
 export function ridersForStage(tour: TourState, allRiders: Rider[]): Rider[] {
   return allRiders
-    .filter((r) => !tour.abandoned.has(r.id))
+    .filter((r) => !tour.abandoned.has(r.id) && (!tour.starters || tour.starters.has(r.id)))
     .map((r) => ({ ...r, currentFatigue: tour.fatigue.get(r.id) ?? 0 }));
 }
 

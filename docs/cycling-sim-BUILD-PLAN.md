@@ -152,11 +152,15 @@ refresh/close (SPEC §2). UI: `SeasonHubScene` (calendar, season lead, ride-next
 `MainMenuScene` is now a title (Continue / New Season / Quick Race); the old picker moved to
 `QuickRaceScene`.
 
-**Deferred to a follow-up (noted).** The explicit **rest-a-rider** lever (bench a rider from an
-event so they recover) isn't wired yet — the field is the whole roster each event. Season energy
-still functions (fatigue carries + the tour conserve lever), but the active "rest for a target
-race" decision, and **rival rest/effort AI**, are the next step. Emergent-rivalries view also
-deferred.
+**Rest-a-rider lever (built as a follow-up).** The player can now **bench** riders from a season
+race (a "Rest" option in the pre-race role palette): rested riders don't start or score and recover
+on the sidelines, so you can save a sprinter through the mountains for the bunch days ahead. The
+peloton was deepened to **8 teams / 45 riders** first, so there's squad depth to rotate. Mechanics:
+`TourState.starters` (rested riders excluded from the field), fatigue shown on every season race,
+and a benched rider's role no longer counts toward the leader's support.
+
+**Still deferred.** **Rival rest/effort AI** (rivals always `race` the full roster) and the
+**emergent-rivalries** view — natural next steps, likely alongside Phase 5.
 
 ---
 
