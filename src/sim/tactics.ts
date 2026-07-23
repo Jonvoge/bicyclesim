@@ -1,130 +1,125 @@
 import {
-  ALL_IN_HELPER_PENALTY,
   BREAK_PERF_BONUS,
   BREAK_SIGMA_MULT,
   BREAK_TERRAIN_PENALTY,
-  CONSERVE_PENALTY,
-  LEADER_BONUS,
-  ROLE_MULTIPLIER_ALL_IN,
-  ROLE_MULTIPLIER_CONSERVE,
-  ROLE_MULTIPLIER_DEFAULT,
-  ROLE_MULTIPLIER_SPRINT,
-  SPRINT_FINISH_BONUS,
-  SPRINT_FINISH_CLIMB_PENALTY,
+  DOMESTIQUE_SUPPORT_BONUS,
+  DOMESTIQUE_SUPPORT_CAP,
+  DOMESTIQUE_WORK_PENALTY,
+  LEADER_BASE_BONUS,
+  ROLE_FATIGUE_BREAKAWAY,
+  ROLE_FATIGUE_DOMESTIQUE,
+  ROLE_FATIGUE_FREE,
+  ROLE_FATIGUE_LEADER,
+  ROLE_FATIGUE_SPRINTER,
+  SPRINTER_BONUS,
+  SPRINTER_CLIMB_PENALTY,
 } from '../data/tuning.ts';
-import type { RaceType, StageType } from '../data/types.ts';
+import type { StageType } from '../data/types.ts';
 
 /**
- * Tactics (SPEC §5.5) — a race-type-aware, data-driven strategy registry so the
- * palette widens without touching logic. The player picks a protected rider (also
- * the rider "sent up the road" for a breakaway) + a strategy valid for the race.
+ * Tactics (SPEC §5.5) — a ROLE PER RIDER, set before the stage. This replaces the
+ * old "one protected rider + one team strategy": the whole team sheet is the
+ * player's move. Roles are a data-driven registry (ROLES) so the palette can
+ * widen without touching logic.
+ *
+ *   LEADER      backed for the win; gains from every DOMESTIQUE working for him
+ *   SPRINTER    saved for a bunch kick — great on flat finishes, dropped on climbs
+ *   BREAKAWAY   sent up the road: a non-favourite joins the morning break (and
+ *               raises its survival odds); a favourite attacks late instead (§5.9)
+ *   DOMESTIQUE  works for the leader — small penalty today, real fatigue later
+ *   FREE        rides their own race, no strings
  */
 
-export type Strategy = 'PROTECT_LEADER' | 'BREAKAWAY' | 'SPRINT_FINISH' | 'CONSERVE';
+export type TacticRole = 'leader' | 'sprinter' | 'breakaway' | 'domestique' | 'free';
 
-export interface StrategyDef {
-  id: Strategy;
+export interface RoleDef {
+  id: TacticRole;
   label: string; // player-facing
+  short: string; // one letter for tight UI
   blurb: string;
-  raceTypes: RaceType[]; // where this strategy is offered
+  color: number; // chip colour in the UI
 }
 
-export const STRATEGIES: StrategyDef[] = [
-  {
-    id: 'PROTECT_LEADER',
-    label: 'Protect Leader',
-    blurb: 'Ride the whole team for your leader.',
-    raceTypes: ['oneDay', 'shortTour', 'grandTour'],
-  },
-  {
-    id: 'BREAKAWAY',
-    label: 'Attack',
-    blurb: 'Back a rider to go clear — an early break or a late leader move.',
-    raceTypes: ['oneDay', 'shortTour', 'grandTour'],
-  },
-  {
-    id: 'SPRINT_FINISH',
-    label: 'Sit in for the Sprint',
-    blurb: 'Save it and back your fast finisher in a bunch kick.',
-    raceTypes: ['oneDay'],
-  },
-  {
-    id: 'CONSERVE',
-    label: 'Conserve for GC',
-    blurb: 'Give up today to save legs for the overall.',
-    raceTypes: ['shortTour', 'grandTour'],
-  },
+export const ROLES: RoleDef[] = [
+  { id: 'leader', label: 'Leader', short: 'L', color: 0xf5c518, blurb: 'Backed for the win. Every domestique makes him stronger.' },
+  { id: 'sprinter', label: 'Sprinter', short: 'S', color: 0x2ecc71, blurb: 'Sit in and unleash him in a bunch kick. Wasted on climbs.' },
+  { id: 'breakaway', label: 'Breakaway', short: 'B', color: 0xe28f3b, blurb: 'Up the road in the morning break — the gamble. A star attacks late instead.' },
+  { id: 'domestique', label: 'Domestique', short: 'D', color: 0x4a90d9, blurb: 'Works for the leader. No result today, and tired legs tomorrow.' },
+  { id: 'free', label: 'Free role', short: 'F', color: 0x8a8ab0, blurb: 'Rides his own race — no orders, no help.' },
 ];
 
-export const STRATEGIES_BY_ID: Map<Strategy, StrategyDef> = new Map(STRATEGIES.map((s) => [s.id, s]));
+export const ROLES_BY_ID: Map<TacticRole, RoleDef> = new Map(ROLES.map((r) => [r.id, r]));
 
-export function strategiesForRaceType(type: RaceType): StrategyDef[] {
-  return STRATEGIES.filter((s) => s.raceTypes.includes(type));
-}
-
+/** A team's stage tactics: a role for each of its riders (unlisted = FREE). */
 export interface TeamTactics {
   teamId: string;
-  protectedRiderId: string;
-  strategy: Strategy;
+  roles: Record<string, TacticRole>; // riderId → role
 }
 
-/** How a strategy modifies one rider's stage performance. */
+export function roleOf(tactics: TeamTactics | undefined, riderId: string): TacticRole {
+  return tactics?.roles[riderId] ?? 'free';
+}
+
+export interface RoleCounts {
+  leaders: number;
+  domestiques: number;
+}
+
+export function roleCounts(tactics: TeamTactics | undefined): RoleCounts {
+  const counts: RoleCounts = { leaders: 0, domestiques: 0 };
+  if (!tactics) return counts;
+  for (const role of Object.values(tactics.roles)) {
+    if (role === 'leader') counts.leaders++;
+    else if (role === 'domestique') counts.domestiques++;
+  }
+  return counts;
+}
+
+/** How a role modifies one rider's stage performance. */
 export interface TacticsEffect {
   perfMod: number; // added to perfScore
   sigmaMult: number; // multiplies the form-swing sigma
-  roleMultiplier: number; // fatigue multiplier — consumed in Phase 3, exposed now
+  fatigueMult: number; // fatigue multiplier — consumed in Phase 3, exposed now
 }
 
-const NEUTRAL: TacticsEffect = { perfMod: 0, sigmaMult: 1, roleMultiplier: ROLE_MULTIPLIER_DEFAULT };
-
 const BREAK_FRIENDLY: StageType[] = ['hilly', 'mountain', 'cobbled', 'descentFinish'];
-const SPRINT_UNFRIENDLY_FOR_BREAK: StageType[] = ['flat'];
-const BUNCH_FINISH: StageType[] = ['flat', 'hilly', 'cobbled'];
+const SPRINT_CONTROLLED: StageType[] = ['flat'];
+export const BUNCH_FINISH: StageType[] = ['flat', 'hilly', 'cobbled'];
 const CLIMB_FINISH: StageType[] = ['mountain', 'summitFinish'];
 
 /**
- * Resolve the effect for a single rider given their team's tactics and the terrain.
- * `isProtected` = this rider is the one the team rides for (or sends up the road).
+ * Resolve the effect of one rider's role given the terrain and the team's role
+ * sheet. Domestique support flows to leaders (split if a team names several).
  */
-export function tacticsEffect(
-  tactics: TeamTactics | undefined,
-  isProtected: boolean,
-  stageType: StageType,
-): TacticsEffect {
-  if (!tactics) return NEUTRAL;
-
-  switch (tactics.strategy) {
-    case 'PROTECT_LEADER':
-      return isProtected
-        ? { perfMod: LEADER_BONUS, sigmaMult: 1, roleMultiplier: ROLE_MULTIPLIER_DEFAULT }
-        : { perfMod: -ALL_IN_HELPER_PENALTY, sigmaMult: 1, roleMultiplier: ROLE_MULTIPLIER_ALL_IN };
-
-    case 'BREAKAWAY': {
-      if (!isProtected) return NEUTRAL;
+export function tacticsEffect(role: TacticRole, counts: RoleCounts, stageType: StageType): TacticsEffect {
+  switch (role) {
+    case 'leader': {
+      const support = DOMESTIQUE_SUPPORT_BONUS * Math.min(counts.domestiques, DOMESTIQUE_SUPPORT_CAP);
+      return {
+        perfMod: LEADER_BASE_BONUS + support / Math.max(1, counts.leaders),
+        sigmaMult: 1,
+        fatigueMult: ROLE_FATIGUE_LEADER,
+      };
+    }
+    case 'sprinter': {
+      const perfMod = BUNCH_FINISH.includes(stageType)
+        ? SPRINTER_BONUS
+        : CLIMB_FINISH.includes(stageType)
+          ? -SPRINTER_CLIMB_PENALTY
+          : 0;
+      return { perfMod, sigmaMult: 1, fatigueMult: ROLE_FATIGUE_SPRINTER };
+    }
+    case 'breakaway': {
       const perfMod = BREAK_FRIENDLY.includes(stageType)
         ? BREAK_PERF_BONUS
-        : SPRINT_UNFRIENDLY_FOR_BREAK.includes(stageType)
+        : SPRINT_CONTROLLED.includes(stageType)
           ? -BREAK_TERRAIN_PENALTY
           : 0;
-      return { perfMod, sigmaMult: BREAK_SIGMA_MULT, roleMultiplier: ROLE_MULTIPLIER_DEFAULT };
+      return { perfMod, sigmaMult: BREAK_SIGMA_MULT, fatigueMult: ROLE_FATIGUE_BREAKAWAY };
     }
-
-    case 'SPRINT_FINISH': {
-      const perfMod = !isProtected
-        ? 0
-        : BUNCH_FINISH.includes(stageType)
-          ? SPRINT_FINISH_BONUS
-          : CLIMB_FINISH.includes(stageType)
-            ? -SPRINT_FINISH_CLIMB_PENALTY
-            : 0;
-      return { perfMod, sigmaMult: 1, roleMultiplier: ROLE_MULTIPLIER_SPRINT };
-    }
-
-    case 'CONSERVE':
-      return {
-        perfMod: isProtected ? -CONSERVE_PENALTY : 0,
-        sigmaMult: 1,
-        roleMultiplier: ROLE_MULTIPLIER_CONSERVE,
-      };
+    case 'domestique':
+      return { perfMod: -DOMESTIQUE_WORK_PENALTY, sigmaMult: 1, fatigueMult: ROLE_FATIGUE_DOMESTIQUE };
+    case 'free':
+      return { perfMod: 0, sigmaMult: 1, fatigueMult: ROLE_FATIGUE_FREE };
   }
 }

@@ -4,6 +4,7 @@ import { STAGES_BY_ID } from '../data/stages.ts';
 import { teamColor } from '../data/teamColors.ts';
 import { TEAMS_BY_ID } from '../data/teams.ts';
 import type { StageResult } from '../data/types.ts';
+import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
@@ -15,7 +16,7 @@ export class StageResultsScene extends Phaser.Scene {
     super('StageResults');
   }
 
-  create(data: { stageId: string; result: StageResult }): void {
+  create(data: { stageId: string; result: StageResult; tactics?: TeamTactics }): void {
     const { width } = this.scale;
     const stage = STAGES_BY_ID.get(data.stageId)!;
     const order = data.result.order;
@@ -53,7 +54,14 @@ export class StageResultsScene extends Phaser.Scene {
       if (isPlayer) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12);
       this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5);
       this.add.rectangle(46, y, 9, 9, col.jersey, 1);
-      this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
+      const nameText = this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
+      if (isPlayer && data.tactics) {
+        // the role the rider was given, as a coloured letter (L/S/B/D/F)
+        const def = ROLES_BY_ID.get(roleOf(data.tactics, e.riderId))!;
+        this.add
+          .text(60 + nameText.width + 6, y, def.short, { fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: `#${def.color.toString(16).padStart(6, '0')}` })
+          .setOrigin(0, 0.5);
+      }
       this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5);
       // pro convention: same group = same time → "s.t." after the first rider
       const gapLabel = e.dnf ? 'DNF' : i === 0 ? '—' : sameGroup ? 's.t.' : `+${this.fmtGap(e.timeSec - winnerTime)}`;

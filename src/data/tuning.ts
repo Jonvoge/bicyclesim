@@ -17,19 +17,22 @@ export const FATIGUE_WEIGHT = 1; // per-point penalty of currentFatigue on perfS
 export const STAMINA_FACTOR = 0.7; // how much stamina blunts across-stage fatigue gain
 export const RECOVERY_RATE = 0.6; // currentFatigue *= this between races / on rest
 
-// --- Tactics (SPEC §5.5) ---
-export const LEADER_BONUS = 6; // PROTECT_LEADER: perfScore bonus to protected rider
-export const ALL_IN_HELPER_PENALTY = 2; // PROTECT_LEADER: helpers work, don't race for themselves
-export const CONSERVE_PENALTY = 2; // CONSERVE: small perfScore penalty (protected rider)
-export const BREAK_PERF_BONUS = 3; // BREAKAWAY: bonus to the break rider on break-friendly terrain
-export const BREAK_TERRAIN_PENALTY = 2; // BREAKAWAY: penalty on bunch-sprint terrain (flat/itt)
+// --- Rider roles (SPEC §5.5) — one role per rider, set before the stage ---
+export const LEADER_BASE_BONUS = 4; // LEADER: perfScore bonus before any support
+export const DOMESTIQUE_SUPPORT_BONUS = 1.2; // LEADER: extra bonus per DOMESTIQUE working for them…
+export const DOMESTIQUE_SUPPORT_CAP = 4; // …counting at most this many domestiques
+export const DOMESTIQUE_WORK_PENALTY = 2.5; // DOMESTIQUE: they work, they don't race for themselves
+export const SPRINTER_BONUS = 5; // SPRINTER: bonus on likely bunch finishes
+export const SPRINTER_CLIMB_PENALTY = 4; // SPRINTER: dropped when the road goes up
+export const BREAK_PERF_BONUS = 3; // BREAKAWAY: bonus on break-friendly terrain
+export const BREAK_TERRAIN_PENALTY = 2; // BREAKAWAY: penalty on bunch-sprint terrain (flat)
 export const BREAK_SIGMA_MULT = 1.3; // BREAKAWAY: aggressive ride → wider form swing
-export const SPRINT_FINISH_BONUS = 5; // SPRINT_FINISH: bonus on likely bunch finishes
-export const SPRINT_FINISH_CLIMB_PENALTY = 4; // SPRINT_FINISH: dropped when the road goes up
-export const ROLE_MULTIPLIER_DEFAULT = 1; // normal fatigue accrual (Phase 3)
-export const ROLE_MULTIPLIER_ALL_IN = 1.3; // helpers' fatigue multiplier when going all-in
-export const ROLE_MULTIPLIER_SPRINT = 0.8; // team saves a little for the sprint
-export const ROLE_MULTIPLIER_CONSERVE = 0.7; // helpers' fatigue multiplier when conserving
+// Fatigue accrual multipliers per role — consumed in Phase 3, exposed now.
+export const ROLE_FATIGUE_LEADER = 1;
+export const ROLE_FATIGUE_SPRINTER = 0.8; // sat in all day, saved it for the kick
+export const ROLE_FATIGUE_BREAKAWAY = 1.2; // a day in the wind is expensive
+export const ROLE_FATIGUE_DOMESTIQUE = 1.3; // riding on the front for the leader
+export const ROLE_FATIGUE_FREE = 0.9;
 
 // --- Incidents: crashes & punctures (SPEC §5.6) ---
 export const INCIDENT_PROB = 0.02; // per rider per stage (crash OR puncture)
@@ -58,19 +61,21 @@ export const BREAK_WIN_MARGIN_SEC = 14; // if it survives, how far clear it fini
  * Whether the morning break survives is emergent, not a flat dice roll (SPEC §5.9):
  *   survive = clamp(BASE + TERRAIN·friendliness + tacticBonus, 0, MAX)
  * The break is opportunists, so it lives or dies mostly on how break-friendly the
- * course is; committing a domestique to it (BREAKAWAY on a non-favourite) helps.
+ * course is; committing riders to it (BREAKAWAY role on non-favourites) helps —
+ * per committed rider in the break, capped.
  */
 export const BREAK_SURVIVE_BASE = 0.05;
 export const BREAK_SURVIVE_TERRAIN_W = 0.32;
-export const BREAK_SURVIVE_TACTIC_BONUS = 0.16;
+export const BREAK_SURVIVE_TACTIC_BONUS = 0.16; // per committed rider in the break…
+export const BREAK_SURVIVE_TACTIC_CAP = 0.28; // …but no more than this in total
 export const BREAK_SURVIVE_MAX = 0.5;
 
 /**
  * Late attack by a favourite in the finale (SPEC §5.9). Whether one is launched,
  * and whether it sticks, both scale with how selective the terrain is — attacks
  * win on climbs, get chased down on flat roads.
- *   P(attack)  = clamp(OCCUR_BASE + selectiveness·OCCUR_TERRAIN_W, 0, 1)   (1 if the
- *                player committed their leader via BREAKAWAY)
+ *   P(attack)  = clamp(OCCUR_BASE + selectiveness·OCCUR_TERRAIN_W, 0, 1)   (1 if a
+ *                team gave a favourite the BREAKAWAY role)
  *   P(sticks)  = clamp(SUCCESS_BASE + selectiveness·W + attackerStrength·W + tacticBonus, 0, MAX)
  */
 export const LATE_ATTACK_OCCUR_BASE = 0.15;

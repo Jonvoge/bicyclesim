@@ -205,35 +205,31 @@ The endurance/stamina split is intentional: endurance is *this stage*, stamina i
 tour*. Overlaps between the offensive stats (a strong time-triallist is often a strong climber)
 are fine and expected — they emerge from how riders are authored, not from the model.
 
-### 5.5 Tactics (`tactics.ts`)
+### 5.5 Tactics: a role per rider (`tactics.ts`)
 
-Before each stage the player picks **two things**:
+Before each stage the player fills in a **role sheet** — one role for each rider on the team
+(pre-filled with a sensible default so a quick player can just hit START). Roles are a
+**data-driven registry** (`ROLES`) with player-facing labels, blurbs and chip colours, so the
+palette is easy to widen without touching logic.
 
-1. **Protected rider** — the id the team rides for that day (also the rider "sent up the road"
-   when the strategy is a breakaway).
-2. **Strategy** — chosen from a **race-type-aware** set (a strategy only appears when it makes
-   sense for that kind of race). Strategies are a **data-driven registry** (`STRATEGIES`), each
-   declaring which `RaceType`s it applies to, its player-facing blurb, and its effects — so the
-   palette is easy to widen without touching logic.
+| Role | Idea | Effect |
+|---|---|---|
+| LEADER | Backed for the win | `+LEADER_BASE_BONUS` (≈ +4) **plus** `+DOMESTIQUE_SUPPORT_BONUS` (≈ +1.2) per DOMESTIQUE on the sheet (counting at most `DOMESTIQUE_SUPPORT_CAP`, split if several leaders are named) |
+| SPRINTER | Sit in, save it for the kick | `+SPRINTER_BONUS` on likely bunch finishes (flat/hilly/cobbled), penalty if the climbs drop them (mountain/summitFinish); fatigueMult 0.8 |
+| BREAKAWAY | Sent up the road — the gamble | a *non-favourite* is guaranteed into the **morning break** and raises its survival odds (per committed rider, capped — §5.9); a *favourite* launches a committed **late attack** instead. `+BREAK_PERF_BONUS` on break-friendly terrain, small penalty on flat; wider σ; fatigueMult 1.2 |
+| DOMESTIQUE | Works for the leader | small self-penalty (−`DOMESTIQUE_WORK_PENALTY`) — the work flows to the leader's bonus above; fatigueMult 1.3 (the bill arrives in Phase 3) |
+| FREE | Rides his own race | neutral; fatigueMult 0.9 |
 
-**One-day races** (`oneDay`) offer:
+Fatigue multipliers are exposed now and consumed in **Phase 3** — that's when spending five
+domestiques on one day starts costing the rest of the week, and a team-level "conserve for GC"
+lever returns as part of the stage-race layer.
 
-| Strategy | Idea | Protected rider | Other selected riders |
-|---|---|---|---|
-| PROTECT_LEADER | Ride for your leader | `+LEADER_BONUS` (≈ +6) to perfScore | roleMultiplier 1.3 (more fatigue), small self-penalty (−2) |
-| BREAKAWAY (label: "Attack") | Back your rider to go clear | a *domestique* joins the morning break (raising its survival odds); a *leader* attacks late in the finale instead (§5.9). `+BREAK_PERF_BONUS` on break-friendly terrain, small penalty on flat; wider σ | roleMultiplier 1.0 |
-| SPRINT_FINISH | Sit in, save it for the kick | `+SPRINT_FINISH_BONUS` on likely bunch finishes (flat/hilly/cobbled), penalty if the climbs drop them (mountain/summitFinish) | roleMultiplier 0.8 (a little saved) |
+The trade-off *is* the game: stacking domestiques behind a leader wins today and costs
+tomorrow; a gambled breakaway can steal a race a stronger team should have won. A weaker team
+can occasionally out-tactic a stronger one — that's the giant-killing drama.
 
-**Stage races** (`shortTour` / `grandTour`, Phase 3) reuse `PROTECT_LEADER` + `BREAKAWAY` and
-add:
-
-| Strategy | Idea | Protected rider | Other selected riders |
-|---|---|---|---|
-| CONSERVE | Save today for the GC | no bonus, small penalty (−2) | roleMultiplier 0.7 (less fatigue) — saving for later |
-
-The trade-off *is* the game: spending the team today for a leader costs stamina tomorrow; a
-gambled breakaway can steal a race a stronger team should have won. A weaker team can
-occasionally out-tactic a stronger one — that's the giant-killing drama.
+Rival teams ride a simple default sheet until Phase 4 (best-suited rider leads, a genuine fast
+finisher gets SPRINTER on bunch terrain, everyone else works).
 
 ### 5.6 Incidents: crashes & punctures (`tuning.ts`)
 

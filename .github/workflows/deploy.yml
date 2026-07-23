@@ -7,6 +7,7 @@ on:
     branches:
       - main
       - claude/phase-2-race-presentation
+      - claude/rider-roles-simulation-viz-j0i7e2
   workflow_dispatch:
 
 permissions:

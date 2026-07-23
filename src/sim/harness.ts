@@ -4,18 +4,20 @@
  * Run with:  npm run sim
  *
  * Prints finishing orders for each stage, shows that the right specialist wins
- * the right stage type, that results vary run-to-run, and that tactics visibly
- * change outcomes. This is the "eyeball the maths before any UI" tool (SPEC §5).
+ * the right stage type, that results vary run-to-run, and that rider roles
+ * visibly change outcomes. This is the "eyeball the maths before any UI" tool
+ * (SPEC §5).
  */
 
 import { RACES } from '../data/races.ts';
 import { RIDERS, RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
-import { TEAMS, TEAMS_BY_ID } from '../data/teams.ts';
+import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
 import type { Stage, StageResult } from '../data/types.ts';
 import { Rng } from './rng.ts';
-import { baseScore, simulateStage } from './stageSim.ts';
-import type { Strategy, TeamTactics } from './tactics.ts';
+import { simulateStage } from './stageSim.ts';
+import { bestSuitedRider, buildTacticsMap, defaultTeamTactics } from './raceSetup.ts';
+import type { TacticRole, TeamTactics } from './tactics.ts';
 
 function teamName(riderId: string): string {
   const teamId = RIDERS_BY_ID.get(riderId)?.teamId;
@@ -42,24 +44,16 @@ function fmtGap(sec: number): string {
   return m > 0 ? `+${m}:${String(ss).padStart(2, '0')}` : `+${ss}s`;
 }
 
-/**
- * Rivals auto-race: each rival team protects its best-suited rider for the stage
- * and goes PROTECT_LEADER. (A placeholder; proper rival AI is Phase 4.)
- */
-function rivalTactics(stage: Stage): TeamTactics[] {
-  return TEAMS.filter((t) => !t.isPlayer).map((team) => {
-    const best = team.riderIds
-      .map((id) => RIDERS_BY_ID.get(id)!)
-      .sort((a, b) => baseScore(b, stage) - baseScore(a, stage))[0];
-    return { teamId: team.id, protectedRiderId: best.id, strategy: 'PROTECT_LEADER' as Strategy };
-  });
+/** The player's default role sheet for a stage (same default the UI pre-fills). */
+function playerDefault(stage: Stage): TeamTactics {
+  return defaultTeamTactics(PLAYER_TEAM, stage);
 }
 
-function tacticsMap(stage: Stage, player: TeamTactics): Map<string, TeamTactics> {
-  const map = new Map<string, TeamTactics>();
-  map.set(player.teamId, player);
-  for (const t of rivalTactics(stage)) map.set(t.teamId, t);
-  return map;
+/** Player sheet with every rider on one role except a named leader setup. */
+function playerSheet(roles: Record<string, TacticRole>): TeamTactics {
+  const sheet: Record<string, TacticRole> = {};
+  for (const id of PLAYER_TEAM.riderIds) sheet[id] = roles[id] ?? 'free';
+  return { teamId: PLAYER_TEAM.id, roles: sheet };
 }
 
 function printResult(stage: Stage, result: StageResult, topN = 10): void {
@@ -77,25 +71,12 @@ function printResult(stage: Stage, result: StageResult, topN = 10): void {
   });
 }
 
-/** Player protects their strongest rider for the stage. */
-function playerProtected(stage: Stage): string {
-  const playerTeam = TEAMS.find((t) => t.isPlayer)!;
-  return playerTeam.riderIds
-    .map((id) => RIDERS_BY_ID.get(id)!)
-    .sort((a, b) => baseScore(b, stage) - baseScore(a, stage))[0].id;
-}
-
 // --- 1. One representative run per stage --------------------------------------
 console.log('\n########## SINGLE RUN PER STAGE ##########');
 for (const race of RACES) {
   const stage = STAGES_BY_ID.get(race.stageIds[0])!;
-  const player: TeamTactics = {
-    teamId: 't-grenoble',
-    protectedRiderId: playerProtected(stage),
-    strategy: 'PROTECT_LEADER',
-  };
   const rng = new Rng(1234 + stage.name.length);
-  const result = simulateStage({ stage, riders: RIDERS, tacticsByTeam: tacticsMap(stage, player), rng });
+  const result = simulateStage({ stage, riders: RIDERS, tacticsByTeam: buildTacticsMap(stage, playerDefault(stage)), rng });
   printResult(stage, result);
 }
 
@@ -107,13 +88,8 @@ for (const race of RACES) {
   const N = 1000;
   const wins = new Map<string, number>();
   for (let i = 0; i < N; i++) {
-    const player: TeamTactics = {
-      teamId: 't-grenoble',
-      protectedRiderId: playerProtected(stage),
-      strategy: 'PROTECT_LEADER',
-    };
     const rng = new Rng(i * 2654435761);
-    const result = simulateStage({ stage, riders: RIDERS, tacticsByTeam: tacticsMap(stage, player), rng });
+    const result = simulateStage({ stage, riders: RIDERS, tacticsByTeam: buildTacticsMap(stage, playerDefault(stage)), rng });
     const w = result.order[0].riderId;
     wins.set(w, (wins.get(w) ?? 0) + 1);
   }
@@ -125,28 +101,33 @@ for (const race of RACES) {
   console.log('');
 }
 
-// --- 3. Tactics visibly change outcomes ---------------------------------------
-console.log('\n########## TACTICS EFFECT ##########');
+// --- 3. Rider roles visibly change outcomes -----------------------------------
+console.log('\n########## ROLES EFFECT ##########');
 console.log("Player star's average finishing position on the summit finish,");
-console.log('under each strategy (500 runs, same seeds across strategies):\n');
+console.log('under different role sheets (500 runs, same seeds across sheets):\n');
 {
   const stage = STAGES_BY_ID.get('st-lombardo')!;
-  const star = playerProtected(stage);
-  const strategies: Strategy[] = ['PROTECT_LEADER', 'BREAKAWAY', 'SPRINT_FINISH', 'CONSERVE'];
-  for (const strategy of strategies) {
+  const star = bestSuitedRider(PLAYER_TEAM.riderIds, stage);
+  const others = PLAYER_TEAM.riderIds.filter((id) => id !== star);
+  const sheets: [string, TeamTactics][] = [
+    ['leader + 5 domestiques', playerSheet({ [star]: 'leader', ...Object.fromEntries(others.map((id) => [id, 'domestique'])) })],
+    ['leader, others free', playerSheet({ [star]: 'leader' })],
+    ['star on breakaway', playerSheet({ [star]: 'breakaway' })],
+    ['everyone free', playerSheet({})],
+  ];
+  for (const [label, sheet] of sheets) {
     const N = 500;
     let sumPos = 0;
     let winCount = 0;
     for (let i = 0; i < N; i++) {
-      const player: TeamTactics = { teamId: 't-grenoble', protectedRiderId: star, strategy };
       const rng = new Rng(i * 40503 + 7);
-      const result = simulateStage({ stage, riders: RIDERS, tacticsByTeam: tacticsMap(stage, player), rng });
+      const result = simulateStage({ stage, riders: RIDERS, tacticsByTeam: buildTacticsMap(stage, sheet), rng });
       const pos = result.order.findIndex((e) => e.riderId === star) + 1;
       sumPos += pos;
       if (pos === 1) winCount++;
     }
     console.log(
-      `    ${strategy.padEnd(14)} avg finish ${(sumPos / N).toFixed(2).padStart(5)}   ` +
+      `    ${label.padEnd(24)} avg finish ${(sumPos / N).toFixed(2).padStart(5)}   ` +
         `win rate ${((winCount / N) * 100).toFixed(1)}%   (${riderName(star)})`,
     );
   }
