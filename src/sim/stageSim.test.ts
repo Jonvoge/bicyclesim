@@ -58,6 +58,47 @@ describe('baseScore — right stat for the right stage type', () => {
   });
 });
 
+describe('the winner pool rotates by terrain (no all-terrain stars)', () => {
+  // The commonest winner over many seeds, per stage type (full race, incl. narrative).
+  const modalWinner = (stageId: string, N = 1500): string => {
+    const s = stage(stageId);
+    const wins = new Map<string, number>();
+    for (let i = 0; i < N; i++) {
+      const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allDefaults(s), rng: new Rng(i * 2654435761 + stageId.length) });
+      const w = story.result.order[0].riderId;
+      wins.set(w, (wins.get(w) ?? 0) + 1);
+    }
+    return [...wins.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  };
+
+  it('the flat, summit and hilly days are won by three different specialists', () => {
+    const flat = modalWinner('st-sanreno');
+    const summit = modalWinner('st-lombardo');
+    const hilly = modalWinner('st-fleche');
+    expect(new Set([flat, summit, hilly]).size).toBe(3);
+    // and each is the right kind of rider for the terrain
+    expect(RIDERS_BY_ID.get(flat)!.stats.sprint).toBeGreaterThanOrEqual(88);
+    expect(RIDERS_BY_ID.get(summit)!.stats.climbing).toBeGreaterThanOrEqual(88);
+    expect(RIDERS_BY_ID.get(hilly)!.stats.puncheur).toBeGreaterThanOrEqual(84);
+  });
+
+  it('a broad field can win: 12+ different riders take a top-5 across the four terrains', () => {
+    const inTop5 = new Set<string>();
+    for (const stageId of ['st-sanreno', 'st-fleche', 'st-roubey', 'st-lombardo']) {
+      const s = stage(stageId);
+      const wins = new Map<string, number>();
+      const N = 1500;
+      for (let i = 0; i < N; i++) {
+        const story = buildRaceStory({ stage: s, riders: RIDERS, tacticsByTeam: allDefaults(s), rng: new Rng(i * 40503 + stageId.length) });
+        const w = story.result.order[0].riderId;
+        wins.set(w, (wins.get(w) ?? 0) + 1);
+      }
+      [...wins.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).forEach(([id]) => inTop5.add(id));
+    }
+    expect(inTop5.size).toBeGreaterThanOrEqual(12);
+  });
+});
+
 describe('simulateStage — structural invariants', () => {
   const s = stage('st-lombardo');
 
@@ -232,6 +273,46 @@ describe('race narrative layer (SPEC §5.9)', () => {
       if (story.breakIds.includes('vm-vinge')) inBreak++;
     }
     expect(inBreak / N).toBeLessThan(0.05);
+  });
+
+  it('a flat stage is usually a bunch sprint: the peloton arrives together', () => {
+    const flat = stage('st-sanreno');
+    let sprints = 0;
+    let leadSum = 0;
+    const N = 600;
+    for (let i = 0; i < N; i++) {
+      const story = buildRaceStory({ stage: flat, riders: RIDERS, tacticsByTeam: allDefaults(flat), rng: new Rng(i * 2654435761 + 3) });
+      if (story.shape === 'sprint') sprints++;
+      leadSum += story.groups[0]?.ids.length ?? 0;
+    }
+    expect(sprints / N).toBeGreaterThan(0.6); // most flat days end in a bunch kick
+    expect(leadSum / N).toBeGreaterThan(10); // …with a big lead group, not a handful
+  });
+
+  it('a summit finish shatters the field: no bunch sprint, tiny lead group', () => {
+    const summit = stage('st-lombardo');
+    let sprints = 0;
+    let leadSum = 0;
+    const N = 400;
+    for (let i = 0; i < N; i++) {
+      const story = buildRaceStory({ stage: summit, riders: RIDERS, tacticsByTeam: allDefaults(summit), rng: new Rng(i * 40503 + 9) });
+      if (story.shape === 'sprint') sprints++;
+      leadSum += story.groups[0]?.ids.length ?? 0;
+    }
+    expect(sprints / N).toBeLessThan(0.05);
+    expect(leadSum / N).toBeLessThan(4);
+  });
+
+  it('respects the role sheet: a player DOMESTIQUE is not swept into the morning break', () => {
+    const s2 = stage('st-fleche'); // break-friendly hilly day
+    const sheet = playerSheet({ 'gr-vance': 'domestique', 'gr-berg': 'domestique' });
+    let inBreak = 0;
+    const N = 1000;
+    for (let i = 0; i < N; i++) {
+      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: withPlayer(s2, sheet), rng: new Rng(i * 7919 + 5) });
+      if (story.breakIds.includes('gr-vance') || story.breakIds.includes('gr-berg')) inBreak++;
+    }
+    expect(inBreak).toBe(0); // a working rider never rides into the break
   });
 
   it('punctures never cause an abandon; crashes rarely do', () => {

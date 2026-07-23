@@ -149,3 +149,22 @@ export const FINALE_T_MAX = 0.93;
 // --- Result → times (SPEC §5.7) ---
 export const REFERENCE_SPEED_KMH = 42; // winner's average speed → base time
 export const GAP_SPREAD = 1.5; // seconds of gap per point of perfScore difference
+
+/**
+ * Terrain compresses (or spreads) the finishing field. On a flat day the whole
+ * peloton rolls in together — a bunch sprint — so ability differences barely open
+ * time gaps; on a summit finish the climbers ride everyone off their wheel and the
+ * field shatters. This multiplies the perf-derived gap (SPEC §5.7): near-0 on flat
+ * → one big same-time bunch, ~1 on a summit → the full spread. Real time losses
+ * (crashes, a break's winning margin) are added separately and are NOT compressed.
+ * A happy side effect: flat/rolling stages barely move GC, so the classification
+ * is decided in the mountains — where fresh vs. tired legs matters most.
+ */
+export const GAP_COMPRESSION_BY_TYPE: Record<string, number> = {
+  flat: 0.12,
+  cobbled: 0.42,
+  hilly: 0.5,
+  descentFinish: 0.58,
+  mountain: 0.85,
+  summitFinish: 1.0,
+};

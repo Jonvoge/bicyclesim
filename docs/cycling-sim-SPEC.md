@@ -167,15 +167,21 @@ Each type is a weight vector over the *base* stats. Weights sum to 1. `stamina` 
 
 | Type | climbing | timeTrial | sprint | puncheur | endurance |
 |---|---|---|---|---|---|
-| flat | 0.05 | – | 0.55 | 0.10 | 0.30 |
-| hilly | 0.15 | – | 0.15 | 0.40 | 0.30 |
-| mountain | 0.55 | – | – | 0.10 | 0.35 |
-| summitFinish | 0.65 | – | – | 0.05 | 0.30 |
-| descentFinish | 0.40 | – | 0.10 | 0.25 | 0.25 |
-| cobbled | – | 0.10 | 0.20 | 0.35 | 0.35 |
+| flat | 0.05 | – | 0.66 | 0.11 | 0.18 |
+| hilly | 0.14 | – | 0.14 | 0.52 | 0.20 |
+| mountain | 0.66 | – | – | 0.12 | 0.22 |
+| summitFinish | 0.75 | – | 0.07 | – | 0.18 |
+| descentFinish | 0.46 | – | 0.12 | 0.24 | 0.18 |
+| cobbled | – | 0.12 | 0.22 | 0.44 | 0.22 |
 
-*(These are starting values. Expect to tune them once you can watch races — flagged as
-uncertain. `itt`/`ttt` rows removed — time trials are deferred, see §4.)*
+The **signature stat dominates** each terrain so specialists own their day; `endurance` is a
+lighter shared engine (~0.2) rather than a universal ~0.3 that let the best all-rounders float to
+the top on every terrain (playtest: the winner pool was too narrow). Paired with a **roster** where
+the star all-rounders are elite at only one or two disciplines (§4/`riders.ts`), this rotates who
+wins by terrain — pure sprinters take the flats, pure climbers the summits, puncheurs the hills.
+
+*(Still starting values, flagged uncertain — real balance is Phase 8. `itt`/`ttt` rows removed —
+time trials deferred, see §4; `timeTrial` therefore survives only as a small cobbled weight.)*
 
 ### 5.3 Daily form swing (`form.ts`)
 
@@ -243,7 +249,13 @@ race radio. Surfaced from **Phase 2** as visible drama rather than waiting for P
 ### 5.7 Result → times
 
 - Winner base time = `lengthKm / REFERENCE_SPEED_KMH * 3600`.
-- Gaps derived from `perfScore` differences × `GAP_SPREAD` (seconds per point).
+- Gaps derived from `perfScore` differences × `GAP_SPREAD` (seconds per point), **× a terrain
+  compression** (`GAP_COMPRESSION_BY_TYPE`). This is what makes a **bunch sprint** a bunch sprint:
+  on a flat day the compression is small (~0.12), so ability differences barely open time and the
+  whole peloton rolls in on one time; on a summit finish it's ~1.0, so the climbers ride everyone
+  off and the field shatters. Real time losses (crashes, a break's winning margin) are added
+  separately and are **not** compressed. Consequence: flat/rolling stages barely move GC — the
+  classification is decided in the mountains, where fresh vs. tired legs matters most.
 - **Finish groups (pro convention):** finishers are clustered — a rider within
   `GROUP_GAP_THRESHOLD_SEC` of the rider ahead joins their group, and **everyone in a group
   gets the same time** (shown as `s.t.` after the first rider). The threshold is terrain-aware:

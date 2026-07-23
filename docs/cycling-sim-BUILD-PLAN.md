@@ -131,6 +131,15 @@ final overall-classification screen. **All fatigue/conserve numbers are starting
 **Acceptance:** you can play a full season, see where you rank, and browse the wider world.
 **Out of scope:** signing riders, training, ageing (still fixed rosters).
 
+**Energy as a season-long resource (playtest ask, decided for this phase).** In Phase 3 the
+conserve lever is only a marginal in-tour edge — you don't *need* it to win a single tour. That's
+by design: energy's real home is the **season**. Here, carry fatigue **across races** with
+recovery on the gaps between them (`RECOVERY_RATE` already exists, unused until now), so a team
+can't ride every rider flat-out in all ~15 races. The strategic layer becomes: pick which races to
+target, when to rest riders, and when to spend the team — burning out a leader mid-season should
+cost you the races that matter. Keep the Phase 3 within-tour tuning as-is (marginal gains); make
+the scarcity bite at the season scale. Rival AI should use rest/effort too (not always `race`).
+
 ---
 
 ## Phase 5 — Management layer

@@ -1,4 +1,5 @@
 import { RIDERS_BY_ID } from '../data/riders.ts';
+import { TEAMS_BY_ID } from '../data/teams.ts';
 import {
   BREAK_FRIENDLINESS,
   BREAK_MAX_LEAD_SEC_MAX,
@@ -151,15 +152,22 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   // riders given the BREAKAWAY role: non-favourites join the morning break,
   // favourites are saved for a committed late attack instead (§5.9)
   const committed = new Set<string>();
-  for (const t of input.tacticsByTeam.values()) {
+  // riders with a job for the day (leader/sprinter/domestique) don't ride into the
+  // morning break — respect the player's role sheet so a domestique isn't randomly
+  // swept up the road. Rivals have no real tactics yet (Phase 4), so they stay a
+  // free opportunist pool.
+  const spokenFor = new Set<string>();
+  for (const [teamId, t] of input.tacticsByTeam) {
+    const isPlayerTeam = TEAMS_BY_ID.get(teamId)?.isPlayer ?? false;
     for (const [riderId, role] of Object.entries(t.roles)) {
       if (role === 'breakaway') committed.add(riderId);
+      else if (isPlayerTeam && (role === 'leader' || role === 'sprinter' || role === 'domestique')) spokenFor.add(riderId);
     }
   }
 
   // --- morning break: opportunists ONLY (favourites save it for later) --------
   const size = BREAK_MIN_SIZE + rng.int(BREAK_MAX_SIZE - BREAK_MIN_SIZE + 1);
-  const opportunistPool = byPerfDesc.map((s) => s.riderId).filter((id) => !favourites.has(id));
+  const opportunistPool = byPerfDesc.map((s) => s.riderId).filter((id) => !favourites.has(id) && !spokenFor.has(id));
   const committedOpportunists = [...committed].filter((id) => !favourites.has(id));
   const shuffled = opportunistPool.filter((id) => !committedOpportunists.includes(id));
   for (let i = shuffled.length - 1; i > 0; i--) {

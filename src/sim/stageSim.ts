@@ -1,5 +1,5 @@
 import { STAGE_WEIGHTS } from '../data/stageWeights.ts';
-import { FATIGUE_WEIGHT, GAP_SPREAD, REFERENCE_SPEED_KMH } from '../data/tuning.ts';
+import { FATIGUE_WEIGHT, GAP_COMPRESSION_BY_TYPE, GAP_SPREAD, REFERENCE_SPEED_KMH } from '../data/tuning.ts';
 import type { BaseStatKey, Rider, Stage, StageResult, StageResultEntry } from '../data/types.ts';
 import { drawFormSwing } from './form.ts';
 import type { Rng } from './rng.ts';
@@ -70,9 +70,11 @@ export function perfToResult(
 ): StageResult {
   const winnerTimeSec = (stage.lengthKm / REFERENCE_SPEED_KMH) * 3600;
   const topPerf = scored.reduce((m, s) => Math.max(m, s.perfScore), -Infinity);
+  // terrain decides how far the field spreads: flat → bunch, summit → shattered
+  const compression = GAP_COMPRESSION_BY_TYPE[stage.type] ?? 1;
 
   const entries: StageResultEntry[] = scored.map((s) => {
-    const gap = Math.max(0, (topPerf - s.perfScore) * GAP_SPREAD);
+    const gap = Math.max(0, (topPerf - s.perfScore) * GAP_SPREAD * compression);
     const penalty = timePenalties.get(s.riderId) ?? 0;
     return {
       riderId: s.riderId,
