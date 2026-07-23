@@ -159,8 +159,15 @@ peloton was deepened to **8 teams / 45 riders** first, so there's squad depth to
 `TourState.starters` (rested riders excluded from the field), fatigue shown on every season race,
 and a benched rider's role no longer counts toward the leader's support.
 
-**Still deferred.** **Rival rest/effort AI** (rivals always `race` the full roster) and the
-**emergent-rivalries** view — natural next steps, likely alongside Phase 5.
+**Rival resting AI (built).** Rivals now manage their squads like the player: `src/sim/rivalAI.ts`
+benches a rider who is both poorly suited to today's race (can't contest it) AND carrying fatigue,
+to save them for races they suit — applied centrally in `startEvent` so the UI and headless season
+agree. Over a full season this fires sensibly (e.g. sprinters sit out summit finishes once tired;
+~45 rests across the 14-event calendar), keeping rival stars fresher for their targets so the
+standings are a real contest, not a reward for the player being the only one who rotates a squad.
+
+**Still deferred.** Rival **effort** (conserving on a tour's non-GC stages) and the
+**emergent-rivalries** view — minor, likely alongside Phase 5.
 
 ---
 

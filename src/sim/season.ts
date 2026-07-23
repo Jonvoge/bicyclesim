@@ -1,6 +1,8 @@
 import { RACES_BY_ID } from '../data/races.ts';
+import { STAGES_BY_ID } from '../data/stages.ts';
 import { RECOVERY_RATE, SEASON_EVENT_POINTS } from '../data/tuning.ts';
 import type { Race, Rider } from '../data/types.ts';
+import { rivalRestSet } from './rivalAI.ts';
 import { computeGc, createTour, type GcRow, type TourState } from './standings.ts';
 
 /**
@@ -57,6 +59,10 @@ export function startEvent(season: SeasonState, startList: Rider[]): TourState {
   const tour = createTour(race);
   tour.starters = new Set(startList.map((r) => r.id));
   for (const rider of startList) tour.fatigue.set(rider.id, season.fatigue.get(rider.id) ?? 0);
+  // rivals rest tired, ill-suited riders (the player's own rests are applied by the
+  // caller, who narrows tour.starters after this). Based on the event's first stage.
+  const stage = STAGES_BY_ID.get(race.stageIds[0])!;
+  for (const id of rivalRestSet(season.fatigue, stage)) tour.starters.delete(id);
   return tour;
 }
 

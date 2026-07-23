@@ -23,9 +23,10 @@
 
 1. **Roster-deepening PR review.** Open, awaiting review. **All rider stats + `tuning.ts` numbers
    are starting guesses** (SPEC §10) — the real balance pass is Phase 8.
-2. **Rest-a-rider lever is now built** (bench riders from a season race via a "Rest" option in the
-   pre-race palette; `TourState.starters` excludes them; they recover). **Still deferred:** rival
-   rest/effort AI (rivals always race the full roster) and the emergent-rivalries view.
+2. **Rest-a-rider lever + rival resting AI are now built.** Player benches riders via a "Rest"
+   option in the pre-race palette; rivals do the same automatically (`src/sim/rivalAI.ts` →
+   `startEvent`): tired, ill-suited riders sit out to save for races they suit. **Still deferred:**
+   rival *effort* (conserve on a tour's non-GC stages) and the emergent-rivalries view.
 
 ## Next planned work (once Phase 4 is merged)
 
