@@ -7,7 +7,7 @@
 
 export type StatKey =
   | 'climbing'
-  | 'timeTrial'
+  | 'flat' // flat-road power / engine (rouleur, breakaway, cobbles; the eventual TT stat)
   | 'sprint'
   | 'puncheur'
   | 'endurance'
@@ -15,7 +15,7 @@ export type StatKey =
   | 'consistency';
 
 /** The offensive stats that stage weightings distribute over (SPEC §5.2). */
-export type BaseStatKey = 'climbing' | 'timeTrial' | 'sprint' | 'puncheur' | 'endurance';
+export type BaseStatKey = 'climbing' | 'flat' | 'sprint' | 'puncheur' | 'endurance';
 
 export interface Rider {
   id: string;

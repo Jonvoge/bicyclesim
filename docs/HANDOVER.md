@@ -168,8 +168,13 @@ Landed as its own follow-up after Phase 3, from user feedback:
   roster pass so the all-rounder stars (Pogar/van Aerts/van der Piel) are elite at only 1–2
   terrains and pure specialists top their discipline. Result: distinct top-5 riders 10→14, no rider
   in the top-5 on 3+ terrains, sprinters own the flats / climbers the summits / puncheurs the hills.
-  Locked by tests ("winner pool rotates by terrain"). `timeTrial` is now near-vestigial (only a
-  small cobbled weight) — parked until time trials return.
+  Locked by tests ("winner pool rotates by terrain").
+- **`timeTrial` renamed → `flat`** (flat-road power / engine). It was near-vestigial after TTs were
+  deferred; now it's a real secondary stat on flatter terrain (flat 0.14 / cobbled 0.26 / descent
+  0.14) and feeds **break survival** (a break of strong engines stays away more — `BREAK_SURVIVE_FLAT_*`
+  in tuning), so a rouleur can win from the move. `sprint` still decides a bunch kick, so sprinters
+  keep winning flat finishes (verified: sprinters still top the flats, bunch-sprint rate ~79%). When
+  TT stages return they'll weight `flat` heavily — it *is* the TT stat, just no longer parked.
 
 ## Known minor issues (not blocking)
 

@@ -10,6 +10,9 @@ import {
   BREAK_PEAK_T_MIN,
   BREAK_SURVIVE_BASE,
   BREAK_SURVIVE_MAX,
+  BREAK_SURVIVE_FLAT_CAP,
+  BREAK_SURVIVE_FLAT_PIVOT,
+  BREAK_SURVIVE_FLAT_W,
   BREAK_SURVIVE_TACTIC_BONUS,
   BREAK_SURVIVE_TACTIC_CAP,
   BREAK_SURVIVE_TERRAIN_W,
@@ -206,11 +209,23 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
 
   // --- does the morning break survive? ---------------------------------------
   const committedInBreak = breakIds.filter((id) => committed.has(id)).length;
-  const breakSurviveChance = Math.min(
-    BREAK_SURVIVE_MAX,
-    BREAK_SURVIVE_BASE +
-      BREAK_SURVIVE_TERRAIN_W * friendliness +
-      Math.min(BREAK_SURVIVE_TACTIC_CAP, BREAK_SURVIVE_TACTIC_BONUS * committedInBreak),
+  // a break of strong flat-road engines rides faster and holds on longer
+  const meanFlat = breakIds.length
+    ? breakIds.reduce((s, id) => s + (RIDERS_BY_ID.get(id)?.stats.flat ?? BREAK_SURVIVE_FLAT_PIVOT), 0) / breakIds.length
+    : BREAK_SURVIVE_FLAT_PIVOT;
+  const flatBonus = Math.max(
+    -BREAK_SURVIVE_FLAT_CAP,
+    Math.min(BREAK_SURVIVE_FLAT_CAP, (meanFlat - BREAK_SURVIVE_FLAT_PIVOT) * BREAK_SURVIVE_FLAT_W),
+  );
+  const breakSurviveChance = Math.max(
+    0,
+    Math.min(
+      BREAK_SURVIVE_MAX,
+      BREAK_SURVIVE_BASE +
+        BREAK_SURVIVE_TERRAIN_W * friendliness +
+        Math.min(BREAK_SURVIVE_TACTIC_CAP, BREAK_SURVIVE_TACTIC_BONUS * committedInBreak) +
+        flatBonus,
+    ),
   );
   let breakSurvived = false;
   let breakWinnerId: string | null = null;

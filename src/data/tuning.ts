@@ -104,6 +104,11 @@ export const BREAK_SURVIVE_TERRAIN_W = 0.32;
 export const BREAK_SURVIVE_TACTIC_BONUS = 0.16; // per committed rider in the break…
 export const BREAK_SURVIVE_TACTIC_CAP = 0.28; // …but no more than this in total
 export const BREAK_SURVIVE_MAX = 0.5;
+// A break full of flat-road engines (rouleurs) rides faster and stays away more:
+// the break's mean `flat` stat above/below this pivot nudges its survival odds.
+export const BREAK_SURVIVE_FLAT_PIVOT = 62;
+export const BREAK_SURVIVE_FLAT_W = 0.0055; // survival bonus per point of mean flat over the pivot
+export const BREAK_SURVIVE_FLAT_CAP = 0.16; // bounded contribution (±)
 
 /**
  * Late attack by a favourite in the finale (SPEC §5.9). Whether one is launched,

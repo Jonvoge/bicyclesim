@@ -71,7 +71,7 @@ MVP only needs the **bold** fields; the rest arrive in later phases (noted per f
 
 ```ts
 type StatKey =
-  | 'climbing' | 'timeTrial' | 'sprint' | 'puncheur'
+  | 'climbing' | 'flat' | 'sprint' | 'puncheur'
   | 'endurance' | 'stamina' | 'consistency';
 
 interface Rider {
@@ -165,14 +165,14 @@ Then: **sort riders by `perfScore` descending** → finishing order. Convert to 
 Each type is a weight vector over the *base* stats. Weights sum to 1. `stamina` and
 `consistency` are **modifiers** (they act on fatigue and variance), not base weights.
 
-| Type | climbing | timeTrial | sprint | puncheur | endurance |
+| Type | climbing | flat | sprint | puncheur | endurance |
 |---|---|---|---|---|---|
-| flat | 0.05 | – | 0.66 | 0.11 | 0.18 |
-| hilly | 0.14 | – | 0.14 | 0.52 | 0.20 |
+| flat | 0.04 | 0.14 | 0.58 | 0.09 | 0.15 |
+| hilly | 0.14 | 0.06 | 0.12 | 0.50 | 0.18 |
 | mountain | 0.66 | – | – | 0.12 | 0.22 |
 | summitFinish | 0.75 | – | 0.07 | – | 0.18 |
-| descentFinish | 0.46 | – | 0.12 | 0.24 | 0.18 |
-| cobbled | – | 0.12 | 0.22 | 0.44 | 0.22 |
+| descentFinish | 0.42 | 0.14 | 0.10 | 0.20 | 0.14 |
+| cobbled | – | 0.26 | 0.16 | 0.40 | 0.22 |
 
 The **signature stat dominates** each terrain so specialists own their day; `endurance` is a
 lighter shared engine (~0.2) rather than a universal ~0.3 that let the best all-rounders float to
@@ -180,8 +180,15 @@ the top on every terrain (playtest: the winner pool was too narrow). Paired with
 the star all-rounders are elite at only one or two disciplines (§4/`riders.ts`), this rotates who
 wins by terrain — pure sprinters take the flats, pure climbers the summits, puncheurs the hills.
 
-*(Still starting values, flagged uncertain — real balance is Phase 8. `itt`/`ttt` rows removed —
-time trials deferred, see §4; `timeTrial` therefore survives only as a small cobbled weight.)*
+**`flat`** (flat-road power / engine, the renamed `timeTrial`) is a real secondary factor on the
+flatter terrain — flat run-ins, the pavé, the break — so rouleurs matter there, but `sprint` still
+decides a bunch kick so the fast men keep winning the sprints. It also feeds **break survival**
+(§5.9): a break of strong engines rides faster and stays away more, so a rouleur can win from the
+move on a flat/rolling day. It stays absent uphill. When time-trial stages return (§4) they'll
+weight `flat` heavily — it *is* the TT stat, just no longer parked.
+
+*(Still starting values, flagged uncertain — real balance is Phase 8. `itt`/`ttt` stage rows
+removed — time trials deferred, see §4.)*
 
 ### 5.3 Daily form swing (`form.ts`)
 
@@ -200,7 +207,7 @@ Defaults: `SIGMA_MAX = 8`, `CONSISTENCY_FACTOR = 0.7`
 | Stat | Meaning |
 |---|---|
 | climbing | sustained power on long ascents |
-| timeTrial | solo effort against the clock |
+| flat | flat-road power / engine — rouleur strength: driving a break, the pavé, the run-in, and (later) the solo effort against the clock |
 | sprint | flat-out finishing speed |
 | puncheur | short, steep punches / repeated accelerations on rolling terrain |
 | endurance | **within-stage** staying power (a long stage doesn't fade them) |
