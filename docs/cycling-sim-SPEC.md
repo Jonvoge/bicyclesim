@@ -107,7 +107,10 @@ interface Team {
 
 type StageType =
   | 'flat' | 'hilly' | 'mountain' | 'summitFinish'
-  | 'descentFinish' | 'cobbled' | 'itt' | 'ttt';
+  | 'descentFinish' | 'cobbled';
+// NOTE: time trials ('itt') and team time trials ('ttt') are DEFERRED — a solo
+// race against the clock is a fundamentally different shape (no bunch, no break,
+// no groups) and will get its own model when reintroduced. Removed for now.
 
 interface Stage {
   id: string;
@@ -170,11 +173,9 @@ Each type is a weight vector over the *base* stats. Weights sum to 1. `stamina` 
 | summitFinish | 0.65 | – | – | 0.05 | 0.30 |
 | descentFinish | 0.40 | – | 0.10 | 0.25 | 0.25 |
 | cobbled | – | 0.10 | 0.20 | 0.35 | 0.35 |
-| itt | – | 0.80 | – | – | 0.20 |
-| ttt | – | 0.60 | – | – | 0.40 | *(team-averaged, see 5.8)* |
 
 *(These are starting values. Expect to tune them once you can watch races — flagged as
-uncertain.)*
+uncertain. `itt`/`ttt` rows removed — time trials are deferred, see §4.)*
 
 ### 5.3 Daily form swing (`form.ts`)
 
@@ -208,30 +209,50 @@ are fine and expected — they emerge from how riders are authored, not from the
 
 Before each stage the player picks **two things**:
 
-1. **Protected rider** — the id the team rides for that day.
-2. **Strategy** ∈ `{ ALL_IN_LEADER, HUNT_STAGE, CONSERVE }`.
+1. **Protected rider** — the id the team rides for that day (also the rider "sent up the road"
+   when the strategy is a breakaway).
+2. **Strategy** — chosen from a **race-type-aware** set (a strategy only appears when it makes
+   sense for that kind of race). Strategies are a **data-driven registry** (`STRATEGIES`), each
+   declaring which `RaceType`s it applies to, its player-facing blurb, and its effects — so the
+   palette is easy to widen without touching logic.
 
-Effects (starting values, tune later):
+**One-day races** (`oneDay`) offer:
 
-| Strategy | Protected rider | Other selected riders |
-|---|---|---|
-| ALL_IN_LEADER | `+LEADER_BONUS` (≈ +6) to perfScore | roleMultiplier 1.3 (more fatigue), small self-penalty (−2): they work, they don't race for themselves |
-| HUNT_STAGE | no single bonus | roleMultiplier 1.0; slightly higher σ (more aggressive) |
-| CONSERVE | no bonus, small penalty (−2) | roleMultiplier 0.7 (less fatigue) — saving for later |
+| Strategy | Idea | Protected rider | Other selected riders |
+|---|---|---|---|
+| PROTECT_LEADER | Ride for your leader | `+LEADER_BONUS` (≈ +6) to perfScore | roleMultiplier 1.3 (more fatigue), small self-penalty (−2) |
+| BREAKAWAY (label: "Attack") | Back your rider to go clear | a *domestique* joins the morning break (raising its survival odds); a *leader* attacks late in the finale instead (§5.9). `+BREAK_PERF_BONUS` on break-friendly terrain, small penalty on flat; wider σ | roleMultiplier 1.0 |
+| SPRINT_FINISH | Sit in, save it for the kick | `+SPRINT_FINISH_BONUS` on likely bunch finishes (flat/hilly/cobbled), penalty if the climbs drop them (mountain/summitFinish) | roleMultiplier 0.8 (a little saved) |
 
-The trade-off *is* the game: spending the team today for a leader costs stamina tomorrow. A
-weaker team can occasionally out-tactic a stronger one — that's the giant-killing drama.
+**Stage races** (`shortTour` / `grandTour`, Phase 3) reuse `PROTECT_LEADER` + `BREAKAWAY` and
+add:
 
-### 5.6 Crashes / illness (`tuning.ts`)
+| Strategy | Idea | Protected rider | Other selected riders |
+|---|---|---|---|
+| CONSERVE | Save today for the GC | no bonus, small penalty (−2) | roleMultiplier 0.7 (less fatigue) — saving for later |
 
-Per rider per stage: `P(crash) ≈ 0.015`, doubled on `cobbled` / `descentFinish`. Effect: a time
-loss (finish + random gap); a *small* fraction of crashes become DNF. **Kept rare on purpose** —
-drama, never a frustration tax.
+The trade-off *is* the game: spending the team today for a leader costs stamina tomorrow; a
+gambled breakaway can steal a race a stronger team should have won. A weaker team can
+occasionally out-tactic a stronger one — that's the giant-killing drama.
+
+### 5.6 Incidents: crashes & punctures (`tuning.ts`)
+
+Per rider per stage: `P(incident) ≈ 0.02`, doubled on `cobbled` / `descentFinish`. An incident is
+either a **puncture** (~60%) or a **crash**. Both cost a time loss (finish + random gap), but only
+a *crash* can end in a DNF, and only a **small** fraction do — **a puncture never causes an
+abandon**. So abandons are genuinely rare; a punctured rider is dropped and chasing, not out.
+These feed the race narrative (§5.9): the rider is **seen** sliding out the back and named on the
+race radio. Surfaced from **Phase 2** as visible drama rather than waiting for Phase 3.
 
 ### 5.7 Result → times
 
 - Winner base time = `lengthKm / REFERENCE_SPEED_KMH * 3600`.
 - Gaps derived from `perfScore` differences × `GAP_SPREAD` (seconds per point).
+- **Finish groups (pro convention):** finishers are clustered — a rider within
+  `GROUP_GAP_THRESHOLD_SEC` of the rider ahead joins their group, and **everyone in a group
+  gets the same time** (shown as `s.t.` after the first rider). The threshold is terrain-aware:
+  bunch terrain ~5 s (big groups), mountain/summit ~2 s (ones and twos). Order within a
+  group = crossing order.
 - MVP can display simple **ordering + gaps**; precise times only matter once GC exists.
 
 ### 5.8 Stage races & GC (`standings.ts`, Phase 3)
@@ -241,8 +262,55 @@ drama, never a frustration tax.
   `fatigueGain = stageDifficulty * (1 - stamina/100 * STAMINA_FACTOR) * roleMultiplier`;
   added to `currentFatigue`, which penalises the next stage.
 - **Recovery:** between races / on rest, `currentFatigue *= RECOVERY_RATE`.
-- **TTT:** score on the team's *averaged* timeTrial+endurance; the whole team takes the team's time.
+- **TTT:** *(deferred with time trials — see §4; revisit with their own model.)*
 - Optional later: points (sprint) and climbing classifications — **not** in the core; add only if fun.
+
+### 5.9 Race narrative layer (`raceNarrative.ts`, from Phase 2)
+
+The scoring engine (§5.1) decides *how strong* each rider is today. The **narrative layer** turns
+that into a race you can *watch* — a breakaway, a chase, a splintering finale, incidents — instead
+of lining everyone up on the finish line. It is deliberately a **thin layer over the proven
+engine**, not a replacement (fun over realism):
+
+1. **Base scores** come from §5.1 (`scoreRiders`).
+2. **A few bounded events adjust the result** (this is what makes watching *matter*):
+   There are **two kinds of move**, not one — this is what keeps a race from feeling formulaic:
+   - **The morning break.** A small group (2–5) of **opportunists only** — never a favourite; the
+     strongest `FAVOURITE_COUNT` riders save it for later. The player can commit a *domestique*
+     to it via `BREAKAWAY`. Whether it **stays away** is emergent: `survive = clamp(BASE +
+     TERRAIN·friendliness + tacticBonus, 0, MAX)`. Break-friendly days (hilly/cobbled) let it
+     stick; sprinters' courses reel it in. If it survives, its strongest rider wins.
+   - **Late attacks.** In the finale a **favourite** can jump clear — the player's leader if they
+     chose `BREAKAWAY` (a leader "attacks late" rather than riding the morning break), else
+     sometimes an emergent move. Whether it's launched and whether it **sticks** both scale with
+     terrain **selectiveness** (`P(sticks) = clamp(BASE + selectiveness·W + attackerStrength·W +
+     tacticBonus, 0, MAX)`): attacks win on climbs, get chased down on flat roads. A successful
+     attack is a solo win by a small margin.
+   - **Incidents (§5.6).** Crash/puncture victims take a time penalty (rare DNF); enough to drop
+     them down the order or out.
+   These are applied on top of base scores, then converted to final times (§5.7). Everything is
+   seeded, so a race is reproducible.
+3. **A `RaceStory` is generated for the animation**: per rider, a `role`
+   (`break` / `peloton` / `contender` / `dropped`) and a small set of **gap-to-leader keyframes**
+   over normalised stage time `t ∈ [0,1]`, converging to the final gap at `t = 1`. Trajectories
+   are **quantized by group** (riders in the same group share a trajectory) so the field reads as
+   *bunches* — a break clear, one peloton blob chasing, the finale splintering — not individuals
+   strung along a line.
+4. **Race radio.** The story also carries a seeded `RaceEvent` list — break composition (named),
+   the break's max lead, crashes/punctures (named, with abandons), the catch, the finale, the
+   winner — which the race view surfaces as a live commentary ticker.
+5. **The race view is broadcast-style:** the stage profile with a live position marker (the map),
+   a groups-overview strip listing every group on the road and the gaps between them, the
+   clustered field, the radio ticker, and the finish order revealing group by group.
+
+**Non-formulaic on purpose.** The break peak, the catch time and the finale are all **jittered
+per race** (and per rider, slightly), so no two races unfold on the same script: some days the
+break is caught early, some it holds to the line, some come down to a bunch sprint with no real
+"finale" at all. The late-race radio headline reflects what actually happened (break holds / the
+group shatters / bunch sprint), derived from the real lead-group size — not a fixed beat.
+
+The result is authored to still satisfy Phase 1's guarantees (favourites usually win, seeded and
+tunable); the narrative only ever nudges outcomes within bounded, tunable limits.
 
 ---
 

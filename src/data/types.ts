@@ -47,15 +47,15 @@ export interface Team {
   budget?: number; // Phase 5
 }
 
+// Time trials (itt) and team time trials (ttt) are deferred — they are a
+// fundamentally different kind of racing and will get their own approach later.
 export type StageType =
   | 'flat'
   | 'hilly'
   | 'mountain'
   | 'summitFinish'
   | 'descentFinish'
-  | 'cobbled'
-  | 'itt'
-  | 'ttt';
+  | 'cobbled';
 
 export interface Stage {
   id: string;

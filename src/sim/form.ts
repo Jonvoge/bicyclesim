@@ -15,7 +15,7 @@ export function sigma(consistency: number): number {
 
 /**
  * Draw the day's form swing. `sigmaMult` lets tactics widen the curve
- * (e.g. HUNT_STAGE rides more aggressively → more variance, SPEC §5.5).
+ * (e.g. BREAKAWAY rides more aggressively → more variance, SPEC §5.5).
  */
 export function drawFormSwing(rng: Rng, consistency: number, sigmaMult = 1): number {
   return rng.gaussian(0, sigma(consistency) * sigmaMult);

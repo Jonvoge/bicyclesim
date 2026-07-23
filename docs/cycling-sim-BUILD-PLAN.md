@@ -66,6 +66,12 @@ Tactics visibly change outcomes. **No UI required.**
 Phases 1–2 before going further.
 **Out of scope:** multi-stage, season, management, real art.
 
+**Fun-gate iteration (post-playtest).** Added to make the race read like a real race rather than
+a line-up at the finish: a **race narrative layer** (SPEC §5.9) — breakaway, chase, finale
+splinter, and **incidents (crash/puncture) pulled forward from Phase 3** as visible drama — plus
+a **race-type-aware strategy palette** (SPEC §5.5: PROTECT_LEADER / BREAKAWAY / SPRINT_FINISH for
+one-day races). The finish now shows the field arriving in groups with real gaps.
+
 ---
 
 ## Phase 3 — Stage races, GC & fatigue
@@ -76,8 +82,9 @@ Phases 1–2 before going further.
 - Extend races to `shortTour` (4–5 stages) and `grandTour` (8–10) (SPEC §6).
 - `standings.ts`: GC by cumulative time; running leaderboard between stages.
 - Fatigue accumulation + recovery (**SPEC §5.8**); wire `roleMultiplier` from tactics into it.
-- Crashes/illness as rare events (**SPEC §5.6**); tune so they feel like drama, not punishment.
-- TTT special-case (team-averaged) if you include one.
+- Crashes/illness (**SPEC §5.6**) already surfaced as drama in Phase 2; here, fold their time
+  loss into GC and add the `CONSERVE` (save-for-GC) strategy to the stage-race palette.
+- (Time trials & TTT are deferred for now — see SPEC §4 — so no TTT special-case yet.)
 
 **Acceptance:** a grand tour plays across stages; protecting a leader early visibly costs stamina
 later; GC updates each stage; crashes are noticeable but rare.

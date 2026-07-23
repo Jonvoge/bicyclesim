@@ -44,14 +44,14 @@ function fmtGap(sec: number): string {
 
 /**
  * Rivals auto-race: each rival team protects its best-suited rider for the stage
- * and goes ALL_IN_LEADER. (A placeholder; proper rival AI is Phase 4.)
+ * and goes PROTECT_LEADER. (A placeholder; proper rival AI is Phase 4.)
  */
 function rivalTactics(stage: Stage): TeamTactics[] {
   return TEAMS.filter((t) => !t.isPlayer).map((team) => {
     const best = team.riderIds
       .map((id) => RIDERS_BY_ID.get(id)!)
       .sort((a, b) => baseScore(b, stage) - baseScore(a, stage))[0];
-    return { teamId: team.id, protectedRiderId: best.id, strategy: 'ALL_IN_LEADER' as Strategy };
+    return { teamId: team.id, protectedRiderId: best.id, strategy: 'PROTECT_LEADER' as Strategy };
   });
 }
 
@@ -92,7 +92,7 @@ for (const race of RACES) {
   const player: TeamTactics = {
     teamId: 't-grenoble',
     protectedRiderId: playerProtected(stage),
-    strategy: 'HUNT_STAGE',
+    strategy: 'PROTECT_LEADER',
   };
   const rng = new Rng(1234 + stage.name.length);
   const result = simulateStage({ stage, riders: RIDERS, tacticsByTeam: tacticsMap(stage, player), rng });
@@ -110,7 +110,7 @@ for (const race of RACES) {
     const player: TeamTactics = {
       teamId: 't-grenoble',
       protectedRiderId: playerProtected(stage),
-      strategy: 'HUNT_STAGE',
+      strategy: 'PROTECT_LEADER',
     };
     const rng = new Rng(i * 2654435761);
     const result = simulateStage({ stage, riders: RIDERS, tacticsByTeam: tacticsMap(stage, player), rng });
@@ -132,7 +132,7 @@ console.log('under each strategy (500 runs, same seeds across strategies):\n');
 {
   const stage = STAGES_BY_ID.get('st-lombardo')!;
   const star = playerProtected(stage);
-  const strategies: Strategy[] = ['ALL_IN_LEADER', 'HUNT_STAGE', 'CONSERVE'];
+  const strategies: Strategy[] = ['PROTECT_LEADER', 'BREAKAWAY', 'SPRINT_FINISH', 'CONSERVE'];
   for (const strategy of strategies) {
     const N = 500;
     let sumPos = 0;

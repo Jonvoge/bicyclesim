@@ -6,19 +6,13 @@ import type { Rng } from './rng.ts';
 import { tacticsEffect, type TeamTactics } from './tactics.ts';
 
 /**
- * Single-stage algorithm (SPEC §5.1).
+ * Single-stage algorithm (SPEC §5.1). Split into two steps so the race-narrative
+ * layer (§5.9) can insert events between scoring and the final result:
+ *   scoreRiders  → per-rider perfScore (base suitability + form − fatigue + tactics)
+ *   perfToResult → sort + convert to times (§5.7)
+ * simulateStage runs both, unchanged for callers that just want a result.
  *
- * For each rider:
- *   baseScore  = Σ stat[k] * stageWeight[type][k]     // weighted suitability, ~1–100
- *   formSwing  = gaussian(0, sigma(consistency))       // daily form (SPEC §5.3)
- *   fatiguePen = currentFatigue * FATIGUE_WEIGHT        // 0 in a one-day race
- *   tacticsMod = tacticsEffect(...)                     // SPEC §5.5
- *   perfScore  = baseScore + formSwing - fatiguePen + tacticsMod
- *
- * Then sort by perfScore descending → finishing order, and convert to times (§5.7).
- *
- * NOTE: crashes/illness (SPEC §5.6) are intentionally NOT here yet — they land in
- * Phase 3. `dnf` is always false for now.
+ * Crashes/illness (§5.6) live in the narrative layer, not here.
  */
 
 /** Weighted suitability of a rider for a stage type (~1–100). */
@@ -31,6 +25,11 @@ export function baseScore(rider: Rider, stage: Stage): number {
   return score;
 }
 
+export interface ScoredRider {
+  riderId: string;
+  perfScore: number;
+}
+
 export interface StageSimInput {
   stage: Stage;
   riders: Rider[];
@@ -39,32 +38,56 @@ export interface StageSimInput {
   rng: Rng;
 }
 
-export function simulateStage(input: StageSimInput): StageResult {
+/** Per-rider performance for the day (before any narrative events). */
+export function scoreRiders(input: StageSimInput): ScoredRider[] {
   const { stage, riders, tacticsByTeam, rng } = input;
-
-  const scored: StageResultEntry[] = riders.map((rider) => {
+  return riders.map((rider) => {
     const tactics = rider.teamId ? tacticsByTeam.get(rider.teamId) : undefined;
     const isProtected = tactics?.protectedRiderId === rider.id;
-    const effect = tacticsEffect(tactics, isProtected);
+    const effect = tacticsEffect(tactics, isProtected, stage.type);
 
     const base = baseScore(rider, stage);
     const formSwing = drawFormSwing(rng, rider.stats.consistency, effect.sigmaMult);
     const fatiguePen = rider.currentFatigue * FATIGUE_WEIGHT;
     const perfScore = base + formSwing - fatiguePen + effect.perfMod;
+    return { riderId: rider.id, perfScore };
+  });
+}
 
-    return { riderId: rider.id, perfScore, timeSec: 0, dnf: false };
+/**
+ * Convert scores to a finishing order + times (SPEC §5.7). Optional
+ * `timePenalties` (seconds, e.g. from crashes) and `dnfIds` come from the
+ * narrative layer. Riders sort by finishing time; DNFs are placed last.
+ */
+export function perfToResult(
+  stage: Stage,
+  scored: ScoredRider[],
+  timePenalties: Map<string, number> = new Map(),
+  dnfIds: Set<string> = new Set(),
+): StageResult {
+  const winnerTimeSec = (stage.lengthKm / REFERENCE_SPEED_KMH) * 3600;
+  const topPerf = scored.reduce((m, s) => Math.max(m, s.perfScore), -Infinity);
+
+  const entries: StageResultEntry[] = scored.map((s) => {
+    const gap = Math.max(0, (topPerf - s.perfScore) * GAP_SPREAD);
+    const penalty = timePenalties.get(s.riderId) ?? 0;
+    return {
+      riderId: s.riderId,
+      perfScore: s.perfScore,
+      timeSec: winnerTimeSec + gap + penalty,
+      dnf: dnfIds.has(s.riderId),
+    };
   });
 
-  // Sort best-first.
-  scored.sort((a, b) => b.perfScore - a.perfScore);
+  entries.sort((a, b) => {
+    if (a.dnf !== b.dnf) return a.dnf ? 1 : -1; // DNFs last
+    return a.timeSec - b.timeSec;
+  });
 
-  // Convert perfScore differences into times (SPEC §5.7).
-  const winnerTimeSec = (stage.lengthKm / REFERENCE_SPEED_KMH) * 3600;
-  const winnerPerf = scored.length > 0 ? scored[0].perfScore : 0;
-  for (const entry of scored) {
-    const gap = Math.max(0, (winnerPerf - entry.perfScore) * GAP_SPREAD);
-    entry.timeSec = winnerTimeSec + gap;
-  }
+  return { stageId: stage.id, order: entries };
+}
 
-  return { stageId: stage.id, order: scored };
+/** Full single-stage result with no narrative events (used by tests/harness). */
+export function simulateStage(input: StageSimInput): StageResult {
+  return perfToResult(input.stage, scoreRiders(input));
 }

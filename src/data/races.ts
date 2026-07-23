@@ -7,9 +7,9 @@ import type { Race } from './types.ts';
  */
 export const RACES: Race[] = [
   { id: 'r-sanreno', name: 'Milan–Sanreno', type: 'oneDay', stageIds: ['st-sanreno'], prestige: 80 },
+  { id: 'r-fleche', name: 'Flèche Ardennaise', type: 'oneDay', stageIds: ['st-fleche'], prestige: 72 },
   { id: 'r-roubey', name: 'Paris–Roubey', type: 'oneDay', stageIds: ['st-roubey'], prestige: 85 },
   { id: 'r-lombardo', name: 'Il Lombardo', type: 'oneDay', stageIds: ['st-lombardo'], prestige: 75 },
-  { id: 'r-chrono', name: 'Chrono du Monde', type: 'oneDay', stageIds: ['st-chrono'], prestige: 70 },
 ];
 
 export const RACES_BY_ID: Map<string, Race> = new Map(RACES.map((r) => [r.id, r]));
