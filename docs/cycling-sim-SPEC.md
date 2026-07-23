@@ -254,10 +254,23 @@ race radio. Surfaced from **Phase 2** as visible drama rather than waiting for P
 ### 5.8 Stage races & GC (`standings.ts`, Phase 3)
 
 - **GC (general classification):** sum each rider's stage times; lowest total = race leader.
+  A rider must finish **every** stage ridden so far to hold a GC place; abandoning (a stage DNF)
+  drops them from GC and from the rest of the tour.
 - **Fatigue across stages:** after each stage,
-  `fatigueGain = stageDifficulty * (1 - stamina/100 * STAMINA_FACTOR) * roleMultiplier`;
-  added to `currentFatigue`, which penalises the next stage.
-- **Recovery:** between races / on rest, `currentFatigue *= RECOVERY_RATE`.
+  `fatigueGain = stageDifficulty * (1 - stamina/100 * STAMINA_FACTOR) * fatigueMult`
+  (where `stageDifficulty = FATIGUE_BASE * TYPE_WEIGHT * lengthKm/FATIGUE_REF_KM`, and
+  `fatigueMult` is the rider's role × team effort, §5.5). It's added to `currentFatigue`, which
+  penalises the next stage (`× FATIGUE_WEIGHT` on perfScore, §5.1).
+- **Overnight recovery within a tour:** between stages, `currentFatigue *= STAGE_RECOVERY_RATE`
+  (a mild recover so fatigue plateaus over a long tour rather than ballooning). Bigger recovery
+  between *races* / on rest is `RECOVERY_RATE` (Phase 4).
+- **Conserve lever (team effort):** a team may ride a stage `conserve` instead of `race` — it cuts
+  the whole team's fatigue burn (`× CONSERVE_FATIGUE_MULT`) for a small perf penalty to the leader
+  that day (`CONSERVE_LEADER_PENALTY`). Saving the stages a GC leader can't win (flat/hilly)
+  freshens the legs for the mountains — the "spend today / pay tomorrow" trade-off, as an effort
+  setting on top of the role sheet.
+- **Purity:** the tour holds the fatigue map + abandon set; the global roster is never mutated —
+  each stage rides fatigued rider **copies**, so a tour stays deterministic and re-runnable.
 - **TTT:** *(deferred with time trials — see §4; revisit with their own model.)*
 - Optional later: points (sprint) and climbing classifications — **not** in the core; add only if fun.
 

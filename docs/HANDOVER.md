@@ -7,33 +7,36 @@
 
 ## TL;DR — current state
 
-- **Phase 0 (scaffold)** and **Phase 1 (headless sim)** are **merged to `main`** (PRs #1, #2).
-- **Phase 2 (race presentation)** lives on branch `claude/phase-2-race-presentation` (PR #3),
-  extended by branch **`claude/rider-roles-simulation-viz-j0i7e2`** (based on it), which adds:
-  - **Per-rider ROLES** (SPEC §5.5): the role sheet (Leader / Sprinter / Breakaway / Domestique
-    / Free) replaces "one protected rider + one team strategy". User asked for this build.
-  - **Race-view rework**: the pack-blob model is GONE (it swapped identity between frames,
-    riders popped in/out of it, and the road froze at t=1). Now every rider is one
-    always-visible glyph; groups render as eased paceline formations (see below).
-- Phase 2 remains the **MVP fun gate**: per CLAUDE.md we do not proceed to Phase 3 until a
-  human confirms that setting tactics + watching a stage is fun.
+- **Phase 0 → 2 are merged to `main`.** Phase 0 (scaffold, PR #1), Phase 1 (headless sim, PR #2),
+  Phase 2 (race presentation, PR #3) + the **rider-roles / race-view rework** (PR #4). The Phase 2
+  fun gate **passed** — the user played it on their phone and said merge.
+- **Phase 3 (stage races, GC & fatigue) is BUILT** on branch
+  **`claude/rider-roles-simulation-viz-j0i7e2`** (restarted from `main` after the merges), open as
+  its Phase 3 PR — awaiting review. What it adds:
+  - **`src/sim/standings.ts`** (pure/headless): `TourState` (fatigue map + abandon set + banked
+    results), `computeGc`, across-stage fatigue with overnight recovery, the conserve lever. The
+    global roster is never mutated — each stage rides fatigued rider **copies**.
+  - **Two tours** in data: Tour de Provence (5 stages), Giro d'Aurelia (9).
+  - **Tour UI**: the scene loop is unified (a one-day race is a one-stage tour). PreRace shows the
+    stage number, carried fatigue per rider ("legs" bars), a GC context line, and a Race/Conserve
+    **team-effort** toggle (tours only). StageResults banks the stage (fatigue + GC + abandons)
+    then shows stage result + live GC, routing to the next stage or a final GC screen.
 - The app is deployed and playable on a phone: **https://jonvoge.github.io/bicyclesim/**
-  (auto-redeploys on push to `main` or either feature branch — last push wins).
+  (auto-redeploys on push to `main` or the feature branch — last push wins).
 
 ## Outstanding decisions (need the user)
 
-1. **Phase 2 fun-gate verdict.** The user is testing on their phone. If they say it's fun →
-   merge the branches (roles branch supersedes PR #3's view) and start **Phase 3**. If not →
-   keep iterating Phases 1–2. Do NOT merge or start Phase 3 without their explicit go-ahead.
+1. **Phase 3 review.** The Phase 3 PR is open. Per CLAUDE.md, don't roll into Phase 4 (season
+   calendar) until it's reviewed/merged. **All fatigue + conserve numbers in `tuning.ts` are
+   starting guesses** (SPEC §10) — the real balance pass is Phase 8; flag if the tour feels off
+   rather than treating them as settled.
 
-## Next planned work (once the gate passes)
+## Next planned work (once Phase 3 is merged)
 
-- **Phase 3 — stage races, GC & fatigue** (SPEC §5.8, §6). Notes:
-  - `CONSERVE` ("Conserve for GC") strategy is already defined for stage-race types in
-    `src/sim/tactics.ts` (currently only offered for shortTour/grandTour, which don't exist yet).
-  - Crashes/incidents are **already implemented** (pulled forward into Phase 2). Phase 3 just needs
-    to fold their time loss into GC and add cross-stage fatigue.
-  - Time trials (`itt`) and TTT are **removed** for now (see below) — no TTT special-case needed.
+- **Phase 4 — season calendar & world layer** (SPEC §6): a ~15-race season, rival team AI (rivals
+  currently ride a fixed default sheet and always `race` — no conserve), prestige/points.
+- Deferred and waiting: time trials + TTT (their own model), points/climbing classifications
+  (only if fun).
 
 ## How to run / verify
 
@@ -41,8 +44,8 @@
 npm install
 npm run dev            # local dev (add: -- --host  → open the Network URL on a phone on same wifi)
 npm run build          # tsc && vite build  (must pass; CI runs it)
-npm test               # vitest, 18 tests   (CI runs it)
-npm run sim            # headless sim harness (tsx): prints orders, win-freq, tactics effect
+npm test               # vitest, 30 tests   (CI runs it)
+npm run sim            # headless harness (tsx): stage orders, win-freq, role effect, tour GC + conserve lever
 ```
 
 - **Deploy** is automatic: `.github/workflows/deploy.yml` builds+tests then publishes to GitHub
@@ -74,15 +77,20 @@ There is no persistent browser dep. When you need to view/record the running app
 
 - **`src/sim`** — pure, headless, **no Phaser** (keep it that way):
   - `rng.ts` (seedable mulberry32 + Box–Muller), `form.ts`, `tactics.ts` (ROLES registry —
-    one `TacticRole` per rider, `TeamTactics = { teamId, roles }`, effects in `tacticsEffect`),
-    `stageSim.ts` (`scoreRiders` → `perfToResult`; split so events slot between),
+    one `TacticRole` per rider, `TeamTactics = { teamId, roles, effort? }`, effects in
+    `tacticsEffect`), `stageSim.ts` (`scoreRiders` → `perfToResult`; split so events slot between),
     `raceNarrative.ts` (**the heart** — breaks, late attacks, incidents, finish groups, gap
     trajectories, radio events), `raceSetup.ts` (`defaultTeamTactics` — the pre-filled sheet for
-    the player AND the rival placeholder until Phase 4).
+    the player AND the rival placeholder until Phase 4), **`standings.ts`** (Phase 3 — `TourState`,
+    `computeGc`, fatigue accrual/recovery, `ridersForStage` = fatigued copies; never mutates the
+    global roster).
 - **`src/data`** — `types.ts`, **`tuning.ts` (EVERY magic number lives here, `UPPER_SNAKE`)**,
-  `riders/teams/stages/races.ts`, `stageWeights.ts`, `teamColors.ts`.
-- **`src/scenes`** — Boot → MainMenu (race picker) → PreRace (tactics) → Race (the animated view) →
-  StageResults.
+  `riders/teams/stages/races.ts` (stages/races now include the two tours), `stageWeights.ts`,
+  `teamColors.ts`.
+- **`src/scenes`** — Boot → MainMenu (race picker) → PreRace (role sheet + tour effort/fatigue) →
+  Race (the animated view) → StageResults (stage + GC; banks the stage into the tour) → loops back
+  to PreRace for the next stage, or a final GC screen. **A one-day race is a one-stage tour** — the
+  flow is uniform; `TourState` is threaded through scene data (MainMenu `createTour` → … → back).
 - **`src/render`** — `riderRenderer.ts` (interface) + `codeDrawnRenderer.ts`. Phase 7 adds a
   SpriteRenderer behind the same interface.
 - **`src/ui`** — `button.ts`, `theme.ts`, `stageProfile.ts` (silhouette + live group markers).
@@ -134,8 +142,8 @@ The race view is deliberately **broadcast/TV-coverage style, group-centric**:
   §10); the real balance pass is Phase 8. Don't present them as settled.
 - **Proxy names only** (recognisable-but-renamed); never real trademarked names.
 - **Deterministic under a seed** — keep it reproducible.
-- Git: current work is on `claude/rider-roles-simulation-viz-j0i7e2` (based on
-  `claude/phase-2-race-presentation`); PR-per-phase; don't merge without the user. Commit
+- Git: current work is on `claude/rider-roles-simulation-viz-j0i7e2` (Phase 3, restarted from
+  `main` after the Phase 2 merges); PR-per-phase; don't merge without the user. Commit
   trailers: a `Co-Authored-By: Claude … <noreply@anthropic.com>` + a `Claude-Session:` line.
   Do NOT put the model identifier in commits/PRs otherwise.
 - `vite.config.ts` reads `process.env.BASE_PATH` via a minimal ambient `declare` (no `@types/node`).
@@ -148,5 +156,9 @@ The race view is deliberately **broadcast/TV-coverage style, group-centric**:
 - On a flat day, stage "favourites" are the top-6 by that day's perf (sprinters), so a strong
   climber can legitimately turn up in the morning break — reads odd occasionally, revisit if it
   grates.
-- `Conserve` no longer exists as a strategy; the Phase 3 note in the build plan covers its
-  return as an effort lever.
+- The **conserve lever is a real but small edge** (fresher legs ≈ a couple of seconds on the queen
+  stage). It reads as marginal-gains, not a no-brainer — which is intended, but if playtesting
+  wants it to bite harder, `CONSERVE_FATIGUE_MULT` / `FATIGUE_BASE` / `STAGE_RECOVERY_RATE` are the
+  knobs (all Phase-8 balance territory).
+- Rival teams don't use the conserve lever (they always `race`) and re-pick a default sheet each
+  stage — that's Phase 4 rival AI, not built yet.
