@@ -15,7 +15,7 @@ import {
   type RiderStory,
 } from '../sim/raceNarrative.ts';
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
-import { CodeDrawnRenderer } from '../render/codeDrawnRenderer.ts';
+import { makeRiderRenderer, preloadSpriteTextures } from '../render/index.ts';
 import { Button, makeButton } from '../ui/button.ts';
 import { StageProfileView } from '../ui/stageProfile.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
@@ -99,6 +99,12 @@ export class RaceScene extends Phaser.Scene {
 
   constructor() {
     super('Race');
+  }
+
+  preload(): void {
+    // load the sprite textures so RENDER_MODE can switch the rider look (cheap; the
+    // code-drawn path ignores them). Phase 7.
+    preloadSpriteTextures(this);
   }
 
   create(data: { tour: TourState; playerTactics: TeamTactics; dynasty?: DynastyState }): void {
@@ -187,7 +193,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private buildRoad(): void {
-    const renderer = new CodeDrawnRenderer();
+    const renderer = makeRiderRenderer();
     const order = this.story.result.order;
 
     // stable pack slots so bunch positions don't shuffle

@@ -273,6 +273,24 @@ stay deferred; all development numbers in `tuning.ts` are STARTING GUESSES (SPEC
 
 **Acceptance:** both renderers work; a documented side-by-side comparison exists; a default chosen.
 
+**Built (this phase).** The render abstraction is now a real **config flag, not a rewrite**.
+`RiderRenderer` finalised; **both** implementations work: `CodeDrawnRenderer` (Phaser `Graphics`) and
+a new **`SpriteRenderer`** that draws rider art from a loaded **texture**. `src/render/index.ts` holds
+the one switch — **`RENDER_MODE`** (`'code' | 'sprite'`) + `makeRiderRenderer()`; all rider drawing
+goes through it, so the race view is identical either way (verified: flipping the flag renders the
+whole peloton as sprites, same animation). **`RenderCompareScene`** (MainMenu → "Renderers") draws the
+same six teams **side-by-side** in both styles with the trade-offs on screen.
+
+*Honest note on the sprite art:* the SPEC asks for an **AI-generated raster** set, which this
+environment can't produce. The sprite path is instead implemented with an **authored SVG** cyclist
+(base + a white jersey layer **tinted per team**), loaded as a texture from an inline base64 data-URI
+(`src/render/spriteAssets.ts`) — a genuine loaded-texture sprite, so the comparison, the flag and the
+infrastructure are all real; a richer AI raster atlas can drop straight in behind the same texture
+keys later. **Default chosen: `RENDER_MODE = 'code'`** — ~0 KB of assets, recolours with one value,
+scales crisp, and matches the clean/minimalist look; the sprite path is proven and ready when nicer
+art exists but costs an extra tinted layer to recolour + a texture load. (Placeholder art either way —
+the *decision infrastructure* is what Phase 7 delivers.)
+
 ---
 
 ## Phase 8 — Persistence, balance & polish

@@ -34,6 +34,8 @@ export class MainMenuScene extends Phaser.Scene {
     }
 
     makeButton(this, width / 2, y, 'Quick Race', () => this.scene.start('QuickRace'), { width: 300, height: 50, fontSize: 18 });
+    y += 68;
+    makeButton(this, width / 2, y, 'Renderers (art test)', () => this.scene.start('RenderCompare'), { width: 300, height: 40, fontSize: 15 });
   }
 
   private openDynasty(fresh: boolean): void {
