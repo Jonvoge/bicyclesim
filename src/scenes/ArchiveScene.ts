@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
-import { RIDERS_BY_ID } from '../data/riders.ts';
 import { teamColor } from '../data/teamColors.ts';
 import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
-import type { SeasonState } from '../sim/season.ts';
+import { rosterById, type DynastyState } from '../state/dynasty.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
@@ -16,13 +15,14 @@ export class ArchiveScene extends Phaser.Scene {
     super('Archive');
   }
 
-  create(data: { season: SeasonState; index: number }): void {
+  create(data: { dynasty: DynastyState; index: number }): void {
     const { width } = this.scale;
-    const result = data.season.results[data.index];
+    const byId = rosterById(data.dynasty);
+    const result = data.dynasty.season.results[data.index];
     const race = RACES_BY_ID.get(result.raceId)!;
     const isTour = race.stageIds.length > 1;
 
-    makeButton(this, 40, 34, '‹', () => this.scene.start('SeasonHub', { season: data.season }), { width: 40, height: 34, fontSize: 20 });
+    makeButton(this, 40, 34, '‹', () => this.scene.start('SeasonHub', { dynasty: data.dynasty }), { width: 40, height: 34, fontSize: 20 });
     this.add.text(width / 2, 28, race.name, { fontFamily: FONT, fontSize: '21px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
     this.add.text(width / 2, 52, `${isTour ? `${race.stageIds.length}-stage tour` : 'one-day'} · final ${isTour ? 'GC' : 'result'}`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
 
@@ -30,7 +30,7 @@ export class ArchiveScene extends Phaser.Scene {
     const top = 84;
     const rowH = 30;
     result.classification.slice(0, 24).forEach((row, i) => {
-      const rider = RIDERS_BY_ID.get(row.riderId)!;
+      const rider = byId.get(row.riderId)!;
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === PLAYER_TEAM.id;
       const y = top + i * rowH + 12;

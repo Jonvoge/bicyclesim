@@ -6,18 +6,20 @@
 
 ## TL;DR — current state
 
-- **Everything through Phase 4 is merged to `main`** (PRs #1–#10). The app is a complete,
-  playable **single-season** cycling manager: pick tactics per race, watch stages resolve, and
-  play the calendar with GC, fatigue, season standings, and a browsable world.
+- **Everything through Phase 4 is merged to `main`** (PRs #1–#10). **Phase 5 (the management
+  layer) is built on branch `claude/continue-build-0zwcbc`** with a PR open for review — not yet
+  merged. The app is now a multi-season **dynasty**: run a team's budget, sign free agents, train
+  riders and pick squads on top of the racing.
 - **The Phase 2 fun gate passed** (user playtested on a phone and said proceed). We have since
   iterated well past the MVP on user feedback (see "What's built").
-- **Next phase is Phase 5 — the management layer** (transfers, contracts, budget; the between-races
-  Kairosoft loop and the multi-season dynasty the game is really about). Nothing for it is started.
+- **Next phase is Phase 6 — rider development & dynasty** (ageing curves, potential/ceiling, hidden
+  scouting, new blood in / veterans out). Phase 5 deliberately left contracts auto-renewing and
+  identities fixed so Phase 6 can layer ageing + churn on top. Nothing for Phase 6 is started.
 - Deployed & playable on a phone: **https://jonvoge.github.io/bicyclesim/** (auto-redeploys on push
   to `main` or the active feature branch — last push wins).
-- **The app has NOT had a fresh full playtest since the season + 45-rider peloton + rest levers +
-  rival AI all landed.** Worth a play before opening the management layer — flag anything that
-  isn't fun rather than pressing on.
+- **The management layer has NOT had a phone playtest yet, and its numbers are guesses.** Opening
+  budget vs. wage bill is deliberately tight; watch whether the economy bites without being punishing
+  (all knobs are in `tuning.ts`; real balance is Phase 8). Flag anything that isn't fun.
 
 ## What's built (feature by feature)
 
@@ -46,13 +48,20 @@
 - **Rest-a-rider lever** — bench player riders from a season race (they recover); **rival AI**
   (`rivalAI.ts`) does the same automatically (rests tired, ill-suited riders). Season energy is now
   a real, symmetric decision.
+- **Phase 5 — management layer**: the between-races Kairosoft loop. One budget number (sponsor +
+  prize money in, wages out at the rollover); **free-agent transfers** (sign/release, fee + salary,
+  squad cap 6–9); **training** (coach a stat, tires the rider, once per gap); and a **season rollover**
+  into a multi-season dynasty. See the build plan's Phase 5 "Decisions/Built" note for the shape and
+  the flagged design choices. New mutable layer: **`src/state/dynasty.ts`** (`DynastyState`) — read the
+  roster through it, not the static data.
 
 ## Next planned work
 
-- **Phase 5 — management layer** (SPEC §7+, build plan): the between-races loop — contracts,
-  transfers/signings, budget; and the multi-season dynasty (age/retire → this bleeds into Phase 6
-  development). Keep it lean (no facilities/equipment). Follow **headless-first**: model the season
-  rollover + roster economy in `src/sim`/`src/state` before UI.
+- **Phase 6 — rider development & dynasty** (SPEC §7): `peakAge`/`ceiling`/`developmentRate`, growth
+  → peak → plateau → decline on individual curves, **hidden** potential shown fuzzily in scouting, and
+  the roster churn Phase 5 stubbed out — **rival free-agent poaching, contracts genuinely lapsing, new
+  youth entering each season, veterans retiring**. Phase 5's `rolloverSeason` is the hook to extend
+  (it already ticks contracts + rests the winter). Keep the dynasty save migrating cleanly.
 - **Small deferred loose ends** (do if they help, none blocking):
   - Rival **effort** AI (rivals conserving on a tour's non-GC stages — currently they only rest).
   - Emergent-rivalries view (world layer).
@@ -65,7 +74,7 @@
 npm install
 npm run dev     # local dev (add: -- --host  → open the Network URL on a phone on the same wifi)
 npm run build   # tsc && vite build  (must pass; CI runs it)
-npm test        # vitest, 47 tests   (CI runs it)
+npm test        # vitest, 67 tests   (CI runs it)
 npm run sim     # headless harness (tsx): stage orders, win-freq, role effect, tour GC + conserve,
                 #   and a full-season section (winners, rider + team standings)
 ```
@@ -108,20 +117,35 @@ No persistent browser dep. To view/record the running app:
     carried season fatigue + apply rival resting), `finishEvent` (prestige-scaled points, carry +
     recover fatigue, archive), rider/team standings.
   - `rivalAI.ts` — `rivalRestSet(fatigue, stage)`: rivals bench tired, ill-suited riders.
-  - `raceSetup.ts` — `defaultTeamTactics` (the pre-filled sheet for the player AND rivals),
-    `buildTacticsMap`.
+  - `raceSetup.ts` — `defaultTeamTactics` / `defaultTeamTacticsFor` (roster-driven; the pre-filled
+    sheet for the player AND rivals), `buildTacticsMap`.
+  - `rating.ts` (Phase 5) — `riderRating` (0–100 overall) → `salaryFor` → `signingFeeFor`.
+  - `management.ts` (Phase 5, pure formulas) — `sponsorIncome`, `wageBill`, `eventPrizeByTeam`,
+    `trainingGain`, `canSign` / `canRelease`. The stateful transitions that use them live in
+    `src/state/dynasty.ts`.
 - **`src/data`** — `types.ts`, **`tuning.ts` (EVERY magic number, `UPPER_SNAKE`)**, `riders.ts`
-  (8 teams / 45 riders), `teams.ts`, `stages.ts`, `races.ts` (classics + 2 tours + `SEASON_CALENDAR`),
+  (8 teams / 45 riders), `freeAgents.ts` (the unsigned market + `ALL_RIDERS_BY_ID` for immutable-fact
+  lookups), `teams.ts`, `stages.ts`, `races.ts` (classics + 2 tours + `SEASON_CALENDAR`),
   `stageWeights.ts`, `teamColors.ts`.
-- **`src/state`** — `seasonStore.ts` (localStorage save/load; Maps (de)serialised).
-- **`src/scenes`** — **MainMenu** (title: Continue / New Season / Quick Race) → **SeasonHub**
-  (calendar, season lead, ride-next; world-layer nav) → **PreRace** (role sheet; season events also
-  show carried fatigue + a **Rest** option; tours add the effort toggle) → **Race** (animated view) →
-  **StageResults** (stage + GC; banks the stage; on event completion `finishEvent` + save → back to
-  SeasonHub). World layer: **Standings**, **Riders**, **Archive**. **QuickRace** = one-off picker.
+- **`src/state`** — **`dynasty.ts` (Phase 5, the mutable game layer)**: `DynastyState` = live roster
+  (team membership + trained stats + contracts) + team budgets + season number, with `SeasonState`
+  nested. Accessors (`rosterById`, `teamRiders`, `playerRiders`, `freeAgents`, `racingRoster`,
+  `teamOf`) — **read the roster through these, never the static `RIDERS`/team lists**. Transitions:
+  `signRider` / `releaseRider` / `trainRider` / `finishSeasonEvent` (banks event + pays prize) /
+  `rolloverSeason`; plus `buildTacticsMapDyn`. `dynastyStore.ts` persists it to localStorage
+  (`bicyclesim.dynasty.v1`; supersedes the season-only `seasonStore.ts`, now unused by the main mode).
+- **`src/scenes`** — **MainMenu** (Continue / New Dynasty / Quick Race) → **SeasonHub** (calendar,
+  finances strip, season lead, **Team HQ** door, ride-next; world-layer nav; drives the rollover when
+  the season is done) → **PreRace** (role sheet; season events show carried fatigue + a **Rest** option;
+  tours add the effort toggle) → **Race** (animated view) → **StageResults** (stage + GC; banks the
+  stage; on event completion `finishSeasonEvent` + save → back to SeasonHub). Management (Phase 5):
+  **Team** (finances + squad + Release), **Transfers** (sign free agents), **Training** (coach a stat),
+  **Rollover** (end-of-season settlement → next season). World layer: **Standings**, **Riders**,
+  **Archive**. **QuickRace** = one-off picker (stays on the **static** roster path).
   Threading: a **one-day race is a one-stage tour**; `TourState` flows through scene data, plus an
-  optional `season` (present → season loop, absent → quick one-off). Only create the tour once, at
-  event start; PreRace between-stages receives the existing tour.
+  optional **`dynasty`** (present → dynasty/season loop off the live roster, absent → quick one-off off
+  the static roster). Only create the tour once, at event start; PreRace between-stages receives the
+  existing tour.
 - **`src/render`** — `riderRenderer.ts` interface + `codeDrawnRenderer.ts` (placeholder art). Phase
   7 adds a `SpriteRenderer` behind the same interface (config flag, not a rewrite).
 - **`src/ui`** — `button.ts`, `theme.ts`, `stageProfile.ts` (multi-feature silhouette + live group

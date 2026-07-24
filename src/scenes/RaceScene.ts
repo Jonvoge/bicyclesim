@@ -6,7 +6,7 @@ import type { Rider, Stage, StageResultEntry } from '../data/types.ts';
 import { Rng } from '../sim/rng.ts';
 import { buildTacticsMap } from '../sim/raceSetup.ts';
 import { ridersForStage, type TourState } from '../sim/standings.ts';
-import type { SeasonState } from '../sim/season.ts';
+import { buildTacticsMapDyn, racingRoster, rosterById, type DynastyState } from '../state/dynasty.ts';
 import {
   buildRaceStory,
   interpGap,
@@ -64,7 +64,8 @@ interface TickerLine {
  */
 export class RaceScene extends Phaser.Scene {
   private tour!: TourState;
-  private season?: SeasonState;
+  private dynasty?: DynastyState;
+  private byId!: Map<string, Rider>;
   private stage!: Stage;
   private tactics!: TeamTactics; // the player's role sheet for this stage
   private tacticsByTeam!: Map<string, TeamTactics>;
@@ -100,7 +101,7 @@ export class RaceScene extends Phaser.Scene {
     super('Race');
   }
 
-  create(data: { tour: TourState; playerTactics: TeamTactics; season?: SeasonState }): void {
+  create(data: { tour: TourState; playerTactics: TeamTactics; dynasty?: DynastyState }): void {
     this.actors = [];
     this.ticker = [];
     this.countLabels = [];
@@ -112,17 +113,20 @@ export class RaceScene extends Phaser.Scene {
     this.eventIdx = 0;
     this.maxFinish = 1;
     this.tour = data.tour;
-    this.season = data.season;
+    this.dynasty = data.dynasty;
     this.tactics = data.playerTactics;
+    this.byId = this.dynasty ? rosterById(this.dynasty) : RIDERS_BY_ID;
 
     const { width } = this.scale;
     this.frontX = width - 38;
     this.stage = STAGES_BY_ID.get(this.tour.stageIds[this.tour.stageIndex])!;
 
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
-    // fatigued rider copies (abandoned riders already dropped), rival defaults + player sheet
-    this.stageRiders = ridersForStage(this.tour, RIDERS);
-    this.tacticsByTeam = buildTacticsMap(this.stage, this.tactics);
+    // fatigued rider copies (abandoned riders already dropped), rival defaults + player sheet.
+    // Dynasty races use the live squads; a quick race uses the static roster.
+    const field = this.dynasty ? racingRoster(this.dynasty) : RIDERS;
+    this.stageRiders = ridersForStage(this.tour, field);
+    this.tacticsByTeam = this.dynasty ? buildTacticsMapDyn(this.dynasty, this.stage, this.tactics) : buildTacticsMap(this.stage, this.tactics);
     this.story = buildRaceStory({
       stage: this.stage,
       riders: this.stageRiders,
@@ -195,7 +199,7 @@ export class RaceScene extends Phaser.Scene {
     }
 
     order.forEach((entry, rank) => {
-      const rider = RIDERS_BY_ID.get(entry.riderId)!;
+      const rider = this.byId.get(entry.riderId)!;
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === 't-grenoble';
       const story = this.story.stories.get(entry.riderId)!;
@@ -417,7 +421,7 @@ export class RaceScene extends Phaser.Scene {
       let label: string;
       if (n === biggest && n > 3) label = `Peloton ${n}`;
       else if (i === 0 && c.members.every((m) => m.a.story.inBreak) && n < biggest) label = `Break ${n}`;
-      else if (n <= 2) label = c.members.map((m) => RIDERS_BY_ID.get(m.a.entry.riderId)!.name.split(' ').slice(-1)[0]).join(', ');
+      else if (n <= 2) label = c.members.map((m) => this.byId.get(m.a.entry.riderId)!.name.split(' ').slice(-1)[0]).join(', ');
       else label = `Group ${n}`;
       const gapToLead = c.gap - clusters[0].gap;
       return i === 0 ? label : `${label} +${this.fmtGap(gapToLead)}`;
@@ -467,7 +471,7 @@ export class RaceScene extends Phaser.Scene {
 
   private revealRow(rank: number): void {
     const entry = this.story.result.order[rank];
-    const rider = RIDERS_BY_ID.get(entry.riderId)!;
+    const rider = this.byId.get(entry.riderId)!;
     const col = teamColor(rider.teamId);
     const y = this.lbTop + rank * this.rowH;
     const isWinner = rank === 0 && !entry.dnf;
@@ -543,7 +547,7 @@ export class RaceScene extends Phaser.Scene {
       () =>
         this.scene.start('StageResults', {
           tour: this.tour,
-          season: this.season,
+          dynasty: this.dynasty,
           stage: this.stage,
           result: this.story.result,
           stageRiders: this.stageRiders,

@@ -4,11 +4,10 @@ import { RIDERS_BY_ID } from '../data/riders.ts';
 import { teamColor } from '../data/teamColors.ts';
 import { TEAMS_BY_ID } from '../data/teams.ts';
 import type { Rider, Stage, StageResult } from '../data/types.ts';
-import { RIDERS } from '../data/riders.ts';
-import { finishEvent, type SeasonState } from '../sim/season.ts';
 import { computeGc, isTourComplete, recordStageResult, type GcRow, type TourState } from '../sim/standings.ts';
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
-import { saveSeason } from '../state/seasonStore.ts';
+import { finishSeasonEvent, rosterById, type DynastyState } from '../state/dynasty.ts';
+import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
 import { ScrollView } from '../ui/scrollView.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
@@ -17,7 +16,7 @@ const PLAYER_TEAM_ID = 't-grenoble';
 
 interface ResultsData {
   tour: TourState;
-  season?: SeasonState;
+  dynasty?: DynastyState;
   stage: Stage;
   result: StageResult;
   stageRiders: Rider[];
@@ -32,32 +31,35 @@ interface ResultsData {
  * classification and the race winner.
  */
 export class StageResultsScene extends Phaser.Scene {
+  private byId!: Map<string, Rider>;
+
   constructor() {
     super('StageResults');
   }
 
   create(data: ResultsData): void {
     const { width } = this.scale;
-    const { tour, stage, result, season } = data;
+    const { tour, stage, result, dynasty } = data;
     const isTour = tour.stageIds.length > 1;
+    this.byId = dynasty ? rosterById(dynasty) : RIDERS_BY_ID;
 
     // BANK the stage: fatigue + GC + abandons, and advance the tour.
     recordStageResult(tour, stage, result, data.tacticsByTeam, data.stageRiders);
     const complete = isTourComplete(tour);
 
-    // Event over? Bank it into the season (points + carried fatigue) and persist.
-    if (season && complete) {
-      finishEvent(season, tour, RIDERS);
-      saveSeason(season);
+    // Event over? Bank it into the dynasty (points, carried fatigue, prize) + save.
+    if (dynasty && complete) {
+      finishSeasonEvent(dynasty, tour);
+      saveDynasty(dynasty);
     }
 
     // terminal action: next stage, back to the season hub, or back to the menu
     const advance = () => {
-      if (!complete) this.scene.start('PreRace', { tour, season });
-      else if (season) this.scene.start('SeasonHub', { season });
+      if (!complete) this.scene.start('PreRace', { tour, dynasty });
+      else if (dynasty) this.scene.start('SeasonHub', { dynasty });
       else this.scene.start('MainMenu');
     };
-    const label = !complete ? 'Next stage →' : season ? 'Back to Season →' : 'Continue →';
+    const label = !complete ? 'Next stage →' : dynasty ? 'Back to Season →' : 'Continue →';
 
     if (!isTour) {
       this.buildOneDay(width, stage, result);
@@ -78,7 +80,7 @@ export class StageResultsScene extends Phaser.Scene {
   // --- one-day race: the full finishing order (unchanged behaviour) -----------
   private buildOneDay(width: number, stage: Stage, result: StageResult): void {
     const order = result.order;
-    const winner = RIDERS_BY_ID.get(order[0].riderId)!;
+    const winner = this.byId.get(order[0].riderId)!;
     const winnerCol = teamColor(winner.teamId);
     const winnerTime = order[0].timeSec;
 
@@ -97,7 +99,7 @@ export class StageResultsScene extends Phaser.Scene {
     // ~45 finishers → scroll the order (banner + header + button stay fixed)
     const scroll = new ScrollView(this, 168, 792, top + order.length * rowH);
     order.forEach((e, i) => {
-      const rider = RIDERS_BY_ID.get(e.riderId)!;
+      const rider = this.byId.get(e.riderId)!;
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === PLAYER_TEAM_ID;
       const y = top + i * rowH;
@@ -126,7 +128,7 @@ export class StageResultsScene extends Phaser.Scene {
   // --- mid-tour: compact stage result (top of screen) -------------------------
   private buildStageColumn(width: number, result: StageResult, playerTactics: TeamTactics, top: number): void {
     const winnerTime = result.order[0].timeSec;
-    const stageWinner = RIDERS_BY_ID.get(result.order[0].riderId)!;
+    const stageWinner = this.byId.get(result.order[0].riderId)!;
     this.add.rectangle(width / 2, top - 18, width - 30, 30, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
     this.add.text(24, top - 18, 'STAGE', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0, 0.5);
     this.add.text(64, top - 18, `${stageWinner.name}`, { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#f5c518' }).setOrigin(0, 0.5);
@@ -136,7 +138,7 @@ export class StageResultsScene extends Phaser.Scene {
     const rows = Math.min(6, result.order.length);
     for (let i = 0; i < rows; i++) {
       const e = result.order[i];
-      const rider = RIDERS_BY_ID.get(e.riderId)!;
+      const rider = this.byId.get(e.riderId)!;
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === PLAYER_TEAM_ID;
       const y = top + 6 + i * rowH;
@@ -162,7 +164,7 @@ export class StageResultsScene extends Phaser.Scene {
     const leadTime = gc[0]?.totalTimeSec ?? 0;
     for (let i = 0; i < rows; i++) {
       const row = gc[i];
-      const rider = RIDERS_BY_ID.get(row.riderId)!;
+      const rider = this.byId.get(row.riderId)!;
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === PLAYER_TEAM_ID;
       const y = top + 8 + i * rowH;
@@ -180,7 +182,7 @@ export class StageResultsScene extends Phaser.Scene {
 
   // --- tour finish: the overall winner + full final GC ------------------------
   private buildFinalGc(width: number, gc: GcRow[]): void {
-    const champ = RIDERS_BY_ID.get(gc[0].riderId)!;
+    const champ = this.byId.get(gc[0].riderId)!;
     const champCol = teamColor(champ.teamId);
     const isPlayerChamp = champ.teamId === PLAYER_TEAM_ID;
 
@@ -195,7 +197,7 @@ export class StageResultsScene extends Phaser.Scene {
     const leadTime = gc[0].totalTimeSec;
     for (let i = 0; i < rows; i++) {
       const row = gc[i];
-      const rider = RIDERS_BY_ID.get(row.riderId)!;
+      const rider = this.byId.get(row.riderId)!;
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === PLAYER_TEAM_ID;
       const y = top + i * rowH;

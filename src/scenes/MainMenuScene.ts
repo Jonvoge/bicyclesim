@@ -1,14 +1,13 @@
 import Phaser from 'phaser';
-import { SEASON_CALENDAR } from '../data/races.ts';
-import { createSeason } from '../sim/season.ts';
-import { clearSeason, hasSavedSeason, loadSeason } from '../state/seasonStore.ts';
+import { createDynasty } from '../state/dynasty.ts';
+import { clearDynasty, hasSavedDynasty, loadDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
 /**
- * Title screen: play the season (continue a save or start fresh) or a one-off
- * Quick Race. The season is the main mode (Phase 4); Quick Race keeps the old
- * pick-any-race loop for a fast single race.
+ * Title screen: play the dynasty (continue a save or start fresh) or a one-off
+ * Quick Race. The dynasty is the main mode (Phase 5): a persistent team you run
+ * across seasons — squad, budget, transfers and training on top of the racing.
  */
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -19,31 +18,31 @@ export class MainMenuScene extends Phaser.Scene {
     const { width } = this.scale;
 
     this.add.text(width / 2, 150, 'BICYCLE SIM', { fontFamily: FONT, fontSize: '42px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
-    this.add.text(width / 2, 192, 'a season on the road', { fontFamily: FONT, fontSize: '15px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(width / 2, 192, 'run the team, ride the years', { fontFamily: FONT, fontSize: '15px', color: COLORS.textMuted }).setOrigin(0.5);
 
-    const saved = hasSavedSeason();
+    const saved = hasSavedDynasty();
     let y = 320;
 
     if (saved) {
-      makeButton(this, width / 2, y, 'Continue Season', () => this.openSeason(false), { width: 300, height: 58, fontSize: 22, fill: COLORS.buttonSelected });
+      makeButton(this, width / 2, y, 'Continue', () => this.openDynasty(false), { width: 300, height: 58, fontSize: 22, fill: COLORS.buttonSelected });
       y += 84;
-      makeButton(this, width / 2, y, 'New Season', () => this.confirmNewSeason(), { width: 300, height: 50, fontSize: 18 });
+      makeButton(this, width / 2, y, 'New Dynasty', () => this.confirmNew(), { width: 300, height: 50, fontSize: 18 });
       y += 76;
     } else {
-      makeButton(this, width / 2, y, 'Play Season', () => this.openSeason(true), { width: 300, height: 58, fontSize: 22, fill: COLORS.buttonSelected });
+      makeButton(this, width / 2, y, 'New Dynasty', () => this.openDynasty(true), { width: 300, height: 58, fontSize: 22, fill: COLORS.buttonSelected });
       y += 84;
     }
 
     makeButton(this, width / 2, y, 'Quick Race', () => this.scene.start('QuickRace'), { width: 300, height: 50, fontSize: 18 });
   }
 
-  private openSeason(fresh: boolean): void {
-    const season = !fresh ? loadSeason() ?? createSeason(SEASON_CALENDAR) : createSeason(SEASON_CALENDAR);
-    this.scene.start('SeasonHub', { season });
+  private openDynasty(fresh: boolean): void {
+    const dynasty = !fresh ? loadDynasty() ?? createDynasty() : createDynasty();
+    this.scene.start('SeasonHub', { dynasty });
   }
 
-  private confirmNewSeason(): void {
-    clearSeason();
-    this.scene.start('SeasonHub', { season: createSeason(SEASON_CALENDAR) });
+  private confirmNew(): void {
+    clearDynasty();
+    this.scene.start('SeasonHub', { dynasty: createDynasty() });
   }
 }

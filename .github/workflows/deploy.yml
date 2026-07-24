@@ -6,8 +6,7 @@ on:
   push:
     branches:
       - main
-      - claude/phase-2-race-presentation
-      - claude/rider-roles-simulation-viz-j0i7e2
+      - claude/continue-build-0zwcbc
   workflow_dispatch:
 
 permissions:

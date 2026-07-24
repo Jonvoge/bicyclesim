@@ -17,7 +17,22 @@ import type { Rider, Stage, StageResult } from '../data/types.ts';
 import { Rng } from './rng.ts';
 import { simulateStage } from './stageSim.ts';
 import { buildRaceStory } from './raceNarrative.ts';
-import { bestSuitedRider, buildTacticsMap, defaultTeamTactics } from './raceSetup.ts';
+import { bestSuitedRider, buildTacticsMap, defaultTeamTactics, defaultTeamTacticsFor } from './raceSetup.ts';
+import { riderRating, riderSalary, salaryFor, signingFeeFor } from './rating.ts';
+import { sponsorIncome } from './management.ts';
+import {
+  createDynasty,
+  finishSeasonEvent,
+  freeAgents,
+  playerBudget,
+  playerRiders,
+  playerWageBill,
+  racingRoster,
+  rolloverSeason,
+  signRider,
+  teamRiders,
+  trainRider,
+} from '../state/dynasty.ts';
 import { computeGc, createTour, isTourComplete, recordStageResult, ridersForStage } from './standings.ts';
 import {
   createSeason,
@@ -252,5 +267,61 @@ console.log('\n########## SEASON: CALENDAR, POINTS & STANDINGS ##########');
   teamStandings(season, (id) => RIDERS_BY_ID.get(id)?.teamId ?? null).forEach((row, i) => {
     console.log(`    ${i + 1}  ${(TEAMS_BY_ID.get(row.id)?.name ?? row.id).padEnd(22)} ${String(row.points).padStart(4)} pts`);
   });
+}
+console.log('');
+
+// --- 6. Management layer: economy, transfers, training & rollover (Phase 5) ----
+console.log('\n########## MANAGEMENT: ECONOMY, TRANSFERS & TRAINING ##########');
+{
+  const d = createDynasty();
+
+  // valuation: what the squad and the market are worth
+  console.log('\nPlayer squad valuation (rating → salary):');
+  for (const r of playerRiders(d)) {
+    console.log(`    ${r.name.padEnd(20)} rating ${String(riderRating(r)).padStart(3)}   salary ${String(riderSalary(r)).padStart(4)}`);
+  }
+
+  console.log(`\nOpening budget ${playerBudget(d)}   ·   wage bill ${playerWageBill(d)}   ·   sponsor@mid ${sponsorIncome(undefined, TEAMS.length)}`);
+
+  console.log('\nFree-agent market (rating · salary · signing fee):');
+  for (const r of freeAgents(d)) {
+    const rt = riderRating(r);
+    console.log(`    ${r.name.padEnd(20)} ${String(rt).padStart(3)}   ${String(salaryFor(rt)).padStart(4)}   fee ${String(signingFeeFor(rt)).padStart(4)}`);
+  }
+
+  // sign the top free agent, train a young rider
+  const target = [...freeAgents(d)].sort((a, b) => riderRating(b) - riderRating(a))[0];
+  const sign = signRider(d, target.id);
+  console.log(`\nSign ${target.name}: ${sign.ok ? 'done' : sign.reason} → budget now ${playerBudget(d)}, squad ${playerRiders(d).length}`);
+
+  const pupil = playerRiders(d).find((r) => r.stats.climbing < 80)!;
+  const before = pupil.stats.climbing;
+  const t = trainRider(d, pupil.id, 'climbing');
+  console.log(`Train ${pupil.name} climbing: ${before} → ${pupil.stats.climbing} (+${t.gain?.toFixed(1)}), fatigue now ${(d.season.fatigue.get(pupil.id) ?? 0).toFixed(1)}`);
+
+  // play the whole season with this squad, then roll into next year
+  const rng = new Rng(77);
+  let prize = 0;
+  const startBudget = playerBudget(d);
+  while (!isSeasonComplete(d.season)) {
+    const field = racingRoster(d);
+    const tour = startEvent(d.season, field);
+    while (!isTourComplete(tour)) {
+      const stage = STAGES_BY_ID.get(tour.stageIds[tour.stageIndex])!;
+      const riders = ridersForStage(tour, field);
+      const tactics = new Map(TEAMS.map((tm) => [tm.id, defaultTeamTacticsFor(tm.id, teamRiders(d, tm.id), stage)]));
+      const story = buildRaceStory({ stage, riders, tacticsByTeam: tactics, rng });
+      recordStageResult(tour, stage, story.result, tactics, riders);
+    }
+    finishSeasonEvent(d, tour);
+  }
+  prize = playerBudget(d) - startBudget;
+  console.log(`\nSeason ${d.seasonNumber} raced — prize money earned by player: ${prize}`);
+
+  const summary = rolloverSeason(d);
+  console.log(
+    `Rollover: finished rank ${summary.teamRank}/${TEAMS.length}  ·  sponsor ${summary.sponsor} − wages ${summary.wages} = ${summary.net >= 0 ? '+' : ''}${summary.net}`,
+  );
+  console.log(`  → season ${d.seasonNumber} budget ${playerBudget(d)}${summary.expiring.length ? `, renewed: ${summary.expiring.map(riderName).join(', ')}` : ''}`);
 }
 console.log('');
