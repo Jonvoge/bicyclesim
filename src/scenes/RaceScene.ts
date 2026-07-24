@@ -24,15 +24,16 @@ import { COLORS, FONT } from '../ui/theme.ts';
 const MAIN_T_SECONDS = 16; // real seconds for the stage clock at 1× (slow enough to follow)
 const FINALE_SLOWDOWN = 0.55; // clock rate in the finale, for tension
 const FINISH_SPREAD = 0.0016; // extra stage-time per second of finishing gap
-const COMPRESS_K = 90; // gap→spread shaping
-const MAX_SPREAD = 0.5; // field never spans more than this fraction of the road…
-const SPREAD_RATE = 0.62; // …and can't spread faster than this × progress (keeps everyone moving up)
+const COMPRESS_K = 90; // gap→offset shaping
+const MAX_SPREAD = 0.18; // the road-length a gap can open (fraction) — kept modest so the whole field tracks the clock and the break is a clear-but-not-huge lead
+const OPEN_T = 0.12; // a gap opens smoothly over the first this-much of the stage (everyone starts together)
 const CLUSTER_GAP_SEC = 4; // riders within this render as one bunch
 const MAX_ROWS = 12;
+const MAX_GLYPHS_PER_GROUP = 10; // a big bunch is drawn as a compact clump of ~this many + a count (not 40 icons)
 const EASE_RATE = 6; // per-second exponential easing toward slot targets
 const FORM_DX = 9; // paceline column spacing (px)
 const FORM_DY = 11; // paceline row spacing (px)
-const GROUP_MIN_SEP = 18; // groups never visually overlap on the road (px)
+const GROUP_MIN_SEP = 16; // groups never visually overlap on the road (px)
 const COUNT_LABEL_MIN = 5; // groups at least this big get a rider-count label
 const GAP_LABEL_MIN_SEC = 10; // show "+m:ss" under a group this far behind
 const LABEL_POOL = 6;
@@ -319,8 +320,13 @@ export class RaceScene extends Phaser.Scene {
     let lastLabelX = Infinity;
     clusters.forEach((c, ci) => {
       const size = c.members.length;
-      const rows = size <= 1 ? 1 : size <= 4 ? 2 : 3;
-      const cols = Math.ceil(size / rows);
+      // a big bunch is drawn compactly: only ~MAX_GLYPHS_PER_GROUP riders on the
+      // road (the count label carries the true size), so the peloton is a tidy
+      // clump instead of a 40-icon slab that overlaps the groups fore and aft.
+      const members = [...c.members].sort((m1, m2) => m1.a.packSeed - m2.a.packSeed);
+      const shown = Math.min(size, MAX_GLYPHS_PER_GROUP);
+      const rows = shown <= 1 ? 1 : shown <= 4 ? 2 : 3;
+      const cols = Math.ceil(shown / rows);
       const depth = (cols - 1) * FORM_DX + 4;
 
       // desired position from the sim, then: never overlap the group ahead, and
@@ -331,15 +337,19 @@ export class RaceScene extends Phaser.Scene {
       prevTailX = frontX - depth;
 
       // stable in-group order → stable slots; everything eases, nothing jumps
-      const members = [...c.members].sort((m1, m2) => m1.a.packSeed - m2.a.packSeed);
       members.forEach((m, i) => {
+        const g = m.a.glyph;
+        if (i >= shown) {
+          g.setVisible(false); // folded into the bunch (counted, not drawn)
+          return;
+        }
+        g.setVisible(true);
         const col = Math.floor(i / rows);
         const row = i % rows;
         const jit = frac(Math.sin(m.a.packSeed * 78.233 + 1.7) * 43758.5453) - 0.5;
         const wob = Math.sin(time / 520 + m.a.packSeed) * 1.0;
         const tx = frontX - col * FORM_DX - (row % 2) * 3;
         const ty = yMid + (row - (rows - 1) / 2) * FORM_DY + jit * 4 + wob;
-        const g = m.a.glyph;
         g.x += (tx - g.x) * ease;
         g.y += (ty - g.y) * ease;
       });
@@ -438,15 +448,16 @@ export class RaceScene extends Phaser.Scene {
   }
 
   /**
-   * Left→right flow. The head of the race is at progress tPos; a group `gap`
-   * seconds back sits a little behind — but the spread is capped by tPos so early
-   * on the whole field is bunched near the start and everyone keeps moving forward
-   * (no pack "stuck at the start" or drifting backwards).
+   * Left→right flow. The whole field advances **with the clock** (progress ≈ tPos);
+   * a group `gap` seconds back just sits a *bounded, constant* offset behind the
+   * leader — so everyone keeps moving at race pace and a breakaway is simply the
+   * front of the road, not the only thing moving. The offset opens smoothly over
+   * the first `OPEN_T` of the stage so the bunch starts together.
    */
   private xForGap(gap: number, tPos: number): number {
-    const desiredBehind = MAX_SPREAD * (gap / (gap + COMPRESS_K)); // 0..MAX_SPREAD
-    const behind = Math.min(desiredBehind, tPos * SPREAD_RATE);
-    const progress = Math.max(0, tPos - behind);
+    const offset = MAX_SPREAD * (gap / (gap + COMPRESS_K)); // 0..MAX_SPREAD, constant in tPos
+    const open = Math.min(1, tPos / OPEN_T);
+    const progress = Math.max(0.015, tPos - offset * open);
     return this.raceLeftX + (this.frontX - this.raceLeftX) * progress;
   }
 
