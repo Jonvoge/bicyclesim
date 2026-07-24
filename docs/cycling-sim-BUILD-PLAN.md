@@ -305,6 +305,27 @@ the *decision infrastructure* is what Phase 7 delivers.)
 
 **Acceptance:** you can put it down and pick it up across weeks; races feel fair and dramatic.
 
+**Built (this phase).** **Persistence — multiple save slots.** `dynastyStore.ts` now addresses **3
+slots** (`saveDynastyToSlot` / `loadDynastyFromSlot` / `clearSlot` / `slotInfos`), with a persisted
+**active slot** so the slot-less `saveDynasty` / `loadDynasty` the whole scene flow already calls just
+work; a pre-slots save auto-migrates into slot 1. MainMenu is now a **save-slot picker** (tap to
+continue/start, × to wipe with a confirm). **6 new store tests.** localStorage is fine at this size
+(no IndexedDB needed). **Balance pass** (measured, not guessed — `scripts/balanceReport.ts` simulates
+5 dynasties × 10 seasons and reports the health metrics): winner spread is healthy (~7.7 distinct
+winners of 14 races/season); the **economy was ballooning** (a passive team reached ~20k by S10), so
+prize money (`PRIZE_PER_POINT` 2.2→1.3) and the sponsor base (1300→1150) were cut to sit near
+break-even for a mid-table team — a surplus is now earned by racing well and a weak team runs a
+deficit, so money keeps mattering; and prospect signature ceilings were nudged up
+(`PROSPECT_SIGNATURE_MAX` 78→82) to replenish the elite tier as the authored stars retire. **PWA**
+offline verified (service worker registers; precache intact). *Still a sim pass —* the numbers are in
+a sane range but the final feel (does the economy bite? do careers fade at a satisfying pace?) is the
+**phone playtest**, as always. That's the one thing a headless agent can't judge.
+
+> **Core build complete (Phases 0–8).** The design in the SPEC is fully built. From here it's the
+> human's game to tune and grow: play it on the phone, adjust `tuning.ts` to taste, and add content
+> (more races/riders) or the explicitly-deferred extras (time trials, rival poaching, sprites) if they
+> earn their place.
+
 ---
 
 ## Dependency order (quick view)
