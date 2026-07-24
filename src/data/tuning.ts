@@ -195,9 +195,12 @@ export const SIGNING_FEE_MULT = 1.5; // one-off signing fee = salary × this
 // Team finances.
 export const STARTING_BUDGET = 1600; // player team's opening cash
 export const RIVAL_STARTING_BUDGET = 2600; // rivals run comfortable books (they auto-renew squads)
-export const SPONSOR_BASE = 1300; // season-start cheque, before the ranking bonus
+export const SPONSOR_BASE = 1150; // season-start cheque, before the ranking bonus
 export const SPONSOR_RANK_BONUS = 130; // extra per place above last (numTeams − rank) × this
-export const PRIZE_PER_POINT = 2.2; // event prize to a team = its finishers' points × prestige/100 × this
+export const PRIZE_PER_POINT = 1.3; // event prize to a team = its finishers' points × prestige/100 × this
+// Tuned in the Phase 8 balance pass: prize + sponsor now sit near break-even against
+// the wage bill for a mid-table team, so a surplus must be earned by racing well and
+// the budget can't balloon — money keeps mattering across a long dynasty.
 
 // Squad rules — the wage bill plus these bounds force real selection choices.
 export const MIN_SQUAD_SIZE = 6; // can't release below this (need a squad to race)
@@ -257,7 +260,8 @@ export const PROSPECT_AGE_MAX = 22;
 export const PROSPECT_BASE_MIN = 42; // a prospect's non-signature stats start around here…
 export const PROSPECT_BASE_MAX = 66;
 export const PROSPECT_SIGNATURE_MIN = 60; // …their signature stat starts higher (raw talent showing)
-export const PROSPECT_SIGNATURE_MAX = 78;
+export const PROSPECT_SIGNATURE_MAX = 82; // a few prospects reach elite ceilings, so the peloton's
+// top tier is replenished as the authored stars retire (Phase 8 balance pass)
 
 // Scouting fuzz — a young rider's shown potential is UNCERTAIN (the gamble). The
 // scouted ceiling carries a seeded error that shrinks to nothing as the rider

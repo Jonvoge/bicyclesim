@@ -6,23 +6,24 @@
 
 ## TL;DR — current state
 
-- **Everything through Phase 6 is merged to `main`** (PRs #1–#13). **Phase 7 (art pipeline experiment)
-  is built on branch `claude/continue-build-0zwcbc`** with a PR open for review — not yet merged. The
-  render abstraction is now a working config flag (code-drawn vs sprite), with a side-by-side compare
-  scene and a chosen default.
+- **The core build is COMPLETE — Phases 0–7 are merged to `main` (PRs #1–#14); Phase 8 (persistence,
+  balance & polish) is built on branch `claude/continue-build-0zwcbc`** with a PR open for review.
+  Every phase in the build plan is now done: a multi-season cycling **dynasty** — set tactics, watch
+  stages, run the budget, sign/train/scout riders, and carry a team across the years, with multiple
+  save slots.
 - **The Phase 2 fun gate passed** (user playtested on a phone and said proceed). We have since
   iterated well past the MVP on user feedback (see "What's built").
-- **Next up is Phase 8 — persistence, balance & polish.** With full dynasties now running, the big
-  **balance pass** (every `tuning.ts` number is still a guess) is where the game gets earned; plus
-  multiple save slots and offline polish. Nothing for Phase 8 is started.
-- **Phase 7 caveat:** the "sprite" is an authored **SVG placeholder** (not the AI raster the SPEC
-  imagined — this env can't gen images). The flag/infrastructure/comparison are real; the final art
-  look, with production sprites, is still open. Default is `RENDER_MODE = 'code'`.
+- **What's left is the human's game to grow:** the big **feel/balance tuning on a phone** (the sim
+  says `tuning.ts` is in a sane range, but "does it *feel* fair and dramatic?" needs real play), plus
+  optional content and the deferred extras below. There is no Phase 9 — the SPEC is fully built.
+- **Two honest caveats carried forward:** (1) the sprite path is an authored **SVG placeholder**, not
+  the AI raster the SPEC imagined (this env can't gen images) — infra/flag/comparison are real, final
+  art is open; default `RENDER_MODE = 'code'`. (2) Balance is a **sim pass**, not a play-tested one.
 - Deployed & playable on a phone: **https://jonvoge.github.io/bicyclesim/** (auto-redeploys on push
   to `main` or the active feature branch — last push wins).
-- **The management + development layers have NOT had a phone playtest yet, and their numbers are
-  guesses.** Watch: does the economy bite without punishing? Do careers rise/fade at a satisfying
-  rate over a dynasty? Is scouting a fun gamble? All knobs are in `tuning.ts` (real balance is Phase 8).
+- **Nothing has had a full phone playtest since Phase 2.** Watch, as you play: does the economy bite
+  without punishing? Do careers rise/fade at a satisfying rate? Is scouting a fun gamble? Are the
+  races still dramatic? All knobs are in `tuning.ts`.
 
 ## What's built (feature by feature)
 
@@ -68,19 +69,24 @@
   draws from a loaded texture (authored **SVG** placeholder, tinted per team — a real AI raster atlas
   can replace it behind the same keys). `RenderCompareScene` (MainMenu → "Renderers") shows both
   side-by-side. **Default `'code'`** (tiny footprint, one-value recolour, crisp scaling).
+- **Phase 8 — persistence, balance & polish**: **multiple save slots** (`dynastyStore.ts` → 3 slots +
+  a persisted active slot; MainMenu is a slot picker; legacy save auto-migrates), a measured **balance
+  pass** (`scripts/balanceReport.ts`: prize/sponsor cut so the economy no longer balloons, prospect
+  ceilings nudged up so the elite tier replenishes), and a **PWA offline** check. Balance is a sim
+  pass — final feel needs a phone.
 
-## Next planned work
+## What's left (no more phases — the SPEC is fully built)
 
-- **Phase 8 — persistence, balance & polish**: the big **balance pass** now that full dynasties run
-  (every `tuning.ts` number is still a guess — economy, development curves, retirement rate), plus
-  multiple save slots (localStorage → IndexedDB if needed) and offline/PWA polish. See SPEC §10.
-- **Finish Phase 7 properly** when real art exists: drop an AI-generated raster atlas behind the
-  `SpriteRenderer` texture keys (`src/render/spriteAssets.ts`) and re-judge `RENDER_MODE` by looking.
-- **Small deferred loose ends** (do if they help, none blocking):
+- **Feel/balance tuning on a phone** — the one thing a headless agent can't do. `tuning.ts` is a
+  sane-range guess; play a few dynasties and adjust to taste (economy tightness, development/retirement
+  pace, race drama). `scripts/balanceReport.ts` is there to re-measure after any change.
+- **Finish the art** if wanted: drop an AI-generated raster atlas behind the `SpriteRenderer` texture
+  keys (`src/render/spriteAssets.ts`) and re-judge `RENDER_MODE` in the compare scene.
+- **Deferred-by-design extras** (add only if they earn their place):
   - Rival **effort** AI (rivals conserving on a tour's non-GC stages — currently they only rest).
+  - Rival **poaching** / contracts genuinely lapsing (they auto-renew now — see Phase 6 note).
   - Emergent-rivalries view (world layer).
   - Time trials + TTT — deferred by design; `flat` is already their stat when they return.
-  - Sprite renderer (Phase 7) behind the existing `RiderRenderer` interface.
 
 ## How to run / verify
 
@@ -88,7 +94,7 @@
 npm install
 npm run dev     # local dev (add: -- --host  → open the Network URL on a phone on the same wifi)
 npm run build   # tsc && vite build  (must pass; CI runs it)
-npm test        # vitest, 80 tests   (CI runs it)
+npm test        # vitest, 86 tests   (CI runs it)
 npm run sim     # headless harness (tsx): stage orders, win-freq, role effect, tour GC + conserve,
                 #   and a full-season section (winners, rider + team standings)
 ```
@@ -149,9 +155,12 @@ No persistent browser dep. To view/record the running app:
   nested. Accessors (`rosterById`, `teamRiders`, `playerRiders`, `freeAgents`, `racingRoster`,
   `teamOf`) — **read the roster through these, never the static `RIDERS`/team lists**. Transitions:
   `signRider` / `releaseRider` / `trainRider` / `finishSeasonEvent` (banks event + pays prize) /
-  `rolloverSeason` (Phase 6: also ages the peloton, retires, injects scouted youth); plus `buildTacticsMapDyn`. `dynastyStore.ts` persists it to localStorage
-  (`bicyclesim.dynasty.v1`; supersedes the season-only `seasonStore.ts`, now unused by the main mode).
-- **`src/scenes`** — **MainMenu** (Continue / New Dynasty / Quick Race) → **SeasonHub** (calendar,
+  `rolloverSeason` (Phase 6: also ages the peloton, retires, injects scouted youth); plus `buildTacticsMapDyn`. `dynastyStore.ts` (Phase 8) persists it to
+  localStorage across **3 save slots** (`slotInfos` / `saveDynastyToSlot` / `loadDynastyFromSlot` +
+  a persisted active slot behind the slot-less `saveDynasty`/`loadDynasty` the scenes call; legacy
+  single-save auto-migrates). Supersedes the season-only `seasonStore.ts` (now unused).
+- **`src/scenes`** — **MainMenu** (save-slot picker: continue / new / delete per slot; + Quick Race,
+  Renderers) → **SeasonHub** (calendar,
   finances strip, season lead, **Team HQ** door, ride-next; world-layer nav; drives the rollover when
   the season is done) → **PreRace** (role sheet; season events show carried fatigue + a **Rest** option;
   tours add the effort toggle) → **Race** (animated view) → **StageResults** (stage + GC; banks the
