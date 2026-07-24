@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
 import { teamColor } from '../data/teamColors.ts';
-import { PLAYER_TEAM } from '../data/teams.ts';
 import { isSeasonComplete, riderStandings } from '../sim/season.ts';
 import {
   playerBudget,
@@ -100,7 +99,7 @@ export class SeasonHubScene extends Phaser.Scene {
         if (winner) {
           const col = teamColor(winner.teamId);
           this.add.rectangle(width - 150, y, 8, 8, col.jersey, 1);
-          const isPlayer = winner.teamId === PLAYER_TEAM.id;
+          const isPlayer = winner.teamId === this.dynasty.playerTeamId;
           this.add.text(width - 140, y, winner.name, { fontFamily: FONT, fontSize: '12px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
         }
       } else if (isNext) {
@@ -115,7 +114,7 @@ export class SeasonHubScene extends Phaser.Scene {
     const champ = riderStandings(this.dynasty.season)[0];
     if (!champ) return;
     const r = rosterById(this.dynasty).get(champ.id)!;
-    const isPlayer = r.teamId === PLAYER_TEAM.id;
+    const isPlayer = r.teamId === this.dynasty.playerTeamId;
     this.add.rectangle(width / 2, 748, width - 30, 40, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
     this.add.text(width / 2, 736, '🏆 SEASON CHAMPION', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0.5);
     this.add.text(width / 2, 756, `${r.name} · ${champ.points} pts`, { fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0.5);

@@ -12,8 +12,9 @@
 - **Now in a post-playtest iteration loop** (the user is playing on a phone and sending notes; each
   fix is its own small PR on branch `claude/continue-build-0zwcbc`). Landed so far: race-feel balance
   (mountains select, breaks stick, fatigue bites), race-view visuals (compact peloton, everyone moves,
-  believable glyph), and **pick-5 squads** (deeper rosters, choose exactly 5/race). In flight: pick
-  your team, stats-before-signing, lower budgets, collapse Free+Breakaway, auto-training.
+  believable glyph), **pick-5 squads** (deeper rosters, choose exactly 5/race), and **pick your team**
+  (`dynasty.playerTeamId` threaded everywhere; a TeamSelect screen on new-dynasty — you can run any of
+  the 8). In flight: stats-before-signing, lower budgets, collapse Free+Breakaway, auto-training.
 - **What's left is the human's game to grow:** the big **feel/balance tuning on a phone** (the sim
   says `tuning.ts` is in a sane range, but "does it *feel* fair and dramatic?" needs real play), plus
   optional content and the deferred extras below. There is no Phase 9 — the SPEC is fully built.
@@ -153,16 +154,18 @@ No persistent browser dep. To view/record the running app:
   lookups), `names.ts` (proxy name pools for generated prospects), `teams.ts`, `stages.ts`, `races.ts`
   (classics + 2 tours + `SEASON_CALENDAR`), `stageWeights.ts`, `teamColors.ts`.
 - **`src/state`** — **`dynasty.ts` (Phase 5, the mutable game layer)**: `DynastyState` = live roster
-  (team membership + trained stats + contracts) + team budgets + season number, with `SeasonState`
-  nested. Accessors (`rosterById`, `teamRiders`, `playerRiders`, `freeAgents`, `racingRoster`,
-  `teamOf`) — **read the roster through these, never the static `RIDERS`/team lists**. Transitions:
+  (team membership + trained stats + contracts) + team budgets + season number + **`playerTeamId`**
+  (which of the 8 the player runs — pick-your-team), with `SeasonState` nested. Accessors (`rosterById`,
+  `teamRiders`, `playerRiders`, `freeAgents`, `racingRoster`, `teamOf`, `startSeasonEvent`/`pickRaceSquad`)
+  — **read the roster and the player team through these, never the static `RIDERS`/team lists/`PLAYER_TEAM`**
+  (that's only the *default*/quick-race team now). Transitions:
   `signRider` / `releaseRider` / `trainRider` / `finishSeasonEvent` (banks event + pays prize) /
   `rolloverSeason` (Phase 6: also ages the peloton, retires, injects scouted youth); plus `buildTacticsMapDyn`. `dynastyStore.ts` (Phase 8) persists it to
   localStorage across **3 save slots** (`slotInfos` / `saveDynastyToSlot` / `loadDynastyFromSlot` +
   a persisted active slot behind the slot-less `saveDynasty`/`loadDynasty` the scenes call; legacy
   single-save auto-migrates). Supersedes the season-only `seasonStore.ts` (now unused).
 - **`src/scenes`** — **MainMenu** (save-slot picker: continue / new / delete per slot; + Quick Race,
-  Renderers) → **SeasonHub** (calendar,
+  Renderers) → **TeamSelect** (new dynasty → choose which of the 8 teams to run) → **SeasonHub** (calendar,
   finances strip, season lead, **Team HQ** door, ride-next; world-layer nav; drives the rollover when
   the season is done) → **PreRace** (season events: **pick exactly 5** to start + a role each — enforced;
   between tour stages the 5 are locked; carried fatigue shown;

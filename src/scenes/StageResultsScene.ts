@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
 import { RIDERS_BY_ID } from '../data/riders.ts';
 import { teamColor } from '../data/teamColors.ts';
-import { TEAMS_BY_ID } from '../data/teams.ts';
+import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
 import type { Rider, Stage, StageResult } from '../data/types.ts';
 import { computeGc, isTourComplete, recordStageResult, type GcRow, type TourState } from '../sim/standings.ts';
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
@@ -11,8 +11,6 @@ import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
 import { ScrollView } from '../ui/scrollView.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
-
-const PLAYER_TEAM_ID = 't-grenoble';
 
 interface ResultsData {
   tour: TourState;
@@ -32,6 +30,7 @@ interface ResultsData {
  */
 export class StageResultsScene extends Phaser.Scene {
   private byId!: Map<string, Rider>;
+  private playerTeamId!: string;
 
   constructor() {
     super('StageResults');
@@ -42,6 +41,7 @@ export class StageResultsScene extends Phaser.Scene {
     const { tour, stage, result, dynasty } = data;
     const isTour = tour.stageIds.length > 1;
     this.byId = dynasty ? rosterById(dynasty) : RIDERS_BY_ID;
+    this.playerTeamId = dynasty?.playerTeamId ?? PLAYER_TEAM.id;
 
     // BANK the stage: fatigue + GC + abandons, and advance the tour.
     recordStageResult(tour, stage, result, data.tacticsByTeam, data.stageRiders);
@@ -101,7 +101,7 @@ export class StageResultsScene extends Phaser.Scene {
     order.forEach((e, i) => {
       const rider = this.byId.get(e.riderId)!;
       const col = teamColor(rider.teamId);
-      const isPlayer = rider.teamId === PLAYER_TEAM_ID;
+      const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + i * rowH;
       const prev = i > 0 ? order[i - 1] : null;
       const sameGroup = prev && !e.dnf && !prev.dnf && Math.abs(e.timeSec - prev.timeSec) < 0.01;
@@ -140,7 +140,7 @@ export class StageResultsScene extends Phaser.Scene {
       const e = result.order[i];
       const rider = this.byId.get(e.riderId)!;
       const col = teamColor(rider.teamId);
-      const isPlayer = rider.teamId === PLAYER_TEAM_ID;
+      const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + 6 + i * rowH;
       const prev = i > 0 ? result.order[i - 1] : null;
       const same = prev && !e.dnf && !prev.dnf && Math.abs(e.timeSec - prev.timeSec) < 0.01;
@@ -166,7 +166,7 @@ export class StageResultsScene extends Phaser.Scene {
       const row = gc[i];
       const rider = this.byId.get(row.riderId)!;
       const col = teamColor(rider.teamId);
-      const isPlayer = rider.teamId === PLAYER_TEAM_ID;
+      const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + 8 + i * rowH;
       if (isPlayer) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12);
       if (i === 0) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.gold, 0.1);
@@ -184,7 +184,7 @@ export class StageResultsScene extends Phaser.Scene {
   private buildFinalGc(width: number, gc: GcRow[]): void {
     const champ = this.byId.get(gc[0].riderId)!;
     const champCol = teamColor(champ.teamId);
-    const isPlayerChamp = champ.teamId === PLAYER_TEAM_ID;
+    const isPlayerChamp = champ.teamId === this.playerTeamId;
 
     this.add.rectangle(width / 2, 100, width - 30, 56, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
     this.add.text(width / 2, 84, '🟡 OVERALL WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0.5);
@@ -199,7 +199,7 @@ export class StageResultsScene extends Phaser.Scene {
       const row = gc[i];
       const rider = this.byId.get(row.riderId)!;
       const col = teamColor(rider.teamId);
-      const isPlayer = rider.teamId === PLAYER_TEAM_ID;
+      const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + i * rowH;
       if (isPlayer) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12);
       if (i === 0) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.gold, 0.1);

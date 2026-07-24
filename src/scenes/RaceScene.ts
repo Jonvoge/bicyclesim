@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { RIDERS, RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { teamColor } from '../data/teamColors.ts';
+import { PLAYER_TEAM } from '../data/teams.ts';
 import type { Rider, Stage, StageResultEntry } from '../data/types.ts';
 import { Rng } from '../sim/rng.ts';
 import { buildTacticsMap } from '../sim/raceSetup.ts';
@@ -67,6 +68,7 @@ export class RaceScene extends Phaser.Scene {
   private tour!: TourState;
   private dynasty?: DynastyState;
   private byId!: Map<string, Rider>;
+  private playerTeamId!: string;
   private stage!: Stage;
   private tactics!: TeamTactics; // the player's role sheet for this stage
   private tacticsByTeam!: Map<string, TeamTactics>;
@@ -123,6 +125,7 @@ export class RaceScene extends Phaser.Scene {
     this.dynasty = data.dynasty;
     this.tactics = data.playerTactics;
     this.byId = this.dynasty ? rosterById(this.dynasty) : RIDERS_BY_ID;
+    this.playerTeamId = this.dynasty?.playerTeamId ?? PLAYER_TEAM.id;
 
     const { width } = this.scale;
     this.frontX = width - 38;
@@ -208,7 +211,7 @@ export class RaceScene extends Phaser.Scene {
     order.forEach((entry, rank) => {
       const rider = this.byId.get(entry.riderId)!;
       const col = teamColor(rider.teamId);
-      const isPlayer = rider.teamId === 't-grenoble';
+      const isPlayer = rider.teamId === this.playerTeamId;
       const story = this.story.stories.get(entry.riderId)!;
       const glyph = renderer.draw(this, this.raceLeftX, (this.roadTop + this.roadBottom) / 2, {
         jerseyColor: col.jersey,

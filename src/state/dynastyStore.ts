@@ -1,3 +1,4 @@
+import { PLAYER_TEAM } from '../data/teams.ts';
 import type { Rider } from '../data/types.ts';
 import type { SeasonState } from '../sim/season.ts';
 import type { DynastyState } from './dynasty.ts';
@@ -35,6 +36,7 @@ interface SlotMeta {
 
 interface SavedDynasty {
   seasonNumber: number;
+  playerTeamId?: string; // optional for pre-team-select saves (default below)
   roster: Rider[];
   budgets: Record<string, number>;
   season: SavedSeason;
@@ -121,6 +123,7 @@ export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
   try {
     const saved: SavedDynasty = {
       seasonNumber: dynasty.seasonNumber,
+      playerTeamId: dynasty.playerTeamId,
       roster: dynasty.roster,
       budgets: dynasty.budgets,
       season: packSeason(dynasty.season),
@@ -143,6 +146,7 @@ export function loadDynastyFromSlot(slot: number): DynastyState | null {
   if (!s) return null;
   return {
     seasonNumber: s.seasonNumber ?? 1,
+    playerTeamId: s.playerTeamId ?? PLAYER_TEAM.id,
     roster: s.roster,
     budgets: s.budgets ?? {},
     season: unpackSeason(s.season),

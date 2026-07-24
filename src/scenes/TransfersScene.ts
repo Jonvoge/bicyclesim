@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { teamColor } from '../data/teamColors.ts';
-import { PLAYER_TEAM } from '../data/teams.ts';
 import { MAX_SQUAD_SIZE } from '../data/tuning.ts';
 import { scoutReport } from '../sim/development.ts';
 import { salaryOf } from '../sim/management.ts';
@@ -81,7 +80,7 @@ export class TransfersScene extends Phaser.Scene {
   }
 
   private sign(riderId: string): void {
-    const res = signRider(this.dynasty, riderId, PLAYER_TEAM.id);
+    const res = signRider(this.dynasty, riderId);
     saveDynasty(this.dynasty);
     this.scene.restart({ dynasty: this.dynasty, note: res.ok ? '' : res.reason });
   }

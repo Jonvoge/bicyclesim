@@ -40,6 +40,7 @@ export class PreRaceScene extends Phaser.Scene {
   private tour!: TourState;
   private dynasty?: DynastyState;
   private byId!: Map<string, Rider>;
+  private playerTeamId!: string;
   private squadIds: string[] = []; // the player's riders for this race
   private canRest = false; // season event start → the player may bench riders
   private rested = new Set<string>();
@@ -80,6 +81,7 @@ export class PreRaceScene extends Phaser.Scene {
 
     // dynasty squad + roster, or the static team for a quick race
     this.byId = this.dynasty ? rosterById(this.dynasty) : RIDERS_BY_ID;
+    this.playerTeamId = this.dynasty?.playerTeamId ?? PLAYER_TEAM.id;
     if (this.dynasty && this.canRest) {
       // pick-5 at event start: the whole squad is choosable; startSeasonEvent
       // pre-selected the best 5 into the tour's starters, the rest begin benched.
@@ -116,7 +118,7 @@ export class PreRaceScene extends Phaser.Scene {
 
     // role sheet — pre-filled default for this stage's terrain
     const defSheet = this.dynasty
-      ? defaultTeamTacticsFor(PLAYER_TEAM.id, playerRiders(this.dynasty), this.stage)
+      ? defaultTeamTacticsFor(this.playerTeamId, playerRiders(this.dynasty), this.stage)
       : defaultTeamTactics(PLAYER_TEAM, this.stage);
     this.roles = { ...defSheet.roles };
     this.selectedRiderId = this.squadIds.find((id) => this.roles[id] === 'leader') ?? this.squadIds[0];
@@ -207,7 +209,7 @@ export class PreRaceScene extends Phaser.Scene {
     let best: { pos: number; id: string } | null = null;
     gc.forEach((row, i) => {
       if (best) return;
-      if (this.byId.get(row.riderId)?.teamId === PLAYER_TEAM.id) best = { pos: i + 1, id: row.riderId };
+      if (this.byId.get(row.riderId)?.teamId === this.playerTeamId) best = { pos: i + 1, id: row.riderId };
     });
     const leaderName = gc[0] ? this.byId.get(gc[0].riderId)!.name.split(' ').slice(-1)[0] : '—';
     let text = `GC: ${leaderName} leads`;
@@ -316,7 +318,7 @@ export class PreRaceScene extends Phaser.Scene {
         else this.tour.starters.add(id);
       }
     }
-    const playerTactics: TeamTactics = { teamId: PLAYER_TEAM.id, roles, effort: this.effort };
+    const playerTactics: TeamTactics = { teamId: this.playerTeamId, roles, effort: this.effort };
     this.scene.start('Race', { tour: this.tour, playerTactics, dynasty: this.dynasty });
   }
 }

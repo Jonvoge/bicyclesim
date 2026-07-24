@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
 import { teamColor } from '../data/teamColors.ts';
-import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
+import { TEAMS_BY_ID } from '../data/teams.ts';
 import { rosterById, type DynastyState } from '../state/dynasty.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
@@ -32,7 +32,7 @@ export class ArchiveScene extends Phaser.Scene {
     result.classification.slice(0, 24).forEach((row, i) => {
       const rider = byId.get(row.riderId)!;
       const col = teamColor(rider.teamId);
-      const isPlayer = rider.teamId === PLAYER_TEAM.id;
+      const isPlayer = rider.teamId === data.dynasty.playerTeamId;
       const y = top + i * rowH + 12;
       if (isPlayer) this.add.rectangle(width / 2, y, width - 20, rowH - 4, COLORS.buttonSelected, 0.12);
       if (i === 0) this.add.rectangle(width / 2, y, width - 20, rowH - 4, COLORS.gold, 0.1);
