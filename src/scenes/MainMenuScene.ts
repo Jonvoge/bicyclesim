@@ -63,8 +63,13 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   private open(info: SlotInfo): void {
+    if (!info.occupied) {
+      // new dynasty → choose your team first (it creates the dynasty in this slot)
+      this.scene.start('TeamSelect', { slot: info.slot });
+      return;
+    }
     setActiveSlot(info.slot);
-    const dynasty = info.occupied ? loadDynastyFromSlot(info.slot) ?? createDynasty() : createDynasty();
+    const dynasty = loadDynastyFromSlot(info.slot) ?? createDynasty();
     this.scene.start('SeasonHub', { dynasty });
   }
 

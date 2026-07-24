@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { teamColor } from '../data/teamColors.ts';
-import { PLAYER_TEAM } from '../data/teams.ts';
 import type { BaseStatKey } from '../data/types.ts';
 import { riderStandings } from '../sim/season.ts';
 import { racingRoster, type DynastyState } from '../state/dynasty.ts';
@@ -43,8 +42,8 @@ export class RidersScene extends Phaser.Scene {
     const field = racingRoster(data.dynasty);
     const best = (r: (typeof field)[number]): number => Math.max(...STAT_COLS.map((c) => r.stats[c.key]));
     const order = [...field].sort((a, b) => {
-      const pa = a.teamId === PLAYER_TEAM.id ? 1 : 0;
-      const pb = b.teamId === PLAYER_TEAM.id ? 1 : 0;
+      const pa = a.teamId === data.dynasty.playerTeamId ? 1 : 0;
+      const pb = b.teamId === data.dynasty.playerTeamId ? 1 : 0;
       if (pa !== pb) return pb - pa;
       return best(b) - best(a);
     });
@@ -53,7 +52,7 @@ export class RidersScene extends Phaser.Scene {
     const scroll = new ScrollView(this, 78, 844, top + order.length * rowH + 12);
     order.forEach((rider, idx) => {
       const y = top + idx * rowH + 12;
-      const isPlayer = rider.teamId === PLAYER_TEAM.id;
+      const isPlayer = rider.teamId === data.dynasty.playerTeamId;
       if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 20, rowH - 4, COLORS.buttonSelected, 0.1));
       const col = teamColor(rider.teamId);
       scroll.add(this.add.rectangle(26, y, 10, 10, col.jersey, 1));

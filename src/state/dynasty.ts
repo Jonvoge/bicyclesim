@@ -61,6 +61,7 @@ import { createTour, type TourState } from '../sim/standings.ts';
 
 export interface DynastyState {
   seasonNumber: number;
+  playerTeamId: string; // which of the 8 teams the player runs (chosen at new-dynasty)
   roster: Rider[]; // live clones of every rider; teamId = current team (null = free agent)
   budgets: Record<string, number>; // teamId → cash
   season: SeasonState; // the season currently being contested
@@ -81,7 +82,7 @@ function seedContract(id: string): number {
 }
 
 /** A fresh dynasty: clone the roster, price contracts, seed budgets and season 1. */
-export function createDynasty(): DynastyState {
+export function createDynasty(playerTeamId: string = PLAYER_TEAM.id): DynastyState {
   const roster = ALL_RIDERS.map(cloneRider);
   // pad every team to a rotatable depth with generated domestiques (Phase 8 pick-5)
   const gen = new Rng(0x5a1ad);
@@ -102,9 +103,10 @@ export function createDynasty(): DynastyState {
     }
   }
   const budgets: Record<string, number> = {};
-  for (const t of TEAMS) budgets[t.id] = t.isPlayer ? STARTING_BUDGET : RIVAL_STARTING_BUDGET;
+  for (const t of TEAMS) budgets[t.id] = t.id === playerTeamId ? STARTING_BUDGET : RIVAL_STARTING_BUDGET;
   return {
     seasonNumber: 1,
+    playerTeamId,
     roster,
     budgets,
     season: createSeason(SEASON_CALENDAR),
@@ -128,7 +130,7 @@ export function teamRiders(dynasty: DynastyState, teamId: string): Rider[] {
 }
 
 export function playerRiders(dynasty: DynastyState): Rider[] {
-  return teamRiders(dynasty, PLAYER_TEAM.id);
+  return teamRiders(dynasty, dynasty.playerTeamId);
 }
 
 export function freeAgents(dynasty: DynastyState): Rider[] {
@@ -141,17 +143,17 @@ export function racingRoster(dynasty: DynastyState): Rider[] {
 }
 
 export function playerBudget(dynasty: DynastyState): number {
-  return dynasty.budgets[PLAYER_TEAM.id] ?? 0;
+  return dynasty.budgets[dynasty.playerTeamId] ?? 0;
 }
 
 export function playerWageBill(dynasty: DynastyState): number {
-  return wageBill(dynasty.roster, PLAYER_TEAM.id);
+  return wageBill(dynasty.roster, dynasty.playerTeamId);
 }
 
 // --- transfers & training -----------------------------------------------------
 
 /** Sign a free agent to a team (default: the player's), paying the signing fee. */
-export function signRider(dynasty: DynastyState, riderId: string, teamId: string = PLAYER_TEAM.id): ActionCheck {
+export function signRider(dynasty: DynastyState, riderId: string, teamId: string = dynasty.playerTeamId): ActionCheck {
   const rider = dynasty.roster.find((r) => r.id === riderId);
   if (!rider) return { ok: false, reason: 'Unknown rider' };
   if (rider.teamId !== null) return { ok: false, reason: 'Not a free agent' };
@@ -248,7 +250,7 @@ function assignToTeam(rider: Rider, teamId: string): void {
  */
 export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   const numTeams = TEAMS.length;
-  const playerId = PLAYER_TEAM.id;
+  const playerId = dynasty.playerTeamId;
   const finishedSeason = dynasty.seasonNumber;
   const rng = new Rng((0x5ea5000 ^ finishedSeason) >>> 0);
 

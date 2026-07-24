@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { teamColor } from '../data/teamColors.ts';
-import { PLAYER_TEAM, TEAMS } from '../data/teams.ts';
+import { TEAMS, TEAMS_BY_ID } from '../data/teams.ts';
 import { MAX_SQUAD_SIZE } from '../data/tuning.ts';
 import { scoutReport } from '../sim/development.ts';
 import { salaryOf, sponsorIncome } from '../sim/management.ts';
@@ -36,11 +36,11 @@ export class TeamScene extends Phaser.Scene {
 
     makeButton(this, 40, 30, '‹', () => this.scene.start('SeasonHub', { dynasty: this.dynasty }), { width: 40, height: 34, fontSize: 20 });
     this.add.text(width / 2, 24, 'Team HQ', { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
-    this.add.text(width / 2, 47, PLAYER_TEAM.name, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(width / 2, 47, TEAMS_BY_ID.get(this.dynasty.playerTeamId)?.name ?? "", { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
 
     // finances panel
     const squad = playerRiders(this.dynasty);
-    const sponsor = sponsorIncome(this.dynasty.lastTeamRank[PLAYER_TEAM.id], TEAMS.length);
+    const sponsor = sponsorIncome(this.dynasty.lastTeamRank[this.dynasty.playerTeamId], TEAMS.length);
     this.add.rectangle(width / 2, 96, width - 24, 64, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
     this.stat(24, 82, 'BUDGET', `${playerBudget(this.dynasty).toLocaleString()}`, '#18b39a');
     this.stat(24, 112, 'WAGE BILL', `${playerWageBill(this.dynasty).toLocaleString()}/yr`, COLORS.text);

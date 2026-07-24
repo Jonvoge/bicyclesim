@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { teamColor } from '../data/teamColors.ts';
-import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
+import { TEAMS_BY_ID } from '../data/teams.ts';
 import { riderStandings, teamStandings } from '../sim/season.ts';
 import { rosterById, teamOf, type DynastyState } from '../state/dynasty.ts';
 import { Button, makeButton } from '../ui/button.ts';
@@ -60,7 +60,7 @@ export class StandingsScene extends Phaser.Scene {
 
     rows.forEach((row, i) => {
       const y = top + i * rowH + 14;
-      const isPlayer = row.teamId === PLAYER_TEAM.id;
+      const isPlayer = row.teamId === this.dynasty.playerTeamId;
       if (isPlayer) this.listItems.push(this.add.rectangle(width / 2, y, width - 22, rowH - 4, COLORS.buttonSelected, 0.12));
       if (i === 0) this.listItems.push(this.add.rectangle(width / 2, y, width - 22, rowH - 4, COLORS.gold, 0.1));
       this.listItems.push(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5));
