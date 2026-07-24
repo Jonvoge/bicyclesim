@@ -1,8 +1,6 @@
 import { RACES_BY_ID } from '../data/races.ts';
-import { STAGES_BY_ID } from '../data/stages.ts';
 import { RECOVERY_RATE, SEASON_EVENT_POINTS } from '../data/tuning.ts';
 import type { Race, Rider } from '../data/types.ts';
-import { rivalRestSet } from './rivalAI.ts';
 import { computeGc, createTour, type GcRow, type TourState } from './standings.ts';
 
 /**
@@ -49,20 +47,15 @@ export function currentRace(season: SeasonState): Race | null {
 
 /**
  * Open the next event as a tour, seeded with each rider's carried season fatigue,
- * so a tired rider starts the race tired. Drive it with the Phase 3 flow
- * (`ridersForStage` → sim → `recordStageResult`), then call `finishEvent`.
- * `startList` lets the player rest riders (omit them); omitted riders simply don't
- * start and recover on the sidelines (see `finishEvent`).
+ * so a tired rider starts the race tired. `startList` is exactly who starts (the
+ * caller decides the squads). The dynasty uses `startSeasonEvent` (pick-5 squads);
+ * this stays for the headless harness / tests, which pass the whole field.
  */
 export function startEvent(season: SeasonState, startList: Rider[]): TourState {
   const race = currentRace(season)!;
   const tour = createTour(race);
   tour.starters = new Set(startList.map((r) => r.id));
   for (const rider of startList) tour.fatigue.set(rider.id, season.fatigue.get(rider.id) ?? 0);
-  // rivals rest tired, ill-suited riders (the player's own rests are applied by the
-  // caller, who narrows tour.starters after this). Based on the event's first stage.
-  const stage = STAGES_BY_ID.get(race.stageIds[0])!;
-  for (const id of rivalRestSet(season.fatigue, stage)) tour.starters.delete(id);
   return tour;
 }
 

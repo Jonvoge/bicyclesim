@@ -6,13 +6,14 @@
 
 ## TL;DR — current state
 
-- **The core build is COMPLETE — Phases 0–7 are merged to `main` (PRs #1–#14); Phase 8 (persistence,
-  balance & polish) is built on branch `claude/continue-build-0zwcbc`** with a PR open for review.
-  Every phase in the build plan is now done: a multi-season cycling **dynasty** — set tactics, watch
-  stages, run the budget, sign/train/scout riders, and carry a team across the years, with multiple
-  save slots.
-- **The Phase 2 fun gate passed** (user playtested on a phone and said proceed). We have since
-  iterated well past the MVP on user feedback (see "What's built").
+- **The core build (Phases 0–8) is COMPLETE and merged to `main`.** The game is a multi-season
+  cycling **dynasty** — set tactics, watch stages, run the budget, sign/train/scout riders, carry a
+  team across the years, with multiple save slots.
+- **Now in a post-playtest iteration loop** (the user is playing on a phone and sending notes; each
+  fix is its own small PR on branch `claude/continue-build-0zwcbc`). Landed so far: race-feel balance
+  (mountains select, breaks stick, fatigue bites), race-view visuals (compact peloton, everyone moves,
+  believable glyph), and **pick-5 squads** (deeper rosters, choose exactly 5/race). In flight: pick
+  your team, stats-before-signing, lower budgets, collapse Free+Breakaway, auto-training.
 - **What's left is the human's game to grow:** the big **feel/balance tuning on a phone** (the sim
   says `tuning.ts` is in a sane range, but "does it *feel* fair and dramatic?" needs real play), plus
   optional content and the deferred extras below. There is no Phase 9 — the SPEC is fully built.
@@ -49,9 +50,11 @@
   carried across races with recovery), localStorage save/resume (`seasonStore.ts`). UI: SeasonHub
   (calendar/standings/ride-next), Standings, Riders (peloton profiles), Archive.
 - **Deeper peloton** — **8 teams / 45 riders**; long lists scroll (`ui/scrollView.ts`).
-- **Rest-a-rider lever** — bench player riders from a season race (they recover); **rival AI**
-  (`rivalAI.ts`) does the same automatically (rests tired, ill-suited riders). Season energy is now
-  a real, symmetric decision.
+- **Pick-5 squads** (post-playtest) — teams carry a **deeper roster** (padded to `TARGET_SQUAD_SIZE`
+  with generated domestiques at dynasty start) and field **exactly `RACE_SQUAD_SIZE` (5)** per race.
+  The player picks their 5 in PreRace (enforced); rivals auto-pick their best 5 by suitability minus a
+  fatigue penalty (`dynasty.pickRaceSquad`) — so squad rotation + resting tired stars falls out of the
+  selection, which **replaced the old standalone rival-rest AI** (`rivalAI.ts` deleted).
 - **Phase 5 — management layer**: the between-races Kairosoft loop. One budget number (sponsor +
   prize money in, wages out at the rollover); **free-agent transfers** (sign/release, fee + salary,
   squad cap 6–9); **training** (coach a stat, tires the rider, once per gap); and a **season rollover**
@@ -94,7 +97,7 @@
 npm install
 npm run dev     # local dev (add: -- --host  → open the Network URL on a phone on the same wifi)
 npm run build   # tsc && vite build  (must pass; CI runs it)
-npm test        # vitest, 86 tests   (CI runs it)
+npm test        # vitest, 87 tests   (CI runs it)
 npm run sim     # headless harness (tsx): stage orders, win-freq, role effect, tour GC + conserve,
                 #   and a full-season section (winners, rider + team standings)
 ```
@@ -134,9 +137,8 @@ No persistent browser dep. To view/record the running app:
     `computeGc`, `ridersForStage` (fatigued **copies**; excludes abandoned + non-starters — never
     mutates the global roster), across-stage fatigue + overnight recovery.
   - `season.ts` — `SeasonState` over `SEASON_CALENDAR`: `startEvent` (seed a `TourState` from
-    carried season fatigue + apply rival resting), `finishEvent` (prestige-scaled points, carry +
-    recover fatigue, archive), rider/team standings.
-  - `rivalAI.ts` — `rivalRestSet(fatigue, stage)`: rivals bench tired, ill-suited riders.
+    carried season fatigue; harness/tests only — the dynasty uses `dynasty.startSeasonEvent`, pick-5),
+    `finishEvent` (prestige-scaled points, carry + recover fatigue, archive), rider/team standings.
   - `raceSetup.ts` — `defaultTeamTactics` / `defaultTeamTacticsFor` (roster-driven; the pre-filled
     sheet for the player AND rivals), `buildTacticsMap`.
   - `rating.ts` (Phase 5) — `riderRating` (0–100 overall) → `salaryFor` → `signingFeeFor`.
@@ -162,7 +164,8 @@ No persistent browser dep. To view/record the running app:
 - **`src/scenes`** — **MainMenu** (save-slot picker: continue / new / delete per slot; + Quick Race,
   Renderers) → **SeasonHub** (calendar,
   finances strip, season lead, **Team HQ** door, ride-next; world-layer nav; drives the rollover when
-  the season is done) → **PreRace** (role sheet; season events show carried fatigue + a **Rest** option;
+  the season is done) → **PreRace** (season events: **pick exactly 5** to start + a role each — enforced;
+  between tour stages the 5 are locked; carried fatigue shown;
   tours add the effort toggle) → **Race** (animated view) → **StageResults** (stage + GC; banks the
   stage; on event completion `finishSeasonEvent` + save → back to SeasonHub). Management (Phase 5):
   **Team** (finances + squad + Release), **Transfers** (sign free agents), **Training** (coach a stat),
@@ -222,7 +225,7 @@ No persistent browser dep. To view/record the running app:
 
 - **All magic numbers → `src/data/tuning.ts`** (`UPPER_SNAKE`). Riders/teams/races/stages are data.
 - **Proxy names only** (recognisable-but-renamed); never real trademarks.
-- **Deterministic under a seed** — keep the sim reproducible (rival AI is a pure function of
+- **Deterministic under a seed** — keep the sim reproducible (rival squad picks are a pure function of
   fatigue + terrain; season is deterministic under its rng).
 - **Keep `src/sim` Phaser-free.** Headless-first: model + test in `src/sim`/`src/state`, then UI.
 - **Git workflow** (see CLAUDE.md): develop on the assigned feature branch, **PR per phase**, don't

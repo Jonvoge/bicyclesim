@@ -69,16 +69,10 @@ export const CONSERVE_FATIGUE_MULT = 0.45; // team-wide fatigue-gain multiplier 
 // the race's prestige/100. This is what a rider/team's season ranking sums.
 export const SEASON_EVENT_POINTS = [100, 80, 65, 55, 48, 42, 38, 34, 30, 26, 22, 18, 14, 10, 6];
 
-// --- Rival AI: season-aware resting (Phase 4 follow-up) ---
-// Rival teams manage their squads like the player: they bench a rider who is
-// both poorly suited to today's race (can't contest it) AND carrying real
-// fatigue, to save them for races they suit. A rider whose suitability
-// (baseScore ÷ the field's best for this terrain) is below the cap, once their
-// season fatigue exceeds the floor, sits it out. Team leaders (suit ≈ 1) never
-// rest; each team always keeps a minimum number of starters.
-export const RIVAL_REST_SUIT_MAX = 0.82;
-export const RIVAL_REST_FATIGUE_MIN = 6;
-export const RIVAL_MIN_STARTERS = 3;
+// Rival squad selection: rivals pick their best RACE_SQUAD_SIZE per event by
+// suitability minus a fatigue penalty (`dynasty.pickRaceSquad`), so a tired star
+// drops out and a fresher rider starts — squad rotation falls out of the pick-5
+// model, which replaced the old standalone rival-rest AI.
 
 // --- Incidents: crashes & punctures (SPEC §5.6) ---
 export const INCIDENT_PROB = 0.02; // per rider per stage (crash OR puncture)
@@ -203,8 +197,10 @@ export const PRIZE_PER_POINT = 1.3; // event prize to a team = its finishers' po
 // the budget can't balloon — money keeps mattering across a long dynasty.
 
 // Squad rules — the wage bill plus these bounds force real selection choices.
-export const MIN_SQUAD_SIZE = 6; // can't release below this (need a squad to race)
+export const MIN_SQUAD_SIZE = 6; // can't release below this (need cover to rotate)
 export const MAX_SQUAD_SIZE = 9; // can't sign above this (no hoarding)
+export const TARGET_SQUAD_SIZE = 8; // every team is padded to this at dynasty start (depth to rotate)
+export const RACE_SQUAD_SIZE = 5; // riders each team fields per race — you pick exactly this many
 
 // Contracts: seasons remaining tick down at each rollover; a rider hitting 0
 // leaves for the free-agent pool unless re-signed. Seeded deterministically.

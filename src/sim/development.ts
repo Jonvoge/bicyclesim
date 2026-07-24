@@ -156,6 +156,34 @@ export function generateProspect(id: string, rng: Rng): Rider {
   return rider;
 }
 
+/**
+ * Generate a squad domestique to pad a team to its target depth (Phase 8-era
+ * pick-5). A journeyman: an archetype at modest, workmanlike numbers (below the
+ * authored stars), a settled age, seeded so a new game is reproducible.
+ */
+export function generateDomestique(id: string, teamId: string, rng: Rng): Rider {
+  const name = `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`;
+  const nationality = rng.pick(NATIONALITIES);
+  const age = 24 + rng.int(8); // 24–31
+  const arch = rng.pick(ARCHETYPES);
+  const base = (): number => Math.round(46 + rng.next() * 18); // 46–64
+  const stats: Record<StatKey, number> = {
+    climbing: base(),
+    flat: base(),
+    sprint: base(),
+    puncheur: base(),
+    endurance: base(),
+    stamina: base(),
+    consistency: Math.round(60 + rng.next() * 22),
+  };
+  stats[arch.sig] = Math.round(60 + rng.next() * 12); // 60–72 signature
+  if (arch.also) stats[arch.also] = Math.max(stats[arch.also], base() + 6);
+
+  const rider: Rider = { id, name, nationality, age, teamId, stats, currentFatigue: 0 };
+  seedDevelopment(rider);
+  return rider;
+}
+
 export interface ScoutReport {
   stars: number; // 1–5, the shown potential (fuzzy for the young)
   ceiling: number; // scouted peak overall (true ceiling ± a shrinking error)
