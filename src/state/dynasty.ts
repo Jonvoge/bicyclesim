@@ -7,12 +7,16 @@ import type { TeamTactics } from '../sim/tactics.ts';
 import {
   CONTRACT_MAX_SEASONS,
   CONTRACT_MIN_SEASONS,
+  FREE_AGENT_POOL_CAP,
+  MIN_SQUAD_SIZE,
+  NEW_RIDERS_PER_SEASON,
   OFFSEASON_RECOVERY_RATE,
   RIVAL_STARTING_BUDGET,
   STARTING_BUDGET,
   TRAIN_FATIGUE_COST,
 } from '../data/tuning.ts';
 import type { Rider, StatKey } from '../data/types.ts';
+import { ageOneSeason, generateProspect, scoutReport, seedDevelopment, shouldRetire } from '../sim/development.ts';
 import {
   canRelease,
   canSign,
@@ -25,6 +29,7 @@ import {
   type ActionCheck,
 } from '../sim/management.ts';
 import { riderRating, riderSalary, signingFeeFor } from '../sim/rating.ts';
+import { Rng } from '../sim/rng.ts';
 import {
   createSeason,
   finishEvent,
@@ -74,6 +79,7 @@ function seedContract(id: string): number {
 export function createDynasty(): DynastyState {
   const roster = ALL_RIDERS.map(cloneRider);
   for (const r of roster) {
+    seedDevelopment(r); // hidden peakAge / ceiling / developmentRate (Phase 6)
     if (r.teamId) {
       r.salary = riderSalary(r);
       r.contractSeasonsLeft = seedContract(r.id);
@@ -203,17 +209,35 @@ export interface RolloverSummary {
   wages: number; // player's wage bill paid
   net: number; // sponsor − wages
   expiring: string[]; // player rider ids whose contract ran out (auto-renewed for now)
+  retired: string[]; // player rider ids who retired this off-season
+  retiredAll: number; // peloton-wide retirements
+  emerged: number; // new prospects who turned pro into the free-agent pool
+  autoSigned: string[]; // player rider ids called up automatically to fill a hole
+}
+
+/** Put a free agent onto a team (internal auto-fill; no fee, a fresh contract). */
+function assignToTeam(rider: Rider, teamId: string): void {
+  rider.teamId = teamId;
+  rider.salary = riderSalary(rider);
+  rider.contractSeasonsLeft = CONTRACT_MAX_SEASONS;
 }
 
 /**
- * Roll into the next season: settle each team's books (sponsor cheque minus wage
- * bill), tick contracts down, rest the peloton over the winter, and start a fresh
- * calendar. Contracts that hit zero are **auto-renewed** for now (nobody is lost
- * involuntarily — rival poaching and free-agent churn are Phase 6 dynasty scope);
- * the tick is surfaced so expiries are visible. Returns a summary for the UI.
+ * Roll into the next season (Phase 5 economy + Phase 6 development):
+ * 1. settle each team's books (sponsor cheque minus the wage bill just paid);
+ * 2. **age the whole peloton one season** and move every rider along their
+ *    individual curve (grow → plateau → decline, SPEC §7);
+ * 3. **retire** veterans (odds rising with age); tick contracts on the survivors;
+ * 4. bring in a crop of **young prospects** (free agents with fuzzy potential),
+ *    auto-fill any squad left short, and cull the weakest spares to bound the pool;
+ * 5. rest the peloton over the winter and start a fresh calendar.
+ * Deterministic under a per-season rng. Returns a summary for the UI.
  */
 export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   const numTeams = TEAMS.length;
+  const playerId = PLAYER_TEAM.id;
+  const finishedSeason = dynasty.seasonNumber;
+  const rng = new Rng((0x5ea5000 ^ finishedSeason) >>> 0);
 
   // rank teams by the season just finished (unlisted teams share the last place)
   const standings = teamStandings(dynasty.season, (id) => teamOf(dynasty, id));
@@ -221,29 +245,72 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   standings.forEach((row, i) => (rank[row.id] = i + 1));
   for (const t of TEAMS) if (rank[t.id] === undefined) rank[t.id] = numTeams;
 
-  // settle finances for every team
+  // settle finances for every team (on the squad that raced this season)
   for (const t of TEAMS) {
     const income = sponsorIncome(dynasty.lastTeamRank[t.id], numTeams);
     dynasty.budgets[t.id] = Math.round((dynasty.budgets[t.id] ?? 0) + income - wageBill(dynasty.roster, t.id));
   }
-  const playerId = PLAYER_TEAM.id;
   const playerSponsor = sponsorIncome(dynasty.lastTeamRank[playerId], numTeams);
   const playerWages = wageBill(dynasty.roster, playerId);
 
-  // tick contracts; expiring riders auto-renew (Phase 5 keeps identities fixed)
+  // --- development: age + curve everyone, then retirements ---
+  for (const r of dynasty.roster) ageOneSeason(r);
+  const retired: string[] = [];
+  let retiredAll = 0;
+  const survivors: Rider[] = [];
+  for (const r of dynasty.roster) {
+    if (shouldRetire(r, rng)) {
+      retiredAll++;
+      if (r.teamId === playerId) retired.push(r.id);
+    } else {
+      survivors.push(r);
+    }
+  }
+  dynasty.roster = survivors;
+
+  // tick contracts on the survivors; expiring riders auto-renew (poaching → later)
   const expiring: string[] = [];
   for (const r of dynasty.roster) {
     if (r.teamId === null || r.contractSeasonsLeft === undefined) continue;
     r.contractSeasonsLeft -= 1;
     if (r.contractSeasonsLeft <= 0) {
       if (r.teamId === playerId) expiring.push(r.id);
-      r.contractSeasonsLeft = CONTRACT_MAX_SEASONS; // renewed
+      r.contractSeasonsLeft = CONTRACT_MAX_SEASONS;
     }
   }
 
-  // winter rest: carry a heavily-recovered fatigue into the new season
+  // --- new blood: young prospects into the free-agent pool ---
+  for (let i = 0; i < NEW_RIDERS_PER_SEASON; i++) {
+    dynasty.roster.push(generateProspect(`fa-gen-${finishedSeason}-${i}`, rng));
+  }
+
+  // auto-fill any squad left below the minimum by retirements. Rivals grab the
+  // best free agent going; the player gets a cheap stopgap call-up (flagged) so a
+  // hole never breaks a race — they still sign properly in Team HQ.
+  const autoSigned: string[] = [];
+  for (const t of TEAMS) {
+    while (squadSize(dynasty.roster, t.id) < MIN_SQUAD_SIZE) {
+      const pool = dynasty.roster.filter((r) => r.teamId === null);
+      if (pool.length === 0) break;
+      pool.sort((a, b) => (t.id === playerId ? riderRating(a) - riderRating(b) : riderRating(b) - riderRating(a)));
+      const pick = pool[0];
+      assignToTeam(pick, t.id);
+      if (t.id === playerId) autoSigned.push(pick.id);
+    }
+  }
+
+  // cull the weakest spare free agents (by potential) so the market/save stays bounded
+  const pool = dynasty.roster.filter((r) => r.teamId === null);
+  if (pool.length > FREE_AGENT_POOL_CAP) {
+    pool.sort((a, b) => scoutReport(a).ceiling - scoutReport(b).ceiling); // lowest potential first
+    const cut = new Set(pool.slice(0, pool.length - FREE_AGENT_POOL_CAP).map((r) => r.id));
+    dynasty.roster = dynasty.roster.filter((r) => !cut.has(r.id));
+  }
+
+  // winter rest: carry a heavily-recovered fatigue into the new season (survivors only)
+  const live = new Set(dynasty.roster.map((r) => r.id));
   const carried = new Map<string, number>();
-  for (const [id, fat] of dynasty.season.fatigue) carried.set(id, fat * OFFSEASON_RECOVERY_RATE);
+  for (const [id, fat] of dynasty.season.fatigue) if (live.has(id)) carried.set(id, fat * OFFSEASON_RECOVERY_RATE);
 
   dynasty.lastTeamRank = rank;
   dynasty.seasonNumber += 1;
@@ -252,12 +319,16 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   dynasty.trainedThisGap = [];
 
   return {
-    seasonNumber: dynasty.seasonNumber - 1,
+    seasonNumber: finishedSeason,
     teamRank: rank[playerId],
     sponsor: playerSponsor,
     wages: playerWages,
     net: playerSponsor - playerWages,
     expiring,
+    retired,
+    retiredAll,
+    emerged: NEW_RIDERS_PER_SEASON,
+    autoSigned,
   };
 }
 

@@ -6,20 +6,20 @@
 
 ## TL;DR — current state
 
-- **Everything through Phase 4 is merged to `main`** (PRs #1–#10). **Phase 5 (the management
-  layer) is built on branch `claude/continue-build-0zwcbc`** with a PR open for review — not yet
-  merged. The app is now a multi-season **dynasty**: run a team's budget, sign free agents, train
-  riders and pick squads on top of the racing.
+- **Everything through Phase 5 is merged to `main`** (PRs #1–#12). **Phase 6 (rider development &
+  dynasty) is built on branch `claude/continue-build-0zwcbc`** with a PR open for review — not yet
+  merged. The core design is now complete: a multi-season dynasty where riders develop, age, retire
+  and are replaced by scouted youth, on top of the racing + management layers.
 - **The Phase 2 fun gate passed** (user playtested on a phone and said proceed). We have since
   iterated well past the MVP on user feedback (see "What's built").
-- **Next phase is Phase 6 — rider development & dynasty** (ageing curves, potential/ceiling, hidden
-  scouting, new blood in / veterans out). Phase 5 deliberately left contracts auto-renewing and
-  identities fixed so Phase 6 can layer ageing + churn on top. Nothing for Phase 6 is started.
+- **Next up is Phase 7 (art experiment) / Phase 8 (persistence, balance & polish).** With full
+  dynasties now running, Phase 8's balance pass is where all the guessed `tuning.ts` numbers get
+  earned. Nothing for 7/8 is started.
 - Deployed & playable on a phone: **https://jonvoge.github.io/bicyclesim/** (auto-redeploys on push
   to `main` or the active feature branch — last push wins).
-- **The management layer has NOT had a phone playtest yet, and its numbers are guesses.** Opening
-  budget vs. wage bill is deliberately tight; watch whether the economy bites without being punishing
-  (all knobs are in `tuning.ts`; real balance is Phase 8). Flag anything that isn't fun.
+- **The management + development layers have NOT had a phone playtest yet, and their numbers are
+  guesses.** Watch: does the economy bite without punishing? Do careers rise/fade at a satisfying
+  rate over a dynasty? Is scouting a fun gamble? All knobs are in `tuning.ts` (real balance is Phase 8).
 
 ## What's built (feature by feature)
 
@@ -54,14 +54,19 @@
   into a multi-season dynasty. See the build plan's Phase 5 "Decisions/Built" note for the shape and
   the flagged design choices. New mutable layer: **`src/state/dynasty.ts`** (`DynastyState`) — read the
   roster through it, not the static data.
+- **Phase 6 — rider development & dynasty** (SPEC §7): every rider has a hidden `peakAge`/per-stat
+  `ceiling`/`developmentRate`; `rolloverSeason` ages the whole peloton along **individual curves**
+  (grow → plateau → decline in the veteran years), retires veterans, and brings in **scouted youth**
+  (fresh 19–22-yo free agents whose potential is shown **fuzzily** — a real bet). `src/sim/development.ts`
+  is the pure core; `scoutReport` drives the star ratings in Transfers/Team HQ. **Still deferred:**
+  rival poaching / contracts genuinely lapsing (they auto-renew).
 
 ## Next planned work
 
-- **Phase 6 — rider development & dynasty** (SPEC §7): `peakAge`/`ceiling`/`developmentRate`, growth
-  → peak → plateau → decline on individual curves, **hidden** potential shown fuzzily in scouting, and
-  the roster churn Phase 5 stubbed out — **rival free-agent poaching, contracts genuinely lapsing, new
-  youth entering each season, veterans retiring**. Phase 5's `rolloverSeason` is the hook to extend
-  (it already ticks contracts + rests the winter). Keep the dynasty save migrating cleanly.
+- **Phase 7 — art experiment** (`RiderRenderer`: code-drawn vs sprite, a side-by-side, pick a default)
+  and **Phase 8 — persistence, balance & polish**: the big **balance pass** now that full dynasties
+  run (every `tuning.ts` number is still a guess — economy, development curves, retirement rate), plus
+  multiple save slots and offline polish. See SPEC §8/§10.
 - **Small deferred loose ends** (do if they help, none blocking):
   - Rival **effort** AI (rivals conserving on a tour's non-GC stages — currently they only rest).
   - Emergent-rivalries view (world layer).
@@ -74,7 +79,7 @@
 npm install
 npm run dev     # local dev (add: -- --host  → open the Network URL on a phone on the same wifi)
 npm run build   # tsc && vite build  (must pass; CI runs it)
-npm test        # vitest, 67 tests   (CI runs it)
+npm test        # vitest, 80 tests   (CI runs it)
 npm run sim     # headless harness (tsx): stage orders, win-freq, role effect, tour GC + conserve,
                 #   and a full-season section (winners, rider + team standings)
 ```
@@ -85,7 +90,7 @@ npm run sim     # headless harness (tsx): stage orders, win-freq, role effect, t
   "GitHub Actions"; the `github-pages` environment deploy-branch restriction is **No restriction**
   (one-time settings the user did) so a feature branch can deploy.
 - **iOS PWA cache:** after a deploy, an installed home-screen app may need a full close/reopen to
-  pick up the new service worker. Season progress lives in **localStorage** (`bicyclesim.season.v1`).
+  pick up the new service worker. Dynasty progress lives in **localStorage** (`bicyclesim.dynasty.v1`).
 
 ### Screenshot / GIF verification tooling (how the agent "sees" the app)
 
@@ -123,16 +128,19 @@ No persistent browser dep. To view/record the running app:
   - `management.ts` (Phase 5, pure formulas) — `sponsorIncome`, `wageBill`, `eventPrizeByTeam`,
     `trainingGain`, `canSign` / `canRelease`. The stateful transitions that use them live in
     `src/state/dynasty.ts`.
+  - `development.ts` (Phase 6, pure) — hidden `peakAge`/`ceiling`/`developmentRate` (`seedDevelopment`),
+    the age curve (`ageOneSeason`: grow → plateau → decline), `shouldRetire`, `generateProspect` (new
+    blood), and `scoutReport` (fuzzy potential = the scouting gamble). Consumed by `rolloverSeason`.
 - **`src/data`** — `types.ts`, **`tuning.ts` (EVERY magic number, `UPPER_SNAKE`)**, `riders.ts`
   (8 teams / 45 riders), `freeAgents.ts` (the unsigned market + `ALL_RIDERS_BY_ID` for immutable-fact
-  lookups), `teams.ts`, `stages.ts`, `races.ts` (classics + 2 tours + `SEASON_CALENDAR`),
-  `stageWeights.ts`, `teamColors.ts`.
+  lookups), `names.ts` (proxy name pools for generated prospects), `teams.ts`, `stages.ts`, `races.ts`
+  (classics + 2 tours + `SEASON_CALENDAR`), `stageWeights.ts`, `teamColors.ts`.
 - **`src/state`** — **`dynasty.ts` (Phase 5, the mutable game layer)**: `DynastyState` = live roster
   (team membership + trained stats + contracts) + team budgets + season number, with `SeasonState`
   nested. Accessors (`rosterById`, `teamRiders`, `playerRiders`, `freeAgents`, `racingRoster`,
   `teamOf`) — **read the roster through these, never the static `RIDERS`/team lists**. Transitions:
   `signRider` / `releaseRider` / `trainRider` / `finishSeasonEvent` (banks event + pays prize) /
-  `rolloverSeason`; plus `buildTacticsMapDyn`. `dynastyStore.ts` persists it to localStorage
+  `rolloverSeason` (Phase 6: also ages the peloton, retires, injects scouted youth); plus `buildTacticsMapDyn`. `dynastyStore.ts` persists it to localStorage
   (`bicyclesim.dynasty.v1`; supersedes the season-only `seasonStore.ts`, now unused by the main mode).
 - **`src/scenes`** — **MainMenu** (Continue / New Dynasty / Quick Race) → **SeasonHub** (calendar,
   finances strip, season lead, **Team HQ** door, ride-next; world-layer nav; drives the rollover when
