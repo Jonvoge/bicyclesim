@@ -202,9 +202,12 @@ No persistent browser dep. To view/record the running app:
   just makes single tours grindy.
 
 **Balance / stats:**
-- Terrain **gap compression** (`GAP_COMPRESSION_BY_TYPE`) is what makes bunch sprints: flat ≈ 0.12
-  (whole peloton on one time), summit = 1.0 (shattered). Real time losses (crashes, break margins)
-  are added **after** and stay uncompressed. Side effect: flat stages barely move GC.
+- Terrain **gap multiplier** (`GAP_COMPRESSION_BY_TYPE`) is the biggest lever on how a stage reads:
+  tiny on flat (~0.18, whole peloton on one time) → large on a summit (~4.6, minutes) after the
+  **post-playtest pass** (mountains were far too gentle; a pure sprinter now loses ~5 min on a summit
+  and can't cling to GC — locked by `balance.test.ts`). Because fatigue is a perfScore penalty, this
+  same lever makes **tired legs lose real time in the mountains**, so Conserve now shows on the clock.
+  Real time losses (crashes, break margins) are added **after** and are NOT scaled.
 - Signature stat dominates each terrain; `endurance` is a light shared engine (~0.2, not a universal
   ~0.3 that floated all-rounders to the top everywhere). Star all-rounders are elite at only 1–2
   disciplines. Locked by the "winner pool rotates by terrain" test.
