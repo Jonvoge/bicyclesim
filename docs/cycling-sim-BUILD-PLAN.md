@@ -187,6 +187,38 @@ standings are a real contest, not a reward for the player being the only one who
 forces real choices.
 **Out of scope:** ageing curves / potential (Phase 6).
 
+**Decisions made (flagged, since the SPEC left the economy shape open).**
+- **One budget number, settled by season.** A season-start **sponsor** cheque (scaled by last
+  season's team rank) plus **prize money** as you race fund a **wage bill** paid at the rollover.
+  Signing a free agent is a one-off **fee** + their **salary** on the bill; the wage bill is the
+  natural brake on hoarding stars. (`sponsorIncome`, `wageBill`, `eventPrizeByTeam` in
+  `src/sim/management.ts`; opening numbers are deliberately tight so the first choices bite.)
+- **Season rollover, fixed identities.** The dynasty spans seasons now: at season end the books
+  settle, contracts tick down, the peloton rests over the winter, and a fresh calendar starts.
+  Contracts that hit zero **auto-renew** for now — nobody is lost involuntarily; **rival poaching,
+  free-agent churn, ageing, new blood and retirement are Phase 6**. The player's levers are
+  releasing riders (wage relief) and signing from the pool.
+- **Training tires riders.** Between races a rider can be coached to nudge one stat (diminishing
+  returns, soft-capped) at the cost of **added fatigue**, once per race gap — so growth trades
+  against race-freshness, and you can't sharpen the whole squad and keep them all fresh.
+
+**Built (this phase).** Headless-first, as required. **`src/sim/rating.ts`** prices a rider (a
+0–100 overall → salary curve → signing fee). **`src/sim/management.ts`** (pure): sponsor income,
+wage bill, event prize money, training gain, squad-rule checks. **`src/data/freeAgents.ts`** seeds
+a 9-rider unsigned market. **`src/state/dynasty.ts`** is the new mutable layer — a **`DynastyState`**
+that owns the live roster (team membership, trained stats, contracts), each team's budget and the
+season number, with the `SeasonState` nested inside; it exposes `signRider` / `releaseRider` /
+`trainRider` / `finishSeasonEvent` (banks the event + pays prize) / `rolloverSeason`, all built on
+the pure formulas. **`src/state/dynastyStore.ts`** persists the whole dynasty to localStorage
+(supersedes the season-only save). The sim/scenes read the roster through the dynasty (the static
+`RIDERS`/team lists are now just the *starting* line-up); `raceSetup` gained roster-driven
+`defaultTeamTacticsFor` so rival sheets follow the live squads. **UI:** SeasonHub shows finances +
+a **Team HQ** door and drives the rollover; **TeamScene** (finances, squad, Release), **TransfersScene**
+(sign free agents), **TrainingScene** (coach a stat), **RolloverScene** (end-of-season settlement).
+Quick Race stays on the static path. **20 new tests**; a headless harness section prints the economy
+over a season. **All economy/training numbers in `tuning.ts` are STARTING GUESSES (SPEC §10) — the
+real balance pass is Phase 8.**
+
 ---
 
 ## Phase 6 — Rider development & dynasty

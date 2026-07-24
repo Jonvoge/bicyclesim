@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
-import { RIDERS_BY_ID } from '../data/riders.ts';
 import { teamColor } from '../data/teamColors.ts';
 import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
-import { riderStandings, teamStandings, type SeasonState } from '../sim/season.ts';
+import { riderStandings, teamStandings } from '../sim/season.ts';
+import { rosterById, teamOf, type DynastyState } from '../state/dynasty.ts';
 import { Button, makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
 /** Season standings (SPEC §6): individual and team rankings by points. */
 export class StandingsScene extends Phaser.Scene {
-  private season!: SeasonState;
+  private dynasty!: DynastyState;
   private mode: 'riders' | 'teams' = 'riders';
   private listItems: Phaser.GameObjects.GameObject[] = [];
   private riderBtn!: Button;
@@ -18,12 +18,12 @@ export class StandingsScene extends Phaser.Scene {
     super('Standings');
   }
 
-  create(data: { season: SeasonState }): void {
-    this.season = data.season;
+  create(data: { dynasty: DynastyState }): void {
+    this.dynasty = data.dynasty;
     this.listItems = [];
     const { width } = this.scale;
 
-    makeButton(this, 40, 34, '‹', () => this.scene.start('SeasonHub', { season: this.season }), { width: 40, height: 34, fontSize: 20 });
+    makeButton(this, 40, 34, '‹', () => this.scene.start('SeasonHub', { dynasty: this.dynasty }), { width: 40, height: 34, fontSize: 20 });
     this.add.text(width / 2, 30, 'Standings', { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
 
     this.riderBtn = makeButton(this, width / 2 - 82, 74, 'Riders', () => this.setMode('riders'), { width: 150, height: 34, fontSize: 15 });
@@ -44,12 +44,14 @@ export class StandingsScene extends Phaser.Scene {
     for (const it of this.listItems) it.destroy();
     this.listItems = [];
 
+    const byId = rosterById(this.dynasty);
+    const season = this.dynasty.season;
     const top = 112;
     const rowH = this.mode === 'riders' ? 30 : 44;
     const rows =
       this.mode === 'riders'
-        ? riderStandings(this.season).slice(0, 22).map((r) => ({ id: r.id, name: RIDERS_BY_ID.get(r.id)!.name, teamId: RIDERS_BY_ID.get(r.id)!.teamId, points: r.points }))
-        : teamStandings(this.season, (id) => RIDERS_BY_ID.get(id)?.teamId ?? null).map((t) => ({ id: t.id, name: TEAMS_BY_ID.get(t.id)!.name, teamId: t.id, points: t.points }));
+        ? riderStandings(season).slice(0, 22).map((r) => ({ id: r.id, name: byId.get(r.id)!.name, teamId: byId.get(r.id)!.teamId, points: r.points }))
+        : teamStandings(season, (id) => teamOf(this.dynasty, id)).map((t) => ({ id: t.id, name: TEAMS_BY_ID.get(t.id)!.name, teamId: t.id, points: t.points }));
 
     if (rows.length === 0) {
       this.listItems.push(this.add.text(width / 2, top + 20, 'No points yet — ride a race.', { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5));

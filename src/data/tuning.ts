@@ -171,6 +171,54 @@ export const FINALE_T_MAX = 0.93;
 export const REFERENCE_SPEED_KMH = 42; // winner's average speed → base time
 export const GAP_SPREAD = 1.5; // seconds of gap per point of perfScore difference
 
+// --- Management layer: economy, contracts & training (SPEC §5-mgmt, Phase 5) ---
+// All STARTING GUESSES (SPEC §10) — the balance pass is Phase 8. Money is one
+// abstract currency ("credits", think €k). The loop: a season-start sponsor
+// cheque + prize money as you race fund a wage bill you pay at season rollover;
+// signing a free agent costs an upfront fee + adds their salary to that bill, so
+// hoarding stars quietly bleeds you dry. See src/sim/management.ts.
+
+// Rider valuation (src/sim/rating.ts): a single 0–100 "overall" prices a rider.
+export const RATING_PEAK_W = 0.45; // weight on the rider's single best offensive stat
+export const RATING_OFFENSE_W = 0.25; // weight on the mean of the offensive stats
+export const RATING_ENDURANCE_W = 0.15;
+export const RATING_STAMINA_W = 0.15;
+
+// Salary curve: salary scales super-linearly with rating so stars cost a lot more
+// than journeymen. salary = SALARY_MIN + ((rating−FLOOR)/(100−FLOOR))^CURVE · (MAX−MIN).
+export const SALARY_MIN = 80;
+export const SALARY_MAX = 650;
+export const SALARY_FLOOR_RATING = 55; // below this a rider is ~minimum wage
+export const SALARY_CURVE = 2; // >1 = stars disproportionately expensive
+export const SIGNING_FEE_MULT = 1.5; // one-off signing fee = salary × this
+
+// Team finances.
+export const STARTING_BUDGET = 1600; // player team's opening cash
+export const RIVAL_STARTING_BUDGET = 2600; // rivals run comfortable books (they auto-renew squads)
+export const SPONSOR_BASE = 1300; // season-start cheque, before the ranking bonus
+export const SPONSOR_RANK_BONUS = 130; // extra per place above last (numTeams − rank) × this
+export const PRIZE_PER_POINT = 2.2; // event prize to a team = its finishers' points × prestige/100 × this
+
+// Squad rules — the wage bill plus these bounds force real selection choices.
+export const MIN_SQUAD_SIZE = 6; // can't release below this (need a squad to race)
+export const MAX_SQUAD_SIZE = 9; // can't sign above this (no hoarding)
+
+// Contracts: seasons remaining tick down at each rollover; a rider hitting 0
+// leaves for the free-agent pool unless re-signed. Seeded deterministically.
+export const CONTRACT_MIN_SEASONS = 1;
+export const CONTRACT_MAX_SEASONS = 3;
+export const OFFSEASON_RECOVERY_RATE = 0.2; // season fatigue × this over the winter (near-full rest)
+
+// Training (src/sim/management.ts): between races, coach a rider to nudge one
+// stat — but it tires them (energy is the limiter, SPEC-style trade-off), and a
+// rider may train at most once per race gap. Gains shrink as the stat rises and
+// stop at the soft cap (coaching can't build a superstar from nothing).
+export const TRAIN_SOFT_CAP = 95; // a stat can't be trained past this
+export const TRAIN_REF = 50; // gain is TRAIN_MAX_GAIN at/below this stat…
+export const TRAIN_MAX_GAIN = 3; // …tapering linearly to 0 at the soft cap
+export const TRAIN_MIN_GAIN = 0.4; // never award less than this (until the cap)
+export const TRAIN_FATIGUE_COST = 2; // season fatigue added by one training session
+
 /**
  * Terrain compresses (or spreads) the finishing field. On a flat day the whole
  * peloton rolls in together — a bunch sprint — so ability differences barely open

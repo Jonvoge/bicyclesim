@@ -9,6 +9,10 @@ import { QuickRaceScene } from './scenes/QuickRaceScene.ts';
 import { PreRaceScene } from './scenes/PreRaceScene.ts';
 import { RaceScene } from './scenes/RaceScene.ts';
 import { StageResultsScene } from './scenes/StageResultsScene.ts';
+import { TeamScene } from './scenes/TeamScene.ts';
+import { TransfersScene } from './scenes/TransfersScene.ts';
+import { TrainingScene } from './scenes/TrainingScene.ts';
+import { RolloverScene } from './scenes/RolloverScene.ts';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -21,7 +25,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 390,
     height: 844,
   },
-  scene: [BootScene, MainMenuScene, SeasonHubScene, StandingsScene, RidersScene, ArchiveScene, QuickRaceScene, PreRaceScene, RaceScene, StageResultsScene],
+  scene: [BootScene, MainMenuScene, SeasonHubScene, StandingsScene, RidersScene, ArchiveScene, TeamScene, TransfersScene, TrainingScene, RolloverScene, QuickRaceScene, PreRaceScene, RaceScene, StageResultsScene],
 };
 
 const game = new Phaser.Game(config);

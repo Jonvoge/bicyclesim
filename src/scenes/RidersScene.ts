@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import { RIDERS } from '../data/riders.ts';
 import { teamColor } from '../data/teamColors.ts';
 import { PLAYER_TEAM } from '../data/teams.ts';
 import type { BaseStatKey } from '../data/types.ts';
-import { riderStandings, type SeasonState } from '../sim/season.ts';
+import { riderStandings } from '../sim/season.ts';
+import { racingRoster, type DynastyState } from '../state/dynasty.ts';
 import { makeButton } from '../ui/button.ts';
 import { ScrollView } from '../ui/scrollView.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
@@ -26,11 +26,11 @@ export class RidersScene extends Phaser.Scene {
     super('Riders');
   }
 
-  create(data: { season: SeasonState }): void {
+  create(data: { dynasty: DynastyState }): void {
     const { width } = this.scale;
-    const points = data.season ? new Map(riderStandings(data.season).map((r) => [r.id, r.points])) : new Map<string, number>();
+    const points = new Map(riderStandings(data.dynasty.season).map((r) => [r.id, r.points]));
 
-    makeButton(this, 40, 34, '‹', () => this.scene.start('SeasonHub', { season: data.season }), { width: 40, height: 34, fontSize: 20 });
+    makeButton(this, 40, 34, '‹', () => this.scene.start('SeasonHub', { dynasty: data.dynasty }), { width: 40, height: 34, fontSize: 20 });
     this.add.text(width / 2, 30, 'The Peloton', { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
 
     // column headers for the stat block (right-aligned grid)
@@ -39,13 +39,14 @@ export class RidersScene extends Phaser.Scene {
 
     const top = 84;
     const rowH = 33;
-    // sort: player team first, then by best base stat (their signature strength)
-    const best = (id: string): number => Math.max(...STAT_COLS.map((c) => RIDERS.find((r) => r.id === id)!.stats[c.key]));
-    const order = [...RIDERS].sort((a, b) => {
+    // every contracted rider, player team first, then by signature strength
+    const field = racingRoster(data.dynasty);
+    const best = (r: (typeof field)[number]): number => Math.max(...STAT_COLS.map((c) => r.stats[c.key]));
+    const order = [...field].sort((a, b) => {
       const pa = a.teamId === PLAYER_TEAM.id ? 1 : 0;
       const pb = b.teamId === PLAYER_TEAM.id ? 1 : 0;
       if (pa !== pb) return pb - pa;
-      return best(b.id) - best(a.id);
+      return best(b) - best(a);
     });
 
     // the field is ~45 riders → scroll the list
@@ -64,7 +65,7 @@ export class RidersScene extends Phaser.Scene {
       STAT_COLS.forEach((c, i) => {
         const v = rider.stats[c.key];
         const isBest = v === bestVal;
-        scroll.add(this.add.text(statX(i), y, `${v}`, { fontFamily: FONT, fontSize: '12px', fontStyle: isBest ? 'bold' : 'normal', color: isBest ? '#f5c518' : v >= 80 ? COLORS.text : COLORS.textMuted }).setOrigin(0.5));
+        scroll.add(this.add.text(statX(i), y, `${Math.round(v)}`, { fontFamily: FONT, fontSize: '12px', fontStyle: isBest ? 'bold' : 'normal', color: isBest ? '#f5c518' : v >= 80 ? COLORS.text : COLORS.textMuted }).setOrigin(0.5));
       });
     });
   }

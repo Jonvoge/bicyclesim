@@ -1,14 +1,15 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
-import { RIDERS, RIDERS_BY_ID } from '../data/riders.ts';
+import { RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { PLAYER_TEAM } from '../data/teams.ts';
-import type { Stage, StageType } from '../data/types.ts';
+import type { Rider, Stage, StageType } from '../data/types.ts';
 import { baseScore } from '../sim/stageSim.ts';
-import { defaultTeamTactics } from '../sim/raceSetup.ts';
-import { currentRace, startEvent, type SeasonState } from '../sim/season.ts';
+import { defaultTeamTactics, defaultTeamTacticsFor } from '../sim/raceSetup.ts';
+import { currentRace, startEvent } from '../sim/season.ts';
 import { computeGc, createTour, type TourState } from '../sim/standings.ts';
 import { ROLES, ROLES_BY_ID, type TacticRole, type TeamEffort, type TeamTactics } from '../sim/tactics.ts';
+import { playerRiders, racingRoster, rosterById, type DynastyState } from '../state/dynasty.ts';
 import { Button, makeButton } from '../ui/button.ts';
 import { StageProfileView } from '../ui/stageProfile.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
@@ -36,7 +37,9 @@ interface RiderRow {
  */
 export class PreRaceScene extends Phaser.Scene {
   private tour!: TourState;
-  private season?: SeasonState;
+  private dynasty?: DynastyState;
+  private byId!: Map<string, Rider>;
+  private squadIds: string[] = []; // the player's riders for this race
   private canRest = false; // season event start → the player may bench riders
   private rested = new Set<string>();
   private stage!: Stage;
@@ -53,31 +56,35 @@ export class PreRaceScene extends Phaser.Scene {
     super('PreRace');
   }
 
-  create(data: { tour?: TourState; raceId?: string; season?: SeasonState }): void {
+  create(data: { tour?: TourState; raceId?: string; dynasty?: DynastyState }): void {
     this.rows = [];
     this.roleButtons = [];
     this.effortButtons = [];
     this.restButton = undefined;
     this.rested = new Set();
     this.effort = 'race';
-    this.season = data.season;
+    this.dynasty = data.dynasty;
     // Three ways in: mid-tour between stages (tour passed through), the start of a
     // season event (create a tour seeded with carried season fatigue), or a quick
     // one-off race (a fresh tour). Only create the tour once, at the event start.
     if (data.tour) this.tour = data.tour;
-    else if (data.season) this.tour = startEvent(data.season, RIDERS);
+    else if (data.dynasty) this.tour = startEvent(data.dynasty.season, racingRoster(data.dynasty));
     else this.tour = createTour(RACES_BY_ID.get(data.raceId!)!);
     // Resting is decided once, at the start of a season event (not between stages).
-    this.canRest = !!data.season && !data.tour;
+    this.canRest = !!data.dynasty && !data.tour;
+
+    // dynasty squad + roster, or the static team for a quick race
+    this.byId = this.dynasty ? rosterById(this.dynasty) : RIDERS_BY_ID;
+    this.squadIds = this.dynasty ? playerRiders(this.dynasty).map((r) => r.id) : PLAYER_TEAM.riderIds;
 
     const { width } = this.scale;
-    const race = this.season ? currentRace(this.season)! : RACES_BY_ID.get(this.tour.raceId)!;
+    const race = this.dynasty ? currentRace(this.dynasty.season)! : RACES_BY_ID.get(this.tour.raceId)!;
     this.stage = STAGES_BY_ID.get(this.tour.stageIds[this.tour.stageIndex])!;
     const isTour = this.tour.stageIds.length > 1;
     const stageNo = this.tour.stageIndex + 1;
 
     // header
-    const back = this.season ? () => this.scene.start('SeasonHub', { season: this.season }) : () => this.scene.start('QuickRace');
+    const back = this.dynasty ? () => this.scene.start('SeasonHub', { dynasty: this.dynasty }) : () => this.scene.start('QuickRace');
     makeButton(this, 40, 36, '‹', back, { width: 40, height: 34, fontSize: 20 });
     this.add.text(width / 2, 30, race.name, { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
     const sub = isTour ? `Stage ${stageNo}/${this.tour.stageIds.length} · ${this.stage.type} · ${this.stage.lengthKm} km` : `${this.stage.type} · ${this.stage.lengthKm} km`;
@@ -91,16 +98,19 @@ export class PreRaceScene extends Phaser.Scene {
     if (isTour && this.tour.results.length > 0) this.buildGcContext(width, 172);
 
     // role sheet — pre-filled default for this stage's terrain
-    this.roles = { ...defaultTeamTactics(PLAYER_TEAM, this.stage).roles };
-    this.selectedRiderId = PLAYER_TEAM.riderIds.find((id) => this.roles[id] === 'leader') ?? PLAYER_TEAM.riderIds[0];
+    const defSheet = this.dynasty
+      ? defaultTeamTacticsFor(PLAYER_TEAM.id, playerRiders(this.dynasty), this.stage)
+      : defaultTeamTactics(PLAYER_TEAM, this.stage);
+    this.roles = { ...defSheet.roles };
+    this.selectedRiderId = this.squadIds.find((id) => this.roles[id] === 'leader') ?? this.squadIds[0];
 
     const top = isTour && this.tour.results.length > 0 ? 210 : 196;
     const hint = this.canRest ? 'RIDER ROLES — tap a rider, then a role or Rest' : 'RIDER ROLES — tap a rider, then a role';
     this.add.text(width / 2, top - 14, hint, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
 
     const rowH = 40;
-    PLAYER_TEAM.riderIds.forEach((id, i) => {
-      const rider = RIDERS_BY_ID.get(id)!;
+    this.squadIds.forEach((id, i) => {
+      const rider = this.byId.get(id)!;
       const y = top + 18 + i * rowH;
       const bg = this.add
         .rectangle(width / 2, y, width - 28, rowH - 5, COLORS.panel, 1)
@@ -111,7 +121,7 @@ export class PreRaceScene extends Phaser.Scene {
 
       // fit + (in the season) carried fatigue — the input to the rest decision
       this.add.text(30, y + 13, `fit ${Math.round(baseScore(rider, this.stage))}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
-      if (this.season) this.buildFatiguePip(148, y, this.tour.fatigue.get(id) ?? 0);
+      if (this.dynasty) this.buildFatiguePip(148, y, this.tour.fatigue.get(id) ?? 0);
 
       const chip = this.add.rectangle(width - 72, y, 98, 24, COLORS.panelAlt, 1);
       const chipText = this.add.text(width - 72, y, '', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: COLORS.textDark }).setOrigin(0.5);
@@ -119,7 +129,7 @@ export class PreRaceScene extends Phaser.Scene {
     });
 
     // role palette (+ a Rest button on season events)
-    const palY = top + 18 + 6 * rowH + 6;
+    const palY = top + 18 + this.squadIds.length * rowH + 6;
     const count = ROLES.length + (this.canRest ? 1 : 0);
     const gap = 6;
     const btnW = Math.floor((width - 24 - (count - 1) * gap) / count);
@@ -176,13 +186,13 @@ export class PreRaceScene extends Phaser.Scene {
     let best: { pos: number; id: string } | null = null;
     gc.forEach((row, i) => {
       if (best) return;
-      if (RIDERS_BY_ID.get(row.riderId)!.teamId === PLAYER_TEAM.id) best = { pos: i + 1, id: row.riderId };
+      if (this.byId.get(row.riderId)?.teamId === PLAYER_TEAM.id) best = { pos: i + 1, id: row.riderId };
     });
-    const leaderName = gc[0] ? RIDERS_BY_ID.get(gc[0].riderId)!.name.split(' ').slice(-1)[0] : '—';
+    const leaderName = gc[0] ? this.byId.get(gc[0].riderId)!.name.split(' ').slice(-1)[0] : '—';
     let text = `GC: ${leaderName} leads`;
     if (best) {
       const b = best as { pos: number; id: string };
-      const name = RIDERS_BY_ID.get(b.id)!.name.split(' ').slice(-1)[0];
+      const name = this.byId.get(b.id)!.name.split(' ').slice(-1)[0];
       const gap = gc[b.pos - 1].gapSec;
       text += `   ·   you: ${name} ${ordinal(b.pos)}${gap > 0 ? ` +${fmtGap(gap)}` : ''}`;
     }
@@ -215,7 +225,7 @@ export class PreRaceScene extends Phaser.Scene {
     const id = this.selectedRiderId;
     if (this.rested.has(id)) {
       this.rested.delete(id);
-    } else if (this.rested.size < PLAYER_TEAM.riderIds.length - 1) {
+    } else if (this.rested.size < this.squadIds.length - 1) {
       this.rested.add(id); // keep at least one rider in the race
     }
     this.refresh();
@@ -244,7 +254,7 @@ export class PreRaceScene extends Phaser.Scene {
     for (const { role, btn } of this.roleButtons) btn.setSelected(!isRested && role === currentRole);
     this.restButton?.setSelected(isRested);
     for (const { effort, btn } of this.effortButtons) btn.setSelected(effort === this.effort);
-    const name = RIDERS_BY_ID.get(this.selectedRiderId)!.name.split(' ').slice(-1)[0];
+    const name = this.byId.get(this.selectedRiderId)!.name.split(' ').slice(-1)[0];
     if (isRested) {
       this.roleBlurb.setText(`${name} — Resting: sits this race out and recovers for the next.`);
     } else {
@@ -264,7 +274,7 @@ export class PreRaceScene extends Phaser.Scene {
       }
     }
     const playerTactics: TeamTactics = { teamId: PLAYER_TEAM.id, roles, effort: this.effort };
-    this.scene.start('Race', { tour: this.tour, playerTactics, season: this.season });
+    this.scene.start('Race', { tour: this.tour, playerTactics, dynasty: this.dynasty });
   }
 }
 
