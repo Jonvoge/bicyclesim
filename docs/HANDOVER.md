@@ -6,15 +6,18 @@
 
 ## TL;DR — current state
 
-- **Everything through Phase 5 is merged to `main`** (PRs #1–#12). **Phase 6 (rider development &
-  dynasty) is built on branch `claude/continue-build-0zwcbc`** with a PR open for review — not yet
-  merged. The core design is now complete: a multi-season dynasty where riders develop, age, retire
-  and are replaced by scouted youth, on top of the racing + management layers.
+- **Everything through Phase 6 is merged to `main`** (PRs #1–#13). **Phase 7 (art pipeline experiment)
+  is built on branch `claude/continue-build-0zwcbc`** with a PR open for review — not yet merged. The
+  render abstraction is now a working config flag (code-drawn vs sprite), with a side-by-side compare
+  scene and a chosen default.
 - **The Phase 2 fun gate passed** (user playtested on a phone and said proceed). We have since
   iterated well past the MVP on user feedback (see "What's built").
-- **Next up is Phase 7 (art experiment) / Phase 8 (persistence, balance & polish).** With full
-  dynasties now running, Phase 8's balance pass is where all the guessed `tuning.ts` numbers get
-  earned. Nothing for 7/8 is started.
+- **Next up is Phase 8 — persistence, balance & polish.** With full dynasties now running, the big
+  **balance pass** (every `tuning.ts` number is still a guess) is where the game gets earned; plus
+  multiple save slots and offline polish. Nothing for Phase 8 is started.
+- **Phase 7 caveat:** the "sprite" is an authored **SVG placeholder** (not the AI raster the SPEC
+  imagined — this env can't gen images). The flag/infrastructure/comparison are real; the final art
+  look, with production sprites, is still open. Default is `RENDER_MODE = 'code'`.
 - Deployed & playable on a phone: **https://jonvoge.github.io/bicyclesim/** (auto-redeploys on push
   to `main` or the active feature branch — last push wins).
 - **The management + development layers have NOT had a phone playtest yet, and their numbers are
@@ -60,13 +63,19 @@
   (fresh 19–22-yo free agents whose potential is shown **fuzzily** — a real bet). `src/sim/development.ts`
   is the pure core; `scoutReport` drives the star ratings in Transfers/Team HQ. **Still deferred:**
   rival poaching / contracts genuinely lapsing (they auto-renew).
+- **Phase 7 — art experiment** (SPEC §8): the render abstraction is now a working **config flag**.
+  `src/render/index.ts` — `RENDER_MODE` (`'code' | 'sprite'`) + `makeRiderRenderer()`; `SpriteRenderer`
+  draws from a loaded texture (authored **SVG** placeholder, tinted per team — a real AI raster atlas
+  can replace it behind the same keys). `RenderCompareScene` (MainMenu → "Renderers") shows both
+  side-by-side. **Default `'code'`** (tiny footprint, one-value recolour, crisp scaling).
 
 ## Next planned work
 
-- **Phase 7 — art experiment** (`RiderRenderer`: code-drawn vs sprite, a side-by-side, pick a default)
-  and **Phase 8 — persistence, balance & polish**: the big **balance pass** now that full dynasties
-  run (every `tuning.ts` number is still a guess — economy, development curves, retirement rate), plus
-  multiple save slots and offline polish. See SPEC §8/§10.
+- **Phase 8 — persistence, balance & polish**: the big **balance pass** now that full dynasties run
+  (every `tuning.ts` number is still a guess — economy, development curves, retirement rate), plus
+  multiple save slots (localStorage → IndexedDB if needed) and offline/PWA polish. See SPEC §10.
+- **Finish Phase 7 properly** when real art exists: drop an AI-generated raster atlas behind the
+  `SpriteRenderer` texture keys (`src/render/spriteAssets.ts`) and re-judge `RENDER_MODE` by looking.
 - **Small deferred loose ends** (do if they help, none blocking):
   - Rival **effort** AI (rivals conserving on a tour's non-GC stages — currently they only rest).
   - Emergent-rivalries view (world layer).
@@ -154,8 +163,10 @@ No persistent browser dep. To view/record the running app:
   optional **`dynasty`** (present → dynasty/season loop off the live roster, absent → quick one-off off
   the static roster). Only create the tour once, at event start; PreRace between-stages receives the
   existing tour.
-- **`src/render`** — `riderRenderer.ts` interface + `codeDrawnRenderer.ts` (placeholder art). Phase
-  7 adds a `SpriteRenderer` behind the same interface (config flag, not a rewrite).
+- **`src/render`** — `riderRenderer.ts` interface, `codeDrawnRenderer.ts` (Graphics) + `spriteRenderer.ts`
+  (texture) + `spriteAssets.ts` (inline SVG → data-URI textures). `index.ts` = `RENDER_MODE` +
+  `makeRiderRenderer()` (the one config flag). RaceScene preloads the sprite textures and draws via the
+  factory; `RenderCompareScene` shows both side-by-side. Default `'code'`.
 - **`src/ui`** — `button.ts`, `theme.ts`, `stageProfile.ts` (multi-feature silhouette + live group
   markers), `scrollView.ts` (masked drag/wheel scroll for the ~45-rider lists).
 
