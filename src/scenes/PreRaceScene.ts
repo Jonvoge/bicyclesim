@@ -4,12 +4,13 @@ import { RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { PLAYER_TEAM } from '../data/teams.ts';
 import type { Rider, Stage, StageType } from '../data/types.ts';
+import { RACE_SQUAD_SIZE } from '../data/tuning.ts';
 import { baseScore } from '../sim/stageSim.ts';
 import { defaultTeamTactics, defaultTeamTacticsFor } from '../sim/raceSetup.ts';
-import { currentRace, startEvent } from '../sim/season.ts';
+import { currentRace } from '../sim/season.ts';
 import { computeGc, createTour, type TourState } from '../sim/standings.ts';
 import { ROLES, ROLES_BY_ID, type TacticRole, type TeamEffort, type TeamTactics } from '../sim/tactics.ts';
-import { playerRiders, racingRoster, rosterById, type DynastyState } from '../state/dynasty.ts';
+import { playerRiders, rosterById, startSeasonEvent, type DynastyState } from '../state/dynasty.ts';
 import { Button, makeButton } from '../ui/button.ts';
 import { StageProfileView } from '../ui/stageProfile.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
@@ -51,6 +52,8 @@ export class PreRaceScene extends Phaser.Scene {
   private restButton?: Button;
   private effortButtons: { effort: TeamEffort; btn: Button }[] = [];
   private roleBlurb!: Phaser.GameObjects.Text;
+  private startButton?: Button;
+  private pickText?: Phaser.GameObjects.Text;
 
   constructor() {
     super('PreRace');
@@ -61,6 +64,8 @@ export class PreRaceScene extends Phaser.Scene {
     this.roleButtons = [];
     this.effortButtons = [];
     this.restButton = undefined;
+    this.startButton = undefined;
+    this.pickText = undefined;
     this.rested = new Set();
     this.effort = 'race';
     this.dynasty = data.dynasty;
@@ -68,14 +73,26 @@ export class PreRaceScene extends Phaser.Scene {
     // season event (create a tour seeded with carried season fatigue), or a quick
     // one-off race (a fresh tour). Only create the tour once, at the event start.
     if (data.tour) this.tour = data.tour;
-    else if (data.dynasty) this.tour = startEvent(data.dynasty.season, racingRoster(data.dynasty));
+    else if (data.dynasty) this.tour = startSeasonEvent(data.dynasty, currentRace(data.dynasty.season)!);
     else this.tour = createTour(RACES_BY_ID.get(data.raceId!)!);
-    // Resting is decided once, at the start of a season event (not between stages).
+    // The squad is picked once, at the start of a season event (not between stages).
     this.canRest = !!data.dynasty && !data.tour;
 
     // dynasty squad + roster, or the static team for a quick race
     this.byId = this.dynasty ? rosterById(this.dynasty) : RIDERS_BY_ID;
-    this.squadIds = this.dynasty ? playerRiders(this.dynasty).map((r) => r.id) : PLAYER_TEAM.riderIds;
+    if (this.dynasty && this.canRest) {
+      // pick-5 at event start: the whole squad is choosable; startSeasonEvent
+      // pre-selected the best 5 into the tour's starters, the rest begin benched.
+      this.squadIds = playerRiders(this.dynasty).map((r) => r.id);
+      this.rested = new Set(this.squadIds.filter((id) => !this.tour.starters!.has(id)));
+    } else if (this.dynasty) {
+      // between tour stages: the squad is locked to the 5 who started the tour
+      this.squadIds = playerRiders(this.dynasty)
+        .map((r) => r.id)
+        .filter((id) => this.tour.starters!.has(id));
+    } else {
+      this.squadIds = PLAYER_TEAM.riderIds;
+    }
 
     const { width } = this.scale;
     const race = this.dynasty ? currentRace(this.dynasty.season)! : RACES_BY_ID.get(this.tour.raceId)!;
@@ -105,8 +122,12 @@ export class PreRaceScene extends Phaser.Scene {
     this.selectedRiderId = this.squadIds.find((id) => this.roles[id] === 'leader') ?? this.squadIds[0];
 
     const top = isTour && this.tour.results.length > 0 ? 210 : 196;
-    const hint = this.canRest ? 'RIDER ROLES — tap a rider, then a role or Rest' : 'RIDER ROLES — tap a rider, then a role';
-    this.add.text(width / 2, top - 14, hint, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
+    if (this.canRest) {
+      // the header line doubles as the live "Starting X/5" counter (set in refresh)
+      this.pickText = this.add.text(width / 2, top - 14, '', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
+    } else {
+      this.add.text(width / 2, top - 14, 'ROLES — tap a rider, then a role', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
+    }
 
     const rowH = 40;
     this.squadIds.forEach((id, i) => {
@@ -170,7 +191,7 @@ export class PreRaceScene extends Phaser.Scene {
       startY = effY + 44;
     }
 
-    makeButton(this, width / 2, startY, 'START RACE →', () => this.start(), {
+    this.startButton = makeButton(this, width / 2, startY, 'START RACE →', () => this.start(), {
       width: 260,
       height: 50,
       fontSize: 21,
@@ -215,18 +236,31 @@ export class PreRaceScene extends Phaser.Scene {
     this.refresh();
   }
 
+  /** Riders currently picked to start (not benched). */
+  private racingCount(): number {
+    return this.squadIds.filter((id) => !this.rested.has(id)).length;
+  }
+
   private assignRole(role: TacticRole): void {
-    this.rested.delete(this.selectedRiderId); // giving a rider a job un-rests them
-    this.roles[this.selectedRiderId] = role;
+    const id = this.selectedRiderId;
+    // giving a benched rider a job selects them into the 5 — if there's room
+    if (this.canRest && this.rested.has(id)) {
+      if (this.racingCount() >= RACE_SQUAD_SIZE) {
+        this.roleBlurb.setText(`Starting ${RACE_SQUAD_SIZE} already full — Rest a rider first.`);
+        return;
+      }
+      this.rested.delete(id);
+    }
+    this.roles[id] = role;
     this.refresh();
   }
 
   private toggleRest(): void {
     const id = this.selectedRiderId;
     if (this.rested.has(id)) {
-      this.rested.delete(id);
-    } else if (this.rested.size < this.squadIds.length - 1) {
-      this.rested.add(id); // keep at least one rider in the race
+      if (this.racingCount() < RACE_SQUAD_SIZE) this.rested.delete(id); // pick into the 5 if there's room
+    } else {
+      this.rested.add(id); // bench
     }
     this.refresh();
   }
@@ -256,21 +290,30 @@ export class PreRaceScene extends Phaser.Scene {
     for (const { effort, btn } of this.effortButtons) btn.setSelected(effort === this.effort);
     const name = this.byId.get(this.selectedRiderId)!.name.split(' ').slice(-1)[0];
     if (isRested) {
-      this.roleBlurb.setText(`${name} — Resting: sits this race out and recovers for the next.`);
+      this.roleBlurb.setText(`${name} — Benched: sits this race out and recovers for the next.`);
     } else {
       const def = ROLES_BY_ID.get(currentRole)!;
       this.roleBlurb.setText(`${name} — ${def.label}: ${def.blurb}`);
     }
+
+    // pick-5 gate: START only when exactly RACE_SQUAD_SIZE are selected
+    if (this.canRest) {
+      const n = this.racingCount();
+      const ok = n === RACE_SQUAD_SIZE;
+      this.pickText?.setText(`PICK ${RACE_SQUAD_SIZE} · starting ${n}/${RACE_SQUAD_SIZE}  (tap a rider, then a role or Rest)`).setColor(ok ? '#18b39a' : '#e28f3b');
+      this.startButton?.setEnabled(ok);
+    }
   }
 
   private start(): void {
-    // rested player riders don't take the start (excluded from the field), and
-    // their role no longer counts (a benched domestique gives the leader nothing)
+    // reconcile the player's tour starters with the picked 5 (rivals' 5s were set
+    // by startSeasonEvent). A benched rider's role no longer counts.
     const roles = { ...this.roles };
     if (this.canRest && this.tour.starters) {
-      for (const id of this.rested) {
-        this.tour.starters.delete(id);
-        delete roles[id];
+      for (const id of this.squadIds) this.tour.starters.delete(id);
+      for (const id of this.squadIds) {
+        if (this.rested.has(id)) delete roles[id];
+        else this.tour.starters.add(id);
       }
     }
     const playerTactics: TeamTactics = { teamId: PLAYER_TEAM.id, roles, effort: this.effort };

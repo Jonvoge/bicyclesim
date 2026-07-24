@@ -1,22 +1,27 @@
 import { ALL_RIDERS } from '../data/freeAgents.ts';
 import { RACES_BY_ID, SEASON_CALENDAR } from '../data/races.ts';
+import { STAGES_BY_ID } from '../data/stages.ts';
 import { TEAMS, PLAYER_TEAM } from '../data/teams.ts';
-import type { Stage } from '../data/types.ts';
+import type { Race, Stage } from '../data/types.ts';
 import { defaultTeamTacticsFor } from '../sim/raceSetup.ts';
+import { baseScore } from '../sim/stageSim.ts';
 import type { TeamTactics } from '../sim/tactics.ts';
 import {
   CONTRACT_MAX_SEASONS,
   CONTRACT_MIN_SEASONS,
+  FATIGUE_WEIGHT,
   FREE_AGENT_POOL_CAP,
   MIN_SQUAD_SIZE,
   NEW_RIDERS_PER_SEASON,
   OFFSEASON_RECOVERY_RATE,
+  RACE_SQUAD_SIZE,
   RIVAL_STARTING_BUDGET,
   STARTING_BUDGET,
+  TARGET_SQUAD_SIZE,
   TRAIN_FATIGUE_COST,
 } from '../data/tuning.ts';
 import type { Rider, StatKey } from '../data/types.ts';
-import { ageOneSeason, generateProspect, scoutReport, seedDevelopment, shouldRetire } from '../sim/development.ts';
+import { ageOneSeason, generateDomestique, generateProspect, scoutReport, seedDevelopment, shouldRetire } from '../sim/development.ts';
 import {
   canRelease,
   canSign,
@@ -37,7 +42,7 @@ import {
   type SeasonResult,
   type SeasonState,
 } from '../sim/season.ts';
-import type { TourState } from '../sim/standings.ts';
+import { createTour, type TourState } from '../sim/standings.ts';
 
 /**
  * Dynasty state (Phase 5): the game's **mutable** layer. Where a `SeasonState`
@@ -78,6 +83,14 @@ function seedContract(id: string): number {
 /** A fresh dynasty: clone the roster, price contracts, seed budgets and season 1. */
 export function createDynasty(): DynastyState {
   const roster = ALL_RIDERS.map(cloneRider);
+  // pad every team to a rotatable depth with generated domestiques (Phase 8 pick-5)
+  const gen = new Rng(0x5a1ad);
+  for (const team of TEAMS) {
+    let count = roster.filter((r) => r.teamId === team.id).length;
+    for (let i = 0; count < TARGET_SQUAD_SIZE; i++, count++) {
+      roster.push(generateDomestique(`${team.id}-dom${i}`, team.id, gen));
+    }
+  }
   for (const r of roster) {
     seedDevelopment(r); // hidden peakAge / ceiling / developmentRate (Phase 6)
     if (r.teamId) {
@@ -351,4 +364,44 @@ export function buildTacticsMapDyn(dynasty: DynastyState, stage: Stage, player: 
     map.set(team.id, defaultTeamTacticsFor(team.id, teamRiders(dynasty, team.id), stage));
   }
   return map;
+}
+
+/**
+ * The N riders a team fields for a race (Phase 8 pick-5). Ranked by suitability
+ * (a one-day: `baseScore` for the terrain; a tour: overall rating) **minus a
+ * fatigue penalty**, so a tired star drops down the order and a fresher rider gets
+ * the start — that's how rivals rotate a squad over a season (it replaces the old
+ * rival-rest AI). Returns rider ids, best first.
+ */
+export function pickRaceSquad(
+  riders: Rider[],
+  stage: Stage,
+  seasonFatigue: Map<string, number>,
+  isTour: boolean,
+  n: number = RACE_SQUAD_SIZE,
+): string[] {
+  return riders
+    .map((r) => ({ id: r.id, score: (isTour ? riderRating(r) : baseScore(r, stage)) - (seasonFatigue.get(r.id) ?? 0) * FATIGUE_WEIGHT }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n)
+    .map((s) => s.id);
+}
+
+/**
+ * Open a race event with pick-5 squads: seed carried season fatigue for the whole
+ * field, then set the starters to **each team's best 5** (rivals auto-picked; the
+ * player's is a sensible default the PreRace screen lets them override). The
+ * dynasty equivalent of `season.startEvent`.
+ */
+export function startSeasonEvent(dynasty: DynastyState, race: Race): TourState {
+  const tour = createTour(race);
+  for (const r of racingRoster(dynasty)) tour.fatigue.set(r.id, dynasty.season.fatigue.get(r.id) ?? 0);
+  const stage = STAGES_BY_ID.get(race.stageIds[0])!;
+  const isTour = race.stageIds.length > 1;
+  const starters = new Set<string>();
+  for (const team of TEAMS) {
+    for (const id of pickRaceSquad(teamRiders(dynasty, team.id), stage, dynasty.season.fatigue, isTour)) starters.add(id);
+  }
+  tour.starters = starters;
+  return tour;
 }

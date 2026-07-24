@@ -2,23 +2,25 @@ import { describe, expect, it } from 'vitest';
 
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { TEAMS, PLAYER_TEAM } from '../data/teams.ts';
-import { MAX_SQUAD_SIZE, MIN_SQUAD_SIZE, SIGNING_FEE_MULT } from '../data/tuning.ts';
+import { MAX_SQUAD_SIZE, MIN_SQUAD_SIZE, RACE_SQUAD_SIZE, SIGNING_FEE_MULT, TARGET_SQUAD_SIZE } from '../data/tuning.ts';
 import { Rng } from '../sim/rng.ts';
 import { buildRaceStory } from '../sim/raceNarrative.ts';
 import { defaultTeamTacticsFor } from '../sim/raceSetup.ts';
 import { riderRating, salaryFor } from '../sim/rating.ts';
-import { startEvent } from '../sim/season.ts';
+import { currentRace, startEvent } from '../sim/season.ts';
 import { isTourComplete, recordStageResult, ridersForStage } from '../sim/standings.ts';
 import {
   createDynasty,
   finishSeasonEvent,
   freeAgents,
+  pickRaceSquad,
   playerBudget,
   playerRiders,
   racingRoster,
   releaseRider,
   rolloverSeason,
   signRider,
+  startSeasonEvent,
   teamRiders,
   trainRider,
   type DynastyState,
@@ -42,7 +44,7 @@ function playEvent(dynasty: DynastyState, seed: number) {
 describe('dynasty setup', () => {
   it('clones the roster with contracts on signed riders and a free-agent pool', () => {
     const d = createDynasty();
-    expect(playerRiders(d).length).toBe(PLAYER_TEAM.riderIds.length);
+    expect(playerRiders(d).length).toBe(TARGET_SQUAD_SIZE); // padded to a rotatable depth
     expect(freeAgents(d).length).toBeGreaterThan(0);
     for (const r of playerRiders(d)) {
       expect(r.salary).toBeGreaterThan(0);
@@ -79,12 +81,17 @@ describe('transfers', () => {
     let signed = 0;
     for (const fa of [...freeAgents(d)]) if (signRider(d, fa.id).ok) signed++;
     expect(teamRiders(d, PLAYER_TEAM.id).length).toBe(MAX_SQUAD_SIZE);
-    expect(signed).toBe(MAX_SQUAD_SIZE - PLAYER_TEAM.riderIds.length);
+    expect(signed).toBe(MAX_SQUAD_SIZE - TARGET_SQUAD_SIZE); // starts padded to TARGET
   });
 
   it('releasing is blocked at the squad minimum and works above it', () => {
     const d = createDynasty();
-    // player starts at MIN_SQUAD_SIZE, so a release is blocked until we sign one
+    // player starts padded above the minimum, so releases are allowed down to it
+    expect(teamRiders(d, PLAYER_TEAM.id).length).toBe(TARGET_SQUAD_SIZE);
+    while (teamRiders(d, PLAYER_TEAM.id).length > MIN_SQUAD_SIZE) {
+      expect(releaseRider(d, playerRiders(d)[0].id).ok).toBe(true);
+    }
+    // at the minimum, further releases are blocked
     expect(teamRiders(d, PLAYER_TEAM.id).length).toBe(MIN_SQUAD_SIZE);
     expect(releaseRider(d, playerRiders(d)[0].id).ok).toBe(false);
     d.budgets[PLAYER_TEAM.id] = 1e9;
@@ -147,6 +154,28 @@ describe('economy over a season', () => {
       return playerBudget(d);
     };
     expect(run()).toBe(run());
+  });
+});
+
+describe('pick-5 race squads (Phase 8)', () => {
+  it('startSeasonEvent fields exactly RACE_SQUAD_SIZE riders per team', () => {
+    const d = createDynasty();
+    const tour = startSeasonEvent(d, currentRace(d.season)!);
+    for (const t of TEAMS) {
+      const started = teamRiders(d, t.id).filter((r) => tour.starters!.has(r.id)).length;
+      expect(started).toBe(RACE_SQUAD_SIZE);
+    }
+    expect(tour.starters!.size).toBe(TEAMS.length * RACE_SQUAD_SIZE);
+  });
+
+  it('a heavily-fatigued rider is dropped for a fresher teammate', () => {
+    const d = createDynasty();
+    const stage = STAGES_BY_ID.get('st-lombardo')!;
+    const roster = teamRiders(d, PLAYER_TEAM.id);
+    const fresh = pickRaceSquad(roster, stage, new Map(), false);
+    expect(fresh.length).toBe(RACE_SQUAD_SIZE);
+    const cooked = pickRaceSquad(roster, stage, new Map([[fresh[0], 100]]), false);
+    expect(cooked).not.toContain(fresh[0]); // 100 fatigue drops the top pick out of the 5
   });
 });
 
