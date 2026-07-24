@@ -101,7 +101,7 @@ export const BREAK_MIN_SIZE = 2; // riders up the road
 export const BREAK_MAX_SIZE = 5;
 export const BREAK_MAX_LEAD_SEC_MIN = 60; // peak lead the break builds mid-race (min)
 export const BREAK_MAX_LEAD_SEC_MAX = 300; // peak lead the break builds mid-race (max)
-export const BREAK_WIN_MARGIN_SEC = 14; // if it survives, how far clear it finishes
+export const BREAK_WIN_MARGIN_SEC = 40; // if it survives, how far clear it finishes (a real gap, not a photo)
 
 /**
  * Whether the morning break survives is emergent, not a flat dice roll (SPEC §5.9):
@@ -136,8 +136,8 @@ export const LATE_ATTACK_SUCCESS_TERRAIN_W = 0.34;
 export const LATE_ATTACK_SUCCESS_STRENGTH_W = 0.28;
 export const LATE_ATTACK_SUCCESS_TACTIC_BONUS = 0.18;
 export const LATE_ATTACK_SUCCESS_MAX = 0.7;
-export const LATE_ATTACK_MARGIN_MIN = 5; // seconds a successful solo attack wins by
-export const LATE_ATTACK_MARGIN_MAX = 24;
+export const LATE_ATTACK_MARGIN_MIN = 18; // seconds a successful solo attack wins by
+export const LATE_ATTACK_MARGIN_MAX = 75;
 
 /** Terrain break-friendliness (0 = sprinters control, 1 = breaks thrive). */
 export const BREAK_FRIENDLINESS: Record<string, number> = {
@@ -169,7 +169,7 @@ export const FINALE_T_MAX = 0.93;
 
 // --- Result → times (SPEC §5.7) ---
 export const REFERENCE_SPEED_KMH = 42; // winner's average speed → base time
-export const GAP_SPREAD = 1.5; // seconds of gap per point of perfScore difference
+export const GAP_SPREAD = 1.0; // seconds of gap per point of perfScore difference (× terrain, below)
 
 // --- Management layer: economy, contracts & training (SPEC §5-mgmt, Phase 5) ---
 // All STARTING GUESSES (SPEC §10) — the balance pass is Phase 8. Money is one
@@ -270,20 +270,26 @@ export const SCOUT_NOISE_MAX = 13; // ± ceiling error for the youngest rider…
 export const SCOUT_CERTAIN_AGE = 27; // …fading to 0 by this age
 
 /**
- * Terrain compresses (or spreads) the finishing field. On a flat day the whole
- * peloton rolls in together — a bunch sprint — so ability differences barely open
- * time gaps; on a summit finish the climbers ride everyone off their wheel and the
- * field shatters. This multiplies the perf-derived gap (SPEC §5.7): near-0 on flat
- * → one big same-time bunch, ~1 on a summit → the full spread. Real time losses
- * (crashes, a break's winning margin) are added separately and are NOT compressed.
- * A happy side effect: flat/rolling stages barely move GC, so the classification
- * is decided in the mountains — where fresh vs. tired legs matters most.
+ * Terrain multiplier on the perf-derived gap (SPEC §5.7) — the single biggest
+ * lever on how a stage reads. On a flat day it's **tiny** (~0.18), so the whole
+ * peloton rolls in on one time (a bunch sprint) and ability barely opens gaps; on
+ * a **summit finish** it's large (~4.6), so the climbers ride the rest off their
+ * wheel and the field shatters into **minutes** — a pure sprinter loses 3–4 min on
+ * a real mountain, so he simply can't hang onto GC. Rolling/hilly days sit in
+ * between (puncheurs + climbers gap the fast men). Real time losses (crashes, a
+ * break's winning margin) are added separately and are NOT scaled.
+ *
+ * Because fatigue is a perfScore penalty (§5.1), this same lever is what makes
+ * **tired legs lose real time in the mountains** — a rider carrying fatigue drops
+ * time only where the terrain magnifies it, so the Conserve trade (fresher legs
+ * for the queen stage) actually shows up on the clock. Rebalanced in the post-
+ * playtest pass: mountains were far too gentle and sprinters clung to GC.
  */
 export const GAP_COMPRESSION_BY_TYPE: Record<string, number> = {
-  flat: 0.12,
-  cobbled: 0.42,
-  hilly: 0.5,
-  descentFinish: 0.58,
-  mountain: 0.85,
-  summitFinish: 1.0,
+  flat: 0.18,
+  cobbled: 0.65,
+  hilly: 1.5,
+  descentFinish: 1.25,
+  mountain: 3.8,
+  summitFinish: 4.6,
 };
