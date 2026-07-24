@@ -8,7 +8,6 @@ import {
   DOMESTIQUE_SUPPORT_CAP,
   DOMESTIQUE_WORK_PENALTY,
   LEADER_BASE_BONUS,
-  ROLE_FATIGUE_BREAKAWAY,
   ROLE_FATIGUE_DOMESTIQUE,
   ROLE_FATIGUE_FREE,
   ROLE_FATIGUE_LEADER,
@@ -32,7 +31,9 @@ import type { StageType } from '../data/types.ts';
  *   FREE        rides their own race, no strings
  */
 
-export type TacticRole = 'leader' | 'sprinter' | 'breakaway' | 'domestique' | 'free';
+// 'free' is the merged "ride your own race / go up the road / attack late" role —
+// it absorbed the old separate 'breakaway' (they were indistinguishable in play).
+export type TacticRole = 'leader' | 'sprinter' | 'domestique' | 'free';
 
 /**
  * Team-wide effort for a stage (SPEC §5.8). Only meaningful in tours: 'conserve'
@@ -52,9 +53,8 @@ export interface RoleDef {
 export const ROLES: RoleDef[] = [
   { id: 'leader', label: 'Leader', short: 'L', color: 0xf5c518, blurb: 'Backed for the win. Every domestique makes him stronger.' },
   { id: 'sprinter', label: 'Sprinter', short: 'S', color: 0x2ecc71, blurb: 'Sit in and unleash him in a bunch kick. Wasted on climbs.' },
-  { id: 'breakaway', label: 'Breakaway', short: 'B', color: 0xe28f3b, blurb: 'Up the road in the morning break — the gamble. A star attacks late instead.' },
+  { id: 'free', label: 'Free / Attack', short: 'F', color: 0xe28f3b, blurb: 'Rides his own race — free to go up the road in the break, or attack late. The gamble.' },
   { id: 'domestique', label: 'Domestique', short: 'D', color: 0x4a90d9, blurb: 'Works for the leader. No result today, and tired legs tomorrow.' },
-  { id: 'free', label: 'Free role', short: 'F', color: 0x8a8ab0, blurb: 'Rides his own race — no orders, no help.' },
 ];
 
 export const ROLES_BY_ID: Map<TacticRole, RoleDef> = new Map(ROLES.map((r) => [r.id, r]));
@@ -141,17 +141,17 @@ function roleEffect(role: TacticRole, counts: RoleCounts, stageType: StageType):
           : 0;
       return { perfMod, sigmaMult: 1, fatigueMult: ROLE_FATIGUE_SPRINTER };
     }
-    case 'breakaway': {
+    case 'domestique':
+      return { perfMod: -DOMESTIQUE_WORK_PENALTY, sigmaMult: 1, fatigueMult: ROLE_FATIGUE_DOMESTIQUE };
+    case 'free': {
+      // merged free/attack: the old breakaway effect — a perf edge on break-friendly
+      // terrain (docked on a sprinters' flat), a wider form swing, an active day's fatigue
       const perfMod = BREAK_FRIENDLY.includes(stageType)
         ? BREAK_PERF_BONUS
         : SPRINT_CONTROLLED.includes(stageType)
           ? -BREAK_TERRAIN_PENALTY
           : 0;
-      return { perfMod, sigmaMult: BREAK_SIGMA_MULT, fatigueMult: ROLE_FATIGUE_BREAKAWAY };
+      return { perfMod, sigmaMult: BREAK_SIGMA_MULT, fatigueMult: ROLE_FATIGUE_FREE };
     }
-    case 'domestique':
-      return { perfMod: -DOMESTIQUE_WORK_PENALTY, sigmaMult: 1, fatigueMult: ROLE_FATIGUE_DOMESTIQUE };
-    case 'free':
-      return { perfMod: 0, sigmaMult: 1, fatigueMult: ROLE_FATIGUE_FREE };
   }
 }

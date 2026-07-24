@@ -58,6 +58,7 @@ describe('dynasty setup', () => {
 describe('transfers', () => {
   it('signs a free agent: budget drops by the fee, squad grows, rider is contracted', () => {
     const d = createDynasty();
+    d.budgets[PLAYER_TEAM.id] = 5000; // enough to afford the fee under the tightened economy
     const fa = freeAgents(d)[0];
     const before = playerBudget(d);
     const fee = Math.round(salaryFor(riderRating(fa)) * SIGNING_FEE_MULT);

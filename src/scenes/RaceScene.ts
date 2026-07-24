@@ -142,6 +142,7 @@ export class RaceScene extends Phaser.Scene {
       riders: this.stageRiders,
       tacticsByTeam: this.tacticsByTeam,
       rng: new Rng(seed),
+      playerTeamId: this.playerTeamId,
     });
 
     this.buildHeader(width);
@@ -223,7 +224,7 @@ export class RaceScene extends Phaser.Scene {
       // player riders wear their role over their head (leader gold, etc.)
       if (isPlayer) {
         const role = roleOf(this.tactics, entry.riderId);
-        if (role === 'leader' || role === 'sprinter' || role === 'breakaway') {
+        if (role === 'leader' || role === 'sprinter' || role === 'free') {
           const roleColor = ROLES_BY_ID.get(role)!.color;
           glyph.add(this.add.triangle(0, -14, 0, 0, 8, 0, 4, 6, roleColor, 1));
         }

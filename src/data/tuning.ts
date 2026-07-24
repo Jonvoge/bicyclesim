@@ -51,9 +51,8 @@ export const BREAK_SIGMA_MULT = 1.3; // BREAKAWAY: aggressive ride → wider for
 // Fatigue accrual multipliers per role — consumed in Phase 3, exposed now.
 export const ROLE_FATIGUE_LEADER = 1;
 export const ROLE_FATIGUE_SPRINTER = 0.8; // sat in all day, saved it for the kick
-export const ROLE_FATIGUE_BREAKAWAY = 1.2; // a day in the wind is expensive
 export const ROLE_FATIGUE_DOMESTIQUE = 1.3; // riding on the front for the leader
-export const ROLE_FATIGUE_FREE = 0.9;
+export const ROLE_FATIGUE_FREE = 1.1; // 'free/attack' (merged from breakaway) — an active day in the wind
 
 // --- Team effort lever (SPEC §5.8, stage races) ---
 // A team can "conserve for GC" on a stage: less fatigue burned across the whole
@@ -184,14 +183,17 @@ export const SALARY_MIN = 80;
 export const SALARY_MAX = 650;
 export const SALARY_FLOOR_RATING = 55; // below this a rider is ~minimum wage
 export const SALARY_CURVE = 2; // >1 = stars disproportionately expensive
-export const SIGNING_FEE_MULT = 1.5; // one-off signing fee = salary × this
+export const SIGNING_FEE_MULT = 2.2; // one-off signing fee = salary × this (a star is a real commitment)
 
-// Team finances.
-export const STARTING_BUDGET = 1600; // player team's opening cash
-export const RIVAL_STARTING_BUDGET = 2600; // rivals run comfortable books (they auto-renew squads)
-export const SPONSOR_BASE = 1150; // season-start cheque, before the ranking bonus
+// Team finances. Tightened in the post-playtest pass — money was too loose (you
+// could sign anyone). Now you start with roughly one modest signing's worth of
+// cash and a mid-table team runs close to break-even, so a marquee signing means
+// saving up and/or trimming the wage bill.
+export const STARTING_BUDGET = 600; // player team's opening cash
+export const RIVAL_STARTING_BUDGET = 2600; // rivals run comfortable books (they auto-manage squads)
+export const SPONSOR_BASE = 1000; // season-start cheque, before the ranking bonus
 export const SPONSOR_RANK_BONUS = 130; // extra per place above last (numTeams − rank) × this
-export const PRIZE_PER_POINT = 1.3; // event prize to a team = its finishers' points × prestige/100 × this
+export const PRIZE_PER_POINT = 1.0; // event prize to a team = its finishers' points × prestige/100 × this
 // Tuned in the Phase 8 balance pass: prize + sponsor now sit near break-even against
 // the wage bill for a mid-table team, so a surplus must be earned by racing well and
 // the budget can't balloon — money keeps mattering across a long dynasty.

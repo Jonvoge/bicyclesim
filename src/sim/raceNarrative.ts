@@ -1,5 +1,5 @@
 import { RIDERS_BY_ID } from '../data/riders.ts';
-import { TEAMS_BY_ID } from '../data/teams.ts';
+import { PLAYER_TEAM } from '../data/teams.ts';
 import {
   BREAK_FRIENDLINESS,
   BREAK_MAX_LEAD_SEC_MAX,
@@ -159,11 +159,12 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   // morning break — respect the player's role sheet so a domestique isn't randomly
   // swept up the road. Rivals have no real tactics yet (Phase 4), so they stay a
   // free opportunist pool.
+  const playerTeamId = input.playerTeamId ?? PLAYER_TEAM.id;
   const spokenFor = new Set<string>();
   for (const [teamId, t] of input.tacticsByTeam) {
-    const isPlayerTeam = TEAMS_BY_ID.get(teamId)?.isPlayer ?? false;
+    const isPlayerTeam = teamId === playerTeamId;
     for (const [riderId, role] of Object.entries(t.roles)) {
-      if (role === 'breakaway') committed.add(riderId);
+      if (role === 'free') committed.add(riderId); // free/attack rider commits to the move
       else if (isPlayerTeam && (role === 'leader' || role === 'sprinter' || role === 'domestique')) spokenFor.add(riderId);
     }
   }

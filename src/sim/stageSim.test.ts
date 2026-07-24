@@ -32,11 +32,11 @@ function withPlayer(s: Stage, player: TeamTactics): Map<string, TeamTactics> {
   return map;
 }
 
-/** Player sheet: named roles, everyone else FREE. */
-function playerSheet(roles: Record<string, TacticRole>): TeamTactics {
+/** Player sheet: named roles, everyone else on `fill` (default the free/attack role). */
+function playerSheet(roles: Record<string, TacticRole>, fill: TacticRole = 'free'): TeamTactics {
   const team = TEAMS.find((t) => t.isPlayer)!;
   const sheet: Record<string, TacticRole> = {};
-  for (const id of team.riderIds) sheet[id] = roles[id] ?? 'free';
+  for (const id of team.riderIds) sheet[id] = roles[id] ?? fill;
   return { teamId: team.id, roles: sheet };
 }
 
@@ -233,11 +233,13 @@ describe('race narrative layer (SPEC §5.9)', () => {
     expect(story.events.some((e) => e.t >= 0.7)).toBe(true);
   });
 
+  // fill the rest of the squad with domestiques so only the *named* rider(s) commit
+  // to the break — a clean control for "does committing a rider raise survival?"
   const survivalRate = (stageId: string, roles: Record<string, TacticRole>, n = 1000): number => {
     const s2 = stage(stageId);
     let survived = 0;
     for (let i = 0; i < n; i++) {
-      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: withPlayer(s2, playerSheet(roles)), rng: new Rng(i * 2246822519) });
+      const story = buildRaceStory({ stage: s2, riders: RIDERS, tacticsByTeam: withPlayer(s2, playerSheet(roles, 'domestique')), rng: new Rng(i * 2246822519) });
       if (story.breakSurvived) survived++;
     }
     return survived / n;
@@ -245,7 +247,7 @@ describe('race narrative layer (SPEC §5.9)', () => {
 
   // gr-vance is a clear non-favourite → the BREAKAWAY role puts him in the morning break
   it('a committed BREAKAWAY rider raises the break survival odds (but stays bounded)', () => {
-    const withBreak = survivalRate('st-roubey', { 'gr-vance': 'breakaway' });
+    const withBreak = survivalRate('st-roubey', { 'gr-vance': 'free' });
     const without = survivalRate('st-roubey', { 'gr-vance': 'domestique' });
     expect(without).toBeLessThan(0.3);
     expect(withBreak).toBeGreaterThan(without + 0.06);
@@ -253,14 +255,14 @@ describe('race narrative layer (SPEC §5.9)', () => {
   });
 
   it('a second committed rider helps again, up to the cap', () => {
-    const one = survivalRate('st-roubey', { 'gr-vance': 'breakaway' }, 600);
-    const two = survivalRate('st-roubey', { 'gr-vance': 'breakaway', 'gr-berg': 'breakaway' }, 600);
+    const one = survivalRate('st-roubey', { 'gr-vance': 'free' }, 600);
+    const two = survivalRate('st-roubey', { 'gr-vance': 'free', 'gr-berg': 'free' }, 600);
     expect(two).toBeGreaterThan(one + 0.03);
   });
 
   it('terrain matters: breaks survive more often on a hilly day than a flat one', () => {
-    const hilly = survivalRate('st-fleche', { 'gr-vance': 'breakaway' }, 600);
-    const flat = survivalRate('st-sanreno', { 'gr-vance': 'breakaway' }, 600);
+    const hilly = survivalRate('st-fleche', { 'gr-vance': 'free' }, 600);
+    const flat = survivalRate('st-sanreno', { 'gr-vance': 'free' }, 600);
     expect(hilly).toBeGreaterThan(flat + 0.05);
   });
 

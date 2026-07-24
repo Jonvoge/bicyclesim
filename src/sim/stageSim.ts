@@ -36,6 +36,8 @@ export interface StageSimInput {
   /** Tactics per team id. Teams without an entry ride neutrally. */
   tacticsByTeam: Map<string, TeamTactics>;
   rng: Rng;
+  /** Which team is the player's (whose role sheet the narrative strictly respects). */
+  playerTeamId?: string;
 }
 
 /** Per-rider performance for the day (before any narrative events). */
