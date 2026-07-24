@@ -17,31 +17,26 @@ export const TEX_JERSEY = 'cyclist-jersey';
 
 const BASE_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 36" width="48" height="36">
-  <g fill="none" stroke="#20202f" stroke-width="2.4">
-    <circle cx="11" cy="27" r="7"/>
-    <circle cx="37" cy="27" r="7"/>
-  </g>
-  <g fill="none" stroke="#7a7a96" stroke-width="1" opacity="0.6">
-    <path d="M11 27 L14 22 M11 27 L8 22 M37 27 L40 22 M37 27 L34 22"/>
-  </g>
+  <g fill="none" stroke="#20202f" stroke-width="2.2"><circle cx="12" cy="26" r="7"/><circle cx="36" cy="26" r="7"/></g>
+  <g fill="none" stroke="#30304a" stroke-width="1"><circle cx="12" cy="26" r="4.8"/><circle cx="36" cy="26" r="4.8"/></g>
+  <g fill="#9a9ab0"><circle cx="12" cy="26" r="1.4"/><circle cx="36" cy="26" r="1.4"/></g>
   <g fill="none" stroke="#6b6b86" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M11 27 L22 27 L20 16.5 Z"/>
-    <path d="M22 27 L34 16"/>
-    <path d="M20 16.5 L34 16"/>
-    <path d="M34 16 L37 27"/>
-    <path d="M34 16 L36.5 12.5"/>
+    <path d="M12 26 L24 26 L19 15 Z"/>
+    <path d="M24 26 L33 17 L36 26"/>
+    <path d="M19 15 L33 17"/>
   </g>
-  <path d="M22 27 L24.5 20.5" stroke="#2b2b40" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-  <path d="M24.5 20.5 L28 27" stroke="#e8b48a" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-  <path d="M30.5 15 L36.5 20" stroke="#e8b48a" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <circle cx="37.5" cy="11" r="2.7" fill="#e8b48a"/>
-  <path d="M34.6 11 a3 3 0 0 1 5.8 0 Z" fill="#20202f"/>
+  <path d="M33 17 L37.5 13.5" stroke="#20202f" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <path d="M20.5 16 L25 21" stroke="#20202f" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M25 21 L24 26" stroke="#f0c9a8" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M30 12.5 L37 15" stroke="#f0c9a8" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <circle cx="34.4" cy="9.4" r="3" fill="#20202f"/>
+  <circle cx="35.4" cy="10.6" r="2.1" fill="#f0c9a8"/>
 </svg>`;
 
-// White so it tints cleanly to any team colour.
+// White so it tints cleanly to any team colour. The leaning torso, saddle→shoulders.
 const JERSEY_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 36" width="48" height="36">
-  <path d="M19.5 18.5 L31 14.5 L33 17.5 L22.5 22 Z" fill="#ffffff"/>
+  <path d="M19 16 L30 12 L32 15 L21 19 Z" fill="#ffffff"/>
 </svg>`;
 
 function dataUri(svg: string): string {

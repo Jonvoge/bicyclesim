@@ -185,11 +185,15 @@ No persistent browser dep. To view/record the running app:
 - **Two move types.** Morning break = opportunists only (never the top `FAVOURITE_COUNT`); favourites
   attack **late**. Break survival is emergent (terrain break-friendliness + committed-rider bonus +
   the break's mean `flat` power). Late attacks scale with terrain **selectiveness**.
-- **Every rider is one always-visible glyph** in eased paceline formations with stable per-rider
-  slots — no pack blob, nothing jumps/pops. Groups clamp to never overlap; count labels above, live
-  gap labels below. After the leaders finish, riders ride in and cross **in sync with the results
-  reveal**; winner gets a gold pop. Peloton timing jitter is tiny on purpose (`pT ±0.005`) —
-  bigger values shatter the bunch into phantom groups. **Don't crank it up.**
+- **Riders are eased glyphs in paceline formations** with stable per-rider slots — nothing
+  jumps/pops. A **big bunch is drawn compactly** though (post-playtest): only up to
+  `MAX_GLYPHS_PER_GROUP` (~10) glyphs on the road per group with the true size on a **count label**,
+  so the peloton is a tidy clump, not a 40-icon slab that overlaps the groups fore and aft (this
+  reverses the old "one glyph per rider" rule on the player's request). Groups clamp to never overlap.
+  **Movement:** the whole field advances *with the clock* (`xForGap`: progress ≈ tPos − a bounded,
+  gently-opening offset from the time gap, `MAX_SPREAD` ~0.18) — so a breakaway is just the front of a
+  moving road, not the only thing that moves. After the leaders finish, riders ride in and cross **in
+  sync with the results reveal**; winner gets a gold pop.
 - Finish groups share a time (`s.t.`); terrain sets the threshold. Incidents: punctures (~60%)
   never DNF, only crashes rarely do. Race-radio ticker + groups strip (backmost LEFT, break RIGHT).
 - Player roles are visible (road triangle + L/S/B/D/F letters in results).
