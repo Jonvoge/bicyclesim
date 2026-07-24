@@ -235,6 +235,30 @@ real balance pass is Phase 8.**
 young talent is a real bet, not a lookup.
 **Out of scope:** none new — this closes the core design.
 
+**Built (this phase).** Headless-first. **`src/sim/development.ts`** (pure): every rider carries a
+hidden `peakAge` (~22–32, gaussian around 27), a per-stat `ceiling` and a `developmentRate`, all
+**seeded deterministically per rider id** (`seedDevelopment`). `ageOneSeason` moves each developing
+stat along an **individual curve** — grow toward the ceiling before the peak, hold on a plateau
+through the good years, then shed points (accelerating) only in the **veteran years** (`DECLINE_ABS_AGE`),
+so early bloomers stagnate near their ceiling rather than crashing (SPEC §7). Ceiling headroom is
+weighted toward a rider's already-strong stats, so specialists **sharpen** rather than flatten into
+all-rounders. `shouldRetire` retires veterans (odds rising with age, certain by `RETIRE_AGE_MAX`);
+`generateProspect` mints fresh 19–22-yo free agents from a proxy name pool (`src/data/names.ts`) with
+archetype stats + hidden potential. **`scoutReport`** is the gamble: a rider's shown potential (1–5
+★ + a scouted ceiling) carries a **seeded error that shrinks to nothing by `SCOUT_CERTAIN_AGE`**, so
+two identical-looking teenagers can turn out very differently — potential is a scout's guess, not a
+lookup. Wired into **`dynasty.rolloverSeason`**: after settling the books it ages the whole peloton,
+retires, ticks contracts on survivors, injects a crop of prospects, **auto-fills** any squad left
+short (rivals grab the best, the player gets a flagged stopgap call-up so a hole never breaks a race),
+and culls the weakest spares to keep the market/save bounded. Deterministic under a per-season rng;
+the dynasty save already persists the roster (dev fields included), so the dynasty carries across
+seasons. **UI:** Transfers shows fuzzy ★ potential + a raw/developing/known label (gold for the
+unproven) and ranks by the better of now-vs-ceiling so wonderkids surface; Team HQ shows potential on
+your own youngsters; the Rollover screen surfaces retirements, academy call-ups and the new intake.
+Harness section 7 prints a career arc (growth/plateau/decline), churn and a scouted prospect list.
+**13 new tests (80 total).** **Contracts still auto-renew — rival poaching / genuine free-agent lapses
+stay deferred; all development numbers in `tuning.ts` are STARTING GUESSES (SPEC §10), balance is Phase 8.**
+
 ---
 
 ## Phase 7 — Art pipeline experiment

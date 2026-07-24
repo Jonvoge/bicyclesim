@@ -19,6 +19,7 @@ import { simulateStage } from './stageSim.ts';
 import { buildRaceStory } from './raceNarrative.ts';
 import { bestSuitedRider, buildTacticsMap, defaultTeamTactics, defaultTeamTacticsFor } from './raceSetup.ts';
 import { riderRating, riderSalary, salaryFor, signingFeeFor } from './rating.ts';
+import { scoutReport } from './development.ts';
 import { sponsorIncome } from './management.ts';
 import {
   createDynasty,
@@ -323,5 +324,43 @@ console.log('\n########## MANAGEMENT: ECONOMY, TRANSFERS & TRAINING ##########')
     `Rollover: finished rank ${summary.teamRank}/${TEAMS.length}  ·  sponsor ${summary.sponsor} − wages ${summary.wages} = ${summary.net >= 0 ? '+' : ''}${summary.net}`,
   );
   console.log(`  → season ${d.seasonNumber} budget ${playerBudget(d)}${summary.expiring.length ? `, renewed: ${summary.expiring.map(riderName).join(', ')}` : ''}`);
+}
+console.log('');
+
+// --- 7. Rider development & dynasty: growth, decline, retirement (Phase 6) ------
+console.log('\n########## DEVELOPMENT: CAREERS RISE, PLATEAU & FADE ##########');
+{
+  const d = createDynasty();
+  const young = 'gr-vance'; // 21yo all-rounder — should grow
+  const vet = 'so-rogla'; // 34yo veteran — should decline then retire
+  const byId = () => new Map(d.roster.map((r) => [r.id, r]));
+
+  const line = (id: string): string => {
+    const r = byId().get(id);
+    if (!r) return 'retired';
+    const best = Math.max(r.stats.climbing, r.stats.flat, r.stats.sprint, r.stats.puncheur);
+    return `age ${r.age} · rating ${riderRating(r)} · best ${Math.round(best)}`;
+  };
+  const peak = (id: string): number => byId().get(id)?.peakAge ?? 0;
+  console.log(`\n${riderName(young)} (peak ${peak(young)}) and ${riderName(vet)} (peak ${peak(vet)}) over 8 seasons:`);
+  console.log(`  S1  ${riderName(young).padEnd(16)} ${line(young)}    |  ${riderName(vet).padEnd(16)} ${line(vet)}`);
+  for (let s = 1; s <= 8; s++) {
+    const sum = rolloverSeason(d);
+    console.log(
+      `  S${s + 1}  ${riderName(young).padEnd(16)} ${line(young).padEnd(34)}  |  ${riderName(vet).padEnd(16)} ${line(vet).padEnd(34)}` +
+        `  churn: ${sum.retiredAll} retired, ${sum.emerged} turned pro`,
+    );
+  }
+
+  console.log('\nSome of this year’s prospects (scouted potential is FUZZY for the young):');
+  freeAgents(d)
+    .filter((r) => r.id.startsWith('fa-gen-'))
+    .slice(0, 6)
+    .forEach((r) => {
+      const sc = scoutReport(r);
+      console.log(
+        `    ${r.name.padEnd(20)} age ${r.age} · now ${String(riderRating(r)).padStart(2)} · potential ${'★'.repeat(sc.stars)}${'·'.repeat(5 - sc.stars)} (${sc.label})`,
+      );
+    });
 }
 console.log('');

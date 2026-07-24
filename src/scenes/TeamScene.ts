@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { teamColor } from '../data/teamColors.ts';
 import { PLAYER_TEAM, TEAMS } from '../data/teams.ts';
 import { MAX_SQUAD_SIZE } from '../data/tuning.ts';
+import { scoutReport } from '../sim/development.ts';
 import { salaryOf, sponsorIncome } from '../sim/management.ts';
 import { riderRating } from '../sim/rating.ts';
 import {
@@ -66,7 +67,9 @@ export class TeamScene extends Phaser.Scene {
         this.add.rectangle(width / 2, y + 22, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
         this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1);
         this.add.text(42, y + 12, r.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
-        this.add.text(42, y + 30, `age ${r.age}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+        const sc = scoutReport(r);
+        const potential = sc.certain ? '' : `  ·  ${'★'.repeat(sc.stars)}${'·'.repeat(5 - sc.stars)} potential`;
+        this.add.text(42, y + 30, `age ${r.age}${potential}`, { fontFamily: FONT, fontSize: '10px', color: sc.certain ? COLORS.textMuted : '#f5c518' }).setOrigin(0, 0.5);
         this.add
           .text(width - 88, y + 12, `${riderRating(r)} · ${salaryOf(r)} · ${r.contractSeasonsLeft ?? '—'}yr`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted })
           .setOrigin(1, 0.5);

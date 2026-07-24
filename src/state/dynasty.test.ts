@@ -149,3 +149,56 @@ describe('economy over a season', () => {
     expect(run()).toBe(run());
   });
 });
+
+describe('development across the rollover (Phase 6)', () => {
+  it('seeds hidden potential and ages the peloton at the rollover', () => {
+    const d = createDynasty();
+    for (const r of d.roster) {
+      expect(r.peakAge).toBeDefined();
+      expect(r.ceiling).toBeDefined();
+    }
+    const before = new Map(d.roster.map((r) => [r.id, r.age]));
+    rolloverSeason(d);
+    // every rider carried over is exactly one year older
+    for (const r of d.roster) {
+      const wasAge = before.get(r.id);
+      if (wasAge !== undefined) expect(r.age).toBe(wasAge + 1);
+    }
+  });
+
+  it('retires some veterans and brings in fresh young free agents', () => {
+    const d = createDynasty();
+    const beforeIds = new Set(d.roster.map((r) => r.id));
+    // run several rollovers so ageing pushes riders into the retirement zone
+    let sawRetirement = false;
+    let sawNewBlood = false;
+    for (let s = 0; s < 6; s++) {
+      const summary = rolloverSeason(d);
+      if (summary.retiredAll > 0) sawRetirement = true;
+      if (d.roster.some((r) => r.id.startsWith('fa-gen-'))) sawNewBlood = true;
+    }
+    expect(sawRetirement).toBe(true);
+    expect(sawNewBlood).toBe(true);
+    // some of the original riders are gone (retired)
+    expect(d.roster.some((r) => !beforeIds.has(r.id))).toBe(true);
+    // every team can still field a race (auto-fill held the minimum)
+    for (const t of TEAMS) expect(teamRiders(d, t.id).length).toBeGreaterThanOrEqual(MIN_SQUAD_SIZE);
+  });
+
+  it('keeps the roster bounded over a long dynasty', () => {
+    const d = createDynasty();
+    const start = d.roster.length;
+    for (let s = 0; s < 12; s++) rolloverSeason(d);
+    // pool cull + retirements keep it from ballooning despite 7 new riders/season
+    expect(d.roster.length).toBeLessThan(start + 30);
+  });
+
+  it('rollover is deterministic', () => {
+    const run = () => {
+      const d = createDynasty();
+      for (let s = 0; s < 4; s++) rolloverSeason(d);
+      return d.roster.map((r) => `${r.id}:${r.age}`).sort().join(',');
+    };
+    expect(run()).toBe(run());
+  });
+});

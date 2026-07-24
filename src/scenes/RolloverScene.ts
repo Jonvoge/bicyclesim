@@ -33,21 +33,33 @@ export class RolloverScene extends Phaser.Scene {
 
     this.add.text(width / 2, 300, `New budget: ${playerBudget(dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0.5);
 
-    // contract renewals
-    let y = 350;
-    if (summary.expiring.length > 0) {
-      const byId = rosterById(dynasty);
-      this.add.text(width / 2, y, 'CONTRACTS RENEWED', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
+    // squad & peloton changes over the winter (Phase 6)
+    const byId = rosterById(dynasty);
+    let y = 344;
+    if (summary.retired.length > 0) {
+      this.add.text(width / 2, y, '🚴 RETIRED FROM YOUR SQUAD', { fontFamily: FONT, fontSize: '12px', color: '#e28f3b' }).setOrigin(0.5);
       y += 22;
-      for (const id of summary.expiring) {
+      for (const id of summary.retired) {
         this.add.text(width / 2, y, byId.get(id)?.name ?? id, { fontFamily: FONT, fontSize: '13px', color: COLORS.text }).setOrigin(0.5);
         y += 20;
       }
-      y += 8;
+      y += 10;
+    }
+    if (summary.autoSigned.length > 0) {
+      this.add.text(width / 2, y, 'ACADEMY CALL-UPS (filled a gap)', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
+      y += 22;
+      for (const id of summary.autoSigned) {
+        this.add.text(width / 2, y, byId.get(id)?.name ?? id, { fontFamily: FONT, fontSize: '13px', color: '#18b39a' }).setOrigin(0.5);
+        y += 20;
+      }
+      y += 10;
     }
 
+    this.add.text(width / 2, y, `${summary.emerged} young riders turned pro · ${summary.retiredAll} retired across the peloton`, { fontFamily: FONT, fontSize: '12px', color: COLORS.text }).setOrigin(0.5);
+    y += 26;
+
     this.add
-      .text(width / 2, y + 8, 'The squad rests over the winter, then the new season begins.\nTip: visit Team HQ to sign, release and train before Race 1.', {
+      .text(width / 2, y, 'New prospects are on the market with fuzzy potential —\nscout and sign the future in Team HQ → Transfers.', {
         fontFamily: FONT,
         fontSize: '12px',
         color: COLORS.textMuted,

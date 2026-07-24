@@ -219,6 +219,52 @@ export const TRAIN_MAX_GAIN = 3; // …tapering linearly to 0 at the soft cap
 export const TRAIN_MIN_GAIN = 0.4; // never award less than this (until the cap)
 export const TRAIN_FATIGUE_COST = 2; // season fatigue added by one training session
 
+// --- Rider development & dynasty (SPEC §7, Phase 6) ---
+// Careers rise, plateau and fade on INDIVIDUAL curves. Each rider has a hidden
+// peakAge, per-stat ceiling and developmentRate (seeded at dynasty start, or when
+// a prospect is generated). Growth toward the ceiling until peak; a plateau
+// through the good years; real decline only in the veteran years (early bloomers
+// stagnate, they don't crash). See src/sim/development.ts. STARTING GUESSES §10.
+
+// Seeding hidden potential (deterministic per rider id):
+export const PEAK_AGE_MEAN = 27; // most riders peak late-20s…
+export const PEAK_AGE_SIGMA = 2.6; // …but some peak ~22 and some ~32
+export const PEAK_AGE_MIN = 22;
+export const PEAK_AGE_MAX = 32;
+export const CEILING_HEADROOM_MAX = 26; // most points a young rider can still add to a stat
+export const CEILING_TALENT_MIN = 0.4; // per-rider talent scales the headroom…
+export const CEILING_TALENT_MAX = 1; // …so some prospects are far more gifted than others
+export const DEV_RATE_MIN = 0.22; // fraction of the gap-to-ceiling closed per pre-peak season
+export const DEV_RATE_MAX = 0.42;
+
+// The age curve (applied once per rider at each season rollover):
+export const DECLINE_ABS_AGE = 31; // decline only begins in the veteran years (plateau until here)
+export const DECLINE_BASE = 1.2; // stat points lost in the first declining season…
+export const DECLINE_ACCEL = 0.55; // …plus this much more each further year (accelerating fade)
+export const STAT_FLOOR = 25; // a stat never rots below this
+
+// Retirement (checked at rollover, after ageing):
+export const RETIRE_AGE_MIN = 33; // retirement odds start climbing here
+export const RETIRE_ACCEL = 0.15; // P(retire) added per year past the min
+export const RETIRE_AGE_MAX = 39; // everyone has hung up the wheels by here
+
+// New blood each off-season — young prospects into the free-agent pool, replacing
+// the retirees and keeping the peloton (and the scouting gamble) alive:
+export const NEW_RIDERS_PER_SEASON = 7;
+export const FREE_AGENT_POOL_CAP = 16; // keep the market (and the save) bounded: cull the weakest spares
+export const PROSPECT_AGE_MIN = 19;
+export const PROSPECT_AGE_MAX = 22;
+export const PROSPECT_BASE_MIN = 42; // a prospect's non-signature stats start around here…
+export const PROSPECT_BASE_MAX = 66;
+export const PROSPECT_SIGNATURE_MIN = 60; // …their signature stat starts higher (raw talent showing)
+export const PROSPECT_SIGNATURE_MAX = 78;
+
+// Scouting fuzz — a young rider's shown potential is UNCERTAIN (the gamble). The
+// scouted ceiling carries a seeded error that shrinks to nothing as the rider
+// ages and proves it, so signing a teenager is a real bet, not a lookup.
+export const SCOUT_NOISE_MAX = 13; // ± ceiling error for the youngest rider…
+export const SCOUT_CERTAIN_AGE = 27; // …fading to 0 by this age
+
 /**
  * Terrain compresses (or spreads) the finishing field. On a flat day the whole
  * peloton rolls in together — a bunch sprint — so ability differences barely open
