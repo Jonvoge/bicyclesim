@@ -3,7 +3,7 @@ import { FATIGUE_WEIGHT, GAP_COMPRESSION_BY_TYPE, GAP_SPREAD, REFERENCE_SPEED_KM
 import type { BaseStatKey, Rider, Stage, StageResult, StageResultEntry } from '../data/types.ts';
 import { drawFormSwing } from './form.ts';
 import type { Rng } from './rng.ts';
-import { effortOf, roleCounts, roleOf, tacticsEffect, type RoleCounts, type TeamTactics } from './tactics.ts';
+import { effortOf, roleOf, tacticsEffect, type RoleCounts, type TeamTactics } from './tactics.ts';
 
 /**
  * Single-stage algorithm (SPEC §5.1). Split into two steps so the race-narrative
@@ -43,9 +43,20 @@ export interface StageSimInput {
 /** Per-rider performance for the day (before any narrative events). */
 export function scoreRiders(input: StageSimInput): ScoredRider[] {
   const { stage, riders, tacticsByTeam, rng } = input;
+  // Count roles from the riders actually on the road (not the full sheet): a
+  // default/unlisted rider rides FREE, and only starters count toward the
+  // attack-crowd penalty and the domestique support that a leader really has.
   const countsByTeam = new Map<string, RoleCounts>();
-  for (const [teamId, tactics] of tacticsByTeam) countsByTeam.set(teamId, roleCounts(tactics));
-  const noRoles: RoleCounts = { leaders: 0, domestiques: 0 };
+  for (const rider of riders) {
+    if (!rider.teamId) continue;
+    const role = roleOf(tacticsByTeam.get(rider.teamId), rider.id);
+    const c = countsByTeam.get(rider.teamId) ?? { leaders: 0, domestiques: 0, frees: 0 };
+    if (role === 'leader') c.leaders++;
+    else if (role === 'domestique') c.domestiques++;
+    else if (role === 'free') c.frees++;
+    countsByTeam.set(rider.teamId, c);
+  }
+  const noRoles: RoleCounts = { leaders: 0, domestiques: 0, frees: 0 };
 
   return riders.map((rider) => {
     const tactics = rider.teamId ? tacticsByTeam.get(rider.teamId) : undefined;

@@ -48,6 +48,13 @@ export const SPRINTER_CLIMB_PENALTY = 4; // SPRINTER: dropped when the road goes
 export const BREAK_PERF_BONUS = 3; // BREAKAWAY: bonus on break-friendly terrain
 export const BREAK_TERRAIN_PENALTY = 2; // BREAKAWAY: penalty on bunch-sprint terrain (flat)
 export const BREAK_SIGMA_MULT = 1.3; // BREAKAWAY: aggressive ride → wider form swing
+// Attack-crowd penalty (SPEC §5.5): sending riders up the road is a card with a
+// cost. A team can commit a couple of free/attack riders effectively; beyond that
+// they have no one to control the race, mark each other, and burn out. Each free
+// rider past the limit docks perfScore from EVERY free rider on the team, so
+// "everyone attacks" is a worse move than a focused one-or-two. STARTING GUESS §10.
+export const FREE_COORDINATION_LIMIT = 2; // free riders a team can send up the road for free
+export const FREE_CROWD_PENALTY = 2.4; // perfScore docked per over-committed free rider, to all of them
 // Fatigue accrual multipliers per role — consumed in Phase 3, exposed now.
 export const ROLE_FATIGUE_LEADER = 1;
 export const ROLE_FATIGUE_SPRINTER = 0.8; // sat in all day, saved it for the kick
@@ -92,6 +99,7 @@ export const FAVOURITE_COUNT = 6;
 // --- Race narrative: the morning breakaway (opportunists only) (SPEC §5.9) ---
 export const BREAK_MIN_SIZE = 2; // riders up the road
 export const BREAK_MAX_SIZE = 5;
+export const BREAK_MAX_PER_TEAM = 2; // the bunch won't tow one squad up the road — cap a team's break riders
 export const BREAK_MAX_LEAD_SEC_MIN = 60; // peak lead the break builds mid-race (min)
 export const BREAK_MAX_LEAD_SEC_MAX = 300; // peak lead the break builds mid-race (max)
 export const BREAK_WIN_MARGIN_SEC = 40; // if it survives, how far clear it finishes (a real gap, not a photo)
@@ -129,8 +137,25 @@ export const LATE_ATTACK_SUCCESS_TERRAIN_W = 0.34;
 export const LATE_ATTACK_SUCCESS_STRENGTH_W = 0.28;
 export const LATE_ATTACK_SUCCESS_TACTIC_BONUS = 0.18;
 export const LATE_ATTACK_SUCCESS_MAX = 0.7;
-export const LATE_ATTACK_MARGIN_MIN = 18; // seconds a successful solo attack wins by
+export const LATE_ATTACK_MARGIN_MIN = 18; // seconds a successful solo attack wins by (before terrain scaling)
 export const LATE_ATTACK_MARGIN_MAX = 75;
+
+/**
+ * How much time a DECISIVE move (surviving break / successful late attack) actually
+ * gains, by terrain. This is what makes the *clock* reflect the road: a solo over
+ * the top of a mountain nets real minutes, but the same move on a descent finish
+ * nets only seconds — you cannot gain much time going downhill (a repeated
+ * playtest note). Multiplies the break-win and late-attack margins. STARTING
+ * GUESSES §10.
+ */
+export const WIN_MARGIN_BY_TYPE: Record<string, number> = {
+  flat: 0.6,
+  descentFinish: 0.45, // hard to gain time on a descent — a daring plunge nets seconds, not minutes
+  cobbled: 0.9,
+  hilly: 1.0,
+  mountain: 1.35,
+  summitFinish: 1.5,
+};
 
 /** Terrain break-friendliness (0 = sprinters control, 1 = breaks thrive). */
 export const BREAK_FRIENDLINESS: Record<string, number> = {
@@ -289,7 +314,10 @@ export const GAP_COMPRESSION_BY_TYPE: Record<string, number> = {
   flat: 0.18,
   cobbled: 0.65,
   hilly: 1.5,
-  descentFinish: 1.25,
+  // A descent finish is NOT a time-gaining day: the field regroups on the drop, so
+  // it reads much more like a flat/cobbled bunch than a climb (playtest note — it
+  // was spreading time almost like a hilly stage at 1.25).
+  descentFinish: 0.45,
   mountain: 3.8,
   summitFinish: 4.6,
 };

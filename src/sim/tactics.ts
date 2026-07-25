@@ -7,6 +7,8 @@ import {
   DOMESTIQUE_SUPPORT_BONUS,
   DOMESTIQUE_SUPPORT_CAP,
   DOMESTIQUE_WORK_PENALTY,
+  FREE_COORDINATION_LIMIT,
+  FREE_CROWD_PENALTY,
   LEADER_BASE_BONUS,
   ROLE_FATIGUE_DOMESTIQUE,
   ROLE_FATIGUE_FREE,
@@ -77,14 +79,16 @@ export function roleOf(tactics: TeamTactics | undefined, riderId: string): Tacti
 export interface RoleCounts {
   leaders: number;
   domestiques: number;
+  frees: number;
 }
 
 export function roleCounts(tactics: TeamTactics | undefined): RoleCounts {
-  const counts: RoleCounts = { leaders: 0, domestiques: 0 };
+  const counts: RoleCounts = { leaders: 0, domestiques: 0, frees: 0 };
   if (!tactics) return counts;
   for (const role of Object.values(tactics.roles)) {
     if (role === 'leader') counts.leaders++;
     else if (role === 'domestique') counts.domestiques++;
+    else if (role === 'free') counts.frees++;
   }
   return counts;
 }
@@ -146,12 +150,19 @@ function roleEffect(role: TacticRole, counts: RoleCounts, stageType: StageType):
     case 'free': {
       // merged free/attack: the old breakaway effect — a perf edge on break-friendly
       // terrain (docked on a sprinters' flat), a wider form swing, an active day's fatigue
-      const perfMod = BREAK_FRIENDLY.includes(stageType)
+      const terrainMod = BREAK_FRIENDLY.includes(stageType)
         ? BREAK_PERF_BONUS
         : SPRINT_CONTROLLED.includes(stageType)
           ? -BREAK_TERRAIN_PENALTY
           : 0;
-      return { perfMod, sigmaMult: BREAK_SIGMA_MULT, fatigueMult: ROLE_FATIGUE_FREE };
+      // Attacking is a card you can only play so many times: a team can send a
+      // couple of riders up the road, but "everyone attacks" has no one to set it
+      // up, marks itself, and burns each other out. Each free rider past the
+      // coordination limit docks EVERY free rider on the team — so a swarm of
+      // attackers is a worse move than a focused one or two (SPEC §5.5, balance).
+      const overcrowd = Math.max(0, counts.frees - FREE_COORDINATION_LIMIT);
+      const crowdPenalty = overcrowd * FREE_CROWD_PENALTY;
+      return { perfMod: terrainMod - crowdPenalty, sigmaMult: BREAK_SIGMA_MULT, fatigueMult: ROLE_FATIGUE_FREE };
     }
   }
 }

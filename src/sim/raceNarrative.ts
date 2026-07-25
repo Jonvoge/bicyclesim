@@ -4,6 +4,7 @@ import {
   BREAK_FRIENDLINESS,
   BREAK_MAX_LEAD_SEC_MAX,
   BREAK_MAX_LEAD_SEC_MIN,
+  BREAK_MAX_PER_TEAM,
   BREAK_MAX_SIZE,
   BREAK_MIN_SIZE,
   BREAK_PEAK_T_MAX,
@@ -21,6 +22,7 @@ import {
   CATCH_T_MIN,
   CRASH_DNF_FRACTION,
   FAVOURITE_COUNT,
+  FREE_COORDINATION_LIMIT,
   FINALE_T_MAX,
   FINALE_T_MIN,
   GROUP_GAP_THRESHOLD_HARD_SEC,
@@ -40,9 +42,11 @@ import {
   LATE_ATTACK_SUCCESS_TERRAIN_W,
   PUNCTURE_SHARE,
   TERRAIN_SELECTIVENESS,
+  WIN_MARGIN_BY_TYPE,
 } from '../data/tuning.ts';
 import type { StageResult, StageResultEntry, StageType } from '../data/types.ts';
 import { perfToResult, scoreRiders, type StageSimInput } from './stageSim.ts';
+import { roleOf } from './tactics.ts';
 
 /**
  * Race narrative layer (SPEC §5.9). A road race has TWO kinds of move, not one:
@@ -168,6 +172,20 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
       else if (isPlayerTeam && (role === 'leader' || role === 'sprinter' || role === 'domestique')) spokenFor.add(riderId);
     }
   }
+  // how many attackers each team actually put on the road (from the starters, not
+  // the sheet). A late attack only earns the "set-up" guarantee + bonus if the
+  // team sent a FOCUSED move — an over-committed team has no lead-out and marks
+  // itself, so their favourite's attack is just an ordinary dice roll (§5.5).
+  const teamOf = new Map(input.riders.map((r) => [r.id, r.teamId]));
+  const freesByTeam = new Map<string, number>();
+  for (const rider of input.riders) {
+    if (rider.teamId && roleOf(input.tacticsByTeam.get(rider.teamId), rider.id) === 'free')
+      freesByTeam.set(rider.teamId, (freesByTeam.get(rider.teamId) ?? 0) + 1);
+  }
+  const attackSupported = (riderId: string): boolean => {
+    const teamId = teamOf.get(riderId);
+    return !teamId || (freesByTeam.get(teamId) ?? 0) <= FREE_COORDINATION_LIMIT;
+  };
 
   // --- morning break: opportunists ONLY (favourites save it for later) --------
   const size = BREAK_MIN_SIZE + rng.int(BREAK_MAX_SIZE - BREAK_MIN_SIZE + 1);
@@ -178,11 +196,27 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
     const j = rng.int(i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  // every committed rider goes (even past the usual size), then fill with randoms
-  const breakIds = committedOpportunists.slice(0, BREAK_MAX_SIZE);
+  // The bunch won't tow one team's whole squad up the road: at most a couple of
+  // riders per team make the break (BREAK_MAX_PER_TEAM). So committing five riders
+  // can't manufacture a break stuffed with your own colours — the extras just sit
+  // in the bunch (and eat the attack-crowd penalty). Committed riders get first
+  // refusal, then randoms fill the rest.
+  const perTeamInBreak = new Map<string, number>();
+  const breakIds: string[] = [];
+  const tryJoinBreak = (id: string): boolean => {
+    const teamId = teamOf.get(id);
+    if (teamId && (perTeamInBreak.get(teamId) ?? 0) >= BREAK_MAX_PER_TEAM) return false;
+    breakIds.push(id);
+    if (teamId) perTeamInBreak.set(teamId, (perTeamInBreak.get(teamId) ?? 0) + 1);
+    return true;
+  };
+  for (const id of committedOpportunists) {
+    if (breakIds.length >= BREAK_MAX_SIZE) break;
+    tryJoinBreak(id);
+  }
   for (const id of shuffled) {
     if (breakIds.length >= size) break;
-    breakIds.push(id);
+    tryJoinBreak(id);
   }
   const breakSet = new Set(breakIds);
 
@@ -242,11 +276,15 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   let attackerId: string | null = null;
   let attackSucceeds = false;
   if (!breakSurvived) {
-    // a favourite with the BREAKAWAY role is a committed late attacker
+    // a favourite with the BREAKAWAY role is a committed late attacker — but only a
+    // FOCUSED move is guaranteed and set up; an over-committed team's fav still may
+    // go, just as an ordinary attack with no bonus.
     const committedFav = byPerfDesc.find((s) => committed.has(s.riderId) && favourites.has(s.riderId) && !dnfIds.has(s.riderId));
-    const attackOccurs = committedFav
-      ? true
-      : rng.next() < Math.min(1, LATE_ATTACK_OCCUR_BASE + selectiveness * LATE_ATTACK_OCCUR_TERRAIN_W);
+    const favSupported = committedFav ? attackSupported(committedFav.riderId) : false;
+    const attackOccurs =
+      committedFav && favSupported
+        ? true
+        : rng.next() < Math.min(1, LATE_ATTACK_OCCUR_BASE + selectiveness * LATE_ATTACK_OCCUR_TERRAIN_W);
     if (attackOccurs) {
       const candidate =
         committedFav ??
@@ -261,7 +299,7 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
           LATE_ATTACK_SUCCESS_BASE +
             selectiveness * LATE_ATTACK_SUCCESS_TERRAIN_W +
             strength * LATE_ATTACK_SUCCESS_STRENGTH_W +
-            (committedFav ? LATE_ATTACK_SUCCESS_TACTIC_BONUS : 0),
+            (committedFav && favSupported ? LATE_ATTACK_SUCCESS_TACTIC_BONUS : 0),
         );
         attackSucceeds = rng.next() < chance;
       }
@@ -285,10 +323,13 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
       result.order.sort((a, b) => (a.dnf !== b.dnf ? (a.dnf ? 1 : -1) : a.timeSec - b.timeSec));
     }
   };
+  // terrain decides how much time a decisive move actually gains (minutes over a
+  // mountain, mere seconds on a descent) — see WIN_MARGIN_BY_TYPE
+  const marginScale = WIN_MARGIN_BY_TYPE[stage.type] ?? 1;
   if (breakSurvived && breakWinnerId) {
-    promoteToWin(breakWinnerId, BREAK_WIN_MARGIN_SEC);
+    promoteToWin(breakWinnerId, BREAK_WIN_MARGIN_SEC * marginScale);
   } else if (attackSucceeds && attackerId) {
-    promoteToWin(attackerId, LATE_ATTACK_MARGIN_MIN + rng.next() * (LATE_ATTACK_MARGIN_MAX - LATE_ATTACK_MARGIN_MIN));
+    promoteToWin(attackerId, (LATE_ATTACK_MARGIN_MIN + rng.next() * (LATE_ATTACK_MARGIN_MAX - LATE_ATTACK_MARGIN_MIN)) * marginScale);
   }
 
   // --- cluster finishers into same-time groups (SPEC §5.7) -------------------

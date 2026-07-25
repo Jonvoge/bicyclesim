@@ -142,8 +142,11 @@ export class PreRaceScene extends Phaser.Scene {
       bg.on('pointerup', () => this.selectRider(id));
       this.add.text(30, y, rider.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
 
-      // fit + (in the season) carried fatigue — the input to the rest decision
-      this.add.text(30, y + 13, `fit ${Math.round(baseScore(rider, this.stage))}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+      // stage suitability (how well the rider's stats match today's terrain) + (in
+      // the season) the "legs" bar for carried fatigue — the two inputs to the pick.
+      // Labelled "suit", not "fit": this is terrain match, NOT the rider's fitness
+      // (that's the fatigue bar to the right).
+      this.add.text(30, y + 13, `suit ${Math.round(baseScore(rider, this.stage))}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
       if (this.dynasty) this.buildFatiguePip(148, y, this.tour.fatigue.get(id) ?? 0);
 
       const chip = this.add.rectangle(width - 72, y, 98, 24, COLORS.panelAlt, 1);
