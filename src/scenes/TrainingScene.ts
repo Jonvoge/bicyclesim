@@ -1,89 +1,74 @@
 import Phaser from 'phaser';
-import type { StatKey } from '../data/types.ts';
-import { TRAINABLE_STATS } from '../sim/management.ts';
-import { playerRiders, trainRider, type DynastyState } from '../state/dynasty.ts';
-import { saveDynasty } from '../state/dynastyStore.ts';
+import { teamColor } from '../data/teamColors.ts';
+import { scoutReport } from '../sim/development.ts';
+import { riderRating, riderType } from '../sim/rating.ts';
+import { playerRiders, type DynastyState } from '../state/dynasty.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
-const STAT_LABEL: Record<string, string> = {
-  climbing: 'CLM',
-  flat: 'FLAT',
-  sprint: 'SPR',
-  puncheur: 'PUN',
-  endurance: 'END',
-  stamina: 'STA',
-};
-
 /**
- * Training (Phase 5): between races, coach a rider to nudge one stat up — but it
- * tires them (added season fatigue) and each rider can train only once per race
- * gap. So you trade a rider's race-freshness for slow growth; you can't sharpen
- * the whole squad and keep them all fresh for their targets.
+ * Development (formerly manual Training): a **read-only** window on how the squad
+ * is growing. Training is automatic now — a handful of "camps" a season quietly
+ * develop each rider toward their ceiling, weighted by age, potential and type
+ * (`trainingTick`), so there's no chore to click. This screen just shows the last
+ * camp's gains and where each rider sits versus their scouted potential.
  */
 export class TrainingScene extends Phaser.Scene {
   private dynasty!: DynastyState;
-  private selectedId!: string;
-  private note = '';
 
   constructor() {
     super('Training');
   }
 
-  create(data: { dynasty: DynastyState; selectedId?: string; note?: string }): void {
+  create(data: { dynasty: DynastyState }): void {
     this.dynasty = data.dynasty;
-    const squad = playerRiders(this.dynasty);
-    this.selectedId = data.selectedId && squad.some((r) => r.id === data.selectedId) ? data.selectedId : squad[0].id;
-    this.note = data.note ?? '';
     const { width } = this.scale;
+    const squad = playerRiders(this.dynasty)
+      .slice()
+      .sort((a, b) => riderRating(b) - riderRating(a));
 
     makeButton(this, 40, 30, '‹', () => this.scene.start('Team', { dynasty: this.dynasty }), { width: 40, height: 34, fontSize: 20 });
-    this.add.text(width / 2, 24, 'Training', { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
-    this.add.text(width / 2, 47, 'coach a rider — it tires them, once per gap', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(width / 2, 24, 'Development', { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
+    this.add.text(width / 2, 47, 'training is automatic — camps develop by age · potential · type', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0.5);
 
-    // squad list — tap to select
-    const top = 84;
-    const rowH = 34;
+    // last-camp banner
+    const last = this.dynasty.lastTraining;
+    this.add.rectangle(width / 2, 78, width - 24, 26, COLORS.panel, 1).setStrokeStyle(1, last && last.improvedCount > 0 ? COLORS.gold : COLORS.stroke);
+    if (last && last.improvedCount > 0) {
+      this.add.text(20, 78, `🏕️ Last camp (after race ${last.afterEvent})`, { fontFamily: FONT, fontSize: '11px', color: '#f5c518' }).setOrigin(0, 0.5);
+      this.add.text(width - 20, 78, `${last.improvedCount} sharpened · +${last.totalGain.toFixed(1)} pts`, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(1, 0.5);
+    } else {
+      this.add.text(width / 2, 78, 'No camp yet this season — the next one comes mid-calendar', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0.5);
+    }
+
+    // per-rider gains from the last camp
+    const gainById = new Map((last?.perRider ?? []).map((p) => [p.id, p.gain]));
+
+    const top = 108;
+    const rowH = 58;
     squad.forEach((r, i) => {
       const y = top + i * rowH;
-      const selected = r.id === this.selectedId;
-      const trained = this.dynasty.trainedThisGap.includes(r.id);
-      const bg = this.add
-        .rectangle(width / 2, y, width - 24, rowH - 5, selected ? COLORS.panelAlt : COLORS.panel, 1)
-        .setStrokeStyle(selected ? 2 : 1, selected ? COLORS.buttonSelected : COLORS.stroke)
-        .setInteractive({ useHandCursor: true });
-      bg.on('pointerup', () => this.scene.restart({ dynasty: this.dynasty, selectedId: r.id }));
-      this.add.text(28, y, r.name, { fontFamily: FONT, fontSize: '14px', color: COLORS.text }).setOrigin(0, 0.5);
-      const fatigue = this.dynasty.season.fatigue.get(r.id) ?? 0;
-      this.add.text(width - 28, y, trained ? '✓ trained' : `legs ${fatigue.toFixed(0)}`, { fontFamily: FONT, fontSize: '11px', color: trained ? '#18b39a' : COLORS.textMuted }).setOrigin(1, 0.5);
+      const col = teamColor(r.teamId);
+      const sc = scoutReport(r);
+      const now = riderRating(r);
+      const gain = gainById.get(r.id) ?? 0;
+      const stars = '★'.repeat(sc.stars) + '·'.repeat(5 - sc.stars);
+
+      this.add.rectangle(width / 2, y + 22, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
+      this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1);
+      this.add.text(42, y + 12, r.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
+      // type · age · now · scouted potential (fuzzy for the young — same stars as elsewhere)
+      this.add.text(42, y + 31, `${riderType(r)} · age ${r.age} · now ${now}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+      this.add.text(width - 20, y + 31, `${stars}${sc.certain ? '' : ' ' + sc.label}`, { fontFamily: FONT, fontSize: '10px', color: sc.certain ? COLORS.textMuted : '#f5c518' }).setOrigin(1, 0.5);
+
+      // right: this camp's gain on top of the potential stars
+      if (gain > 0) {
+        this.add.text(width - 20, y + 12, `+${gain.toFixed(1)}`, { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(1, 0.5);
+      }
     });
 
-    // stat palette for the selected rider
-    const rider = squad.find((r) => r.id === this.selectedId)!;
-    const palTop = top + squad.length * rowH + 16;
-    this.add.text(width / 2, palTop, `Train ${rider.name.split(' ').slice(-1)[0]} — tap a stat`, { fontFamily: FONT, fontSize: '13px', color: COLORS.text }).setOrigin(0.5);
-
-    const cols = 3;
-    const gap = 8;
-    const btnW = Math.floor((width - 24 - (cols - 1) * gap) / cols);
-    const btnH = 46;
-    (TRAINABLE_STATS as StatKey[]).forEach((stat, i) => {
-      const cx = 12 + btnW / 2 + (i % cols) * (btnW + gap);
-      const cy = palTop + 28 + Math.floor(i / cols) * (btnH + gap);
-      const val = Math.round(rider.stats[stat]);
-      makeButton(this, cx, cy, `${STAT_LABEL[stat]} ${val}`, () => this.train(stat), { width: btnW, height: btnH, fontSize: 14 });
-    });
-
-    if (this.note) {
-      const rows = Math.ceil(TRAINABLE_STATS.length / cols);
-      this.add.text(width / 2, palTop + 28 + rows * (btnH + gap) + 6, this.note, { fontFamily: FONT, fontSize: '13px', color: '#18b39a' }).setOrigin(0.5);
+    if (squad.length === 0) {
+      this.add.text(width / 2, 200, 'No riders on the squad.', { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
     }
-  }
-
-  private train(stat: StatKey): void {
-    const res = trainRider(this.dynasty, this.selectedId, stat);
-    saveDynasty(this.dynasty);
-    const note = res.ok ? `+${res.gain?.toFixed(1)} ${STAT_LABEL[stat]} — legs a little heavier` : (res.reason ?? '');
-    this.scene.restart({ dynasty: this.dynasty, selectedId: this.selectedId, note });
   }
 }

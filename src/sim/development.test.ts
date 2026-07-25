@@ -10,6 +10,7 @@ import {
   scoutReport,
   seedDevelopment,
   shouldRetire,
+  trainingTick,
 } from './development.ts';
 import { Rng } from './rng.ts';
 
@@ -72,6 +73,34 @@ describe('ageOneSeason — the individual curve', () => {
     const drop2 = s1 - r.stats.climbing;
     expect(drop1).toBeGreaterThan(0);
     expect(drop2).toBeGreaterThan(drop1); // fade accelerates
+  });
+});
+
+describe('trainingTick — automatic development', () => {
+  it('develops a young rider toward the ceiling, hardest on their type, never past it', () => {
+    const r = make(21, {
+      peakAge: 28,
+      developmentRate: 0.35,
+      // type = the top two stats (climbing, flat); endurance is off-type; sprint is capped
+      stats: { climbing: 80, flat: 72, sprint: 55, puncheur: 50, endurance: 60, stamina: 52, consistency: 75 },
+      ceiling: { climbing: 92, flat: 84, sprint: 55, puncheur: 58, endurance: 70, stamina: 62 },
+    });
+    const gain = trainingTick(r);
+    expect(gain).toBeGreaterThan(0);
+    expect(r.stats.climbing).toBeGreaterThan(80); // their signature grows
+    expect(r.stats.climbing).toBeLessThanOrEqual(92); // but never past the ceiling
+    expect(r.stats.sprint).toBe(55); // no headroom → no change
+    // the type stat (climbing) closes more of its gap than an off-type stat (endurance)
+    const climbClosed = (r.stats.climbing - 80) / (92 - 80);
+    const endClosed = (r.stats.endurance - 60) / (70 - 60);
+    expect(climbClosed).toBeGreaterThan(endClosed);
+  });
+
+  it('gives a past-peak veteran nothing (you cannot train up age)', () => {
+    const r = make(33, { peakAge: 27, developmentRate: 0.35, ceiling: { climbing: 99, sprint: 99 } });
+    const before = { ...r.stats };
+    expect(trainingTick(r)).toBe(0);
+    expect(r.stats).toEqual(before);
   });
 });
 

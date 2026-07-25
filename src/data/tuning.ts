@@ -210,15 +210,17 @@ export const CONTRACT_MIN_SEASONS = 1;
 export const CONTRACT_MAX_SEASONS = 3;
 export const OFFSEASON_RECOVERY_RATE = 0.2; // season fatigue × this over the winter (near-full rest)
 
-// Training (src/sim/management.ts): between races, coach a rider to nudge one
-// stat — but it tires them (energy is the limiter, SPEC-style trade-off), and a
-// rider may train at most once per race gap. Gains shrink as the stat rises and
-// stop at the soft cap (coaching can't build a superstar from nothing).
-export const TRAIN_SOFT_CAP = 95; // a stat can't be trained past this
-export const TRAIN_REF = 50; // gain is TRAIN_MAX_GAIN at/below this stat…
-export const TRAIN_MAX_GAIN = 3; // …tapering linearly to 0 at the soft cap
-export const TRAIN_MIN_GAIN = 0.4; // never award less than this (until the cap)
-export const TRAIN_FATIGUE_COST = 2; // season fatigue added by one training session
+// Auto-training (src/sim/development.ts `trainingTick`): development you WATCH,
+// not a chore you click. A handful of "training camps" per season nudge each
+// contracted rider's stats toward their hidden ceiling — bigger for the young,
+// near-zero once past their peak (AGE), scaled by how much headroom they still
+// have (POTENTIAL), and concentrated on their strongest stats so specialists
+// sharpen (TYPE). Always ceiling-bounded: a camp brings a rider to the potential
+// they already have sooner, never past it — and never tires them.
+export const TRAIN_CAMPS_PER_SEASON = 4; // automatic development events per season
+export const TRAIN_TICK_RATE = 0.1; // fraction of a focus stat's gap-to-ceiling closed per camp (at full youth)
+export const TRAIN_OFFTYPE_WEIGHT = 0.35; // off-type stats develop this fraction as fast as the rider's signature stats
+export const TRAIN_FOCUS_STATS = 2; // how many of a rider's top stats count as "their type"
 
 // --- Rider development & dynasty (SPEC §7, Phase 6) ---
 // Careers rise, plateau and fade on INDIVIDUAL curves. Each rider has a hidden

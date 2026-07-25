@@ -16,7 +16,9 @@
   (`dynasty.playerTeamId` threaded everywhere; a TeamSelect screen on new-dynasty — you can run any of
   the 8), **collapsed Free+Breakaway into one "Free / Attack" role**, **lowered the economy** a lot
   (a star free agent is out of reach in season 1), and **stats-before-signing** (rider archetype +
-  a live 5-stat readout on every Transfers *and* Team HQ row). In flight: auto-training.
+  a live 5-stat readout on every Transfers *and* Team HQ row), and **auto-training** (manual coaching
+  is gone — ~4 automatic "training camps" a season develop each rider by age · potential · type; the
+  Team HQ "Development" screen is a read-only window on it). **The whole playtest list is now landed.**
 - **What's left is the human's game to grow:** the big **feel/balance tuning on a phone** (the sim
   says `tuning.ts` is in a sane range, but "does it *feel* fair and dramatic?" needs real play), plus
   optional content and the deferred extras below. There is no Phase 9 — the SPEC is fully built.
@@ -62,7 +64,11 @@
   selection, which **replaced the old standalone rival-rest AI** (`rivalAI.ts` deleted).
 - **Phase 5 — management layer**: the between-races Kairosoft loop. One budget number (sponsor +
   prize money in, wages out at the rollover); **free-agent transfers** (sign/release, fee + salary,
-  squad cap 6–9); **training** (coach a stat, tires the rider, once per gap); and a **season rollover**
+  squad cap 6–9); **auto-training** (post-playtest: manual coaching removed — ~4 automatic **training
+  camps** a season, fired at spaced calendar milestones by `finishSeasonEvent`, develop every
+  contracted rider toward their ceiling via `development.trainingTick`, weighted by age · potential ·
+  type and always ceiling-bounded/fatigue-free; the player's gains are stashed on
+  `dynasty.lastTraining` and shown on the read-only **Development** screen); and a **season rollover**
   into a multi-season dynasty. See the build plan's Phase 5 "Decisions/Built" note for the shape and
   the flagged design choices. New mutable layer: **`src/state/dynasty.ts`** (`DynastyState`) — read the
   roster through it, not the static data.
@@ -102,7 +108,7 @@
 npm install
 npm run dev     # local dev (add: -- --host  → open the Network URL on a phone on the same wifi)
 npm run build   # tsc && vite build  (must pass; CI runs it)
-npm test        # vitest, 87 tests   (CI runs it)
+npm test        # vitest, 88 tests   (CI runs it)
 npm run sim     # headless harness (tsx): stage orders, win-freq, role effect, tour GC + conserve,
                 #   and a full-season section (winners, rider + team standings)
 ```
@@ -149,11 +155,12 @@ No persistent browser dep. To view/record the running app:
   - `rating.ts` (Phase 5) — `riderRating` (0–100 overall) → `salaryFor` → `signingFeeFor`; plus
     `riderType` (dominant-stat archetype label) + `statLine` (compact 5-stat readout) for the UI.
   - `management.ts` (Phase 5, pure formulas) — `sponsorIncome`, `wageBill`, `eventPrizeByTeam`,
-    `trainingGain`, `canSign` / `canRelease`. The stateful transitions that use them live in
-    `src/state/dynasty.ts`.
+    `canSign` / `canRelease`. The stateful transitions that use them live in `src/state/dynasty.ts`.
   - `development.ts` (Phase 6, pure) — hidden `peakAge`/`ceiling`/`developmentRate` (`seedDevelopment`),
-    the age curve (`ageOneSeason`: grow → plateau → decline), `shouldRetire`, `generateProspect` (new
-    blood), and `scoutReport` (fuzzy potential = the scouting gamble). Consumed by `rolloverSeason`.
+    the age curve (`ageOneSeason`: grow → plateau → decline), `trainingTick` (one in-season **auto-training**
+    camp: a small ceiling-bounded step toward potential, weighted by age · potential · type — the growth
+    engine the dynasty fires ~4×/season), `shouldRetire`, `generateProspect` (new blood), and
+    `scoutReport` (fuzzy potential = the scouting gamble). Consumed by `rolloverSeason` + `finishSeasonEvent`.
 - **`src/data`** — `types.ts`, **`tuning.ts` (EVERY magic number, `UPPER_SNAKE`)**, `riders.ts`
   (8 teams / 45 riders), `freeAgents.ts` (the unsigned market + `ALL_RIDERS_BY_ID` for immutable-fact
   lookups), `names.ts` (proxy name pools for generated prospects), `teams.ts`, `stages.ts`, `races.ts`
@@ -164,7 +171,8 @@ No persistent browser dep. To view/record the running app:
   `teamRiders`, `playerRiders`, `freeAgents`, `racingRoster`, `teamOf`, `startSeasonEvent`/`pickRaceSquad`)
   — **read the roster and the player team through these, never the static `RIDERS`/team lists/`PLAYER_TEAM`**
   (that's only the *default*/quick-race team now). Transitions:
-  `signRider` / `releaseRider` / `trainRider` / `finishSeasonEvent` (banks event + pays prize) /
+  `signRider` / `releaseRider` / `finishSeasonEvent` (banks event + pays prize + fires the spaced
+  **auto-training camps** via `campEventIndices`, stashing player gains on `dynasty.lastTraining`) /
   `rolloverSeason` (Phase 6: also ages the peloton, retires, injects scouted youth); plus `buildTacticsMapDyn`. `dynastyStore.ts` (Phase 8) persists it to
   localStorage across **3 save slots** (`slotInfos` / `saveDynastyToSlot` / `loadDynastyFromSlot` +
   a persisted active slot behind the slot-less `saveDynasty`/`loadDynasty` the scenes call; legacy
@@ -176,7 +184,8 @@ No persistent browser dep. To view/record the running app:
   between tour stages the 5 are locked; carried fatigue shown;
   tours add the effort toggle) → **Race** (animated view) → **StageResults** (stage + GC; banks the
   stage; on event completion `finishSeasonEvent` + save → back to SeasonHub). Management (Phase 5):
-  **Team** (finances + squad + Release), **Transfers** (sign free agents), **Training** (coach a stat),
+  **Team** (finances + squad + Release), **Transfers** (sign free agents), **Development** (read-only —
+  the `Training` scene, repurposed: shows each rider's type, potential and their last training-camp gain),
   **Rollover** (end-of-season settlement → next season). World layer: **Standings**, **Riders**,
   **Archive**. **QuickRace** = one-off picker (stays on the **static** roster path).
   Threading: a **one-day race is a one-stage tour**; `TourState` flows through scene data, plus an

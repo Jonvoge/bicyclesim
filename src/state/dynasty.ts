@@ -18,10 +18,10 @@ import {
   RIVAL_STARTING_BUDGET,
   STARTING_BUDGET,
   TARGET_SQUAD_SIZE,
-  TRAIN_FATIGUE_COST,
+  TRAIN_CAMPS_PER_SEASON,
 } from '../data/tuning.ts';
-import type { Rider, StatKey } from '../data/types.ts';
-import { ageOneSeason, generateDomestique, generateProspect, scoutReport, seedDevelopment, shouldRetire } from '../sim/development.ts';
+import type { Rider } from '../data/types.ts';
+import { ageOneSeason, generateDomestique, generateProspect, scoutReport, seedDevelopment, shouldRetire, trainingTick } from '../sim/development.ts';
 import {
   canRelease,
   canSign,
@@ -29,7 +29,6 @@ import {
   salaryOf,
   sponsorIncome,
   squadSize,
-  trainingGain,
   wageBill,
   type ActionCheck,
 } from '../sim/management.ts';
@@ -66,7 +65,15 @@ export interface DynastyState {
   budgets: Record<string, number>; // teamId → cash
   season: SeasonState; // the season currently being contested
   lastTeamRank: Record<string, number>; // teamId → last season's finishing rank (sponsor income)
-  trainedThisGap: string[]; // rider ids trained since the last race (one session per gap)
+  lastTraining: TrainingBlockSummary | null; // the most recent auto-training camp (for the UI); null between camps
+}
+
+/** What one automatic training camp did to the player's squad (for the UI). */
+export interface TrainingBlockSummary {
+  afterEvent: number; // races completed in the season when this camp ran
+  improvedCount: number; // player riders who gained at least a little
+  totalGain: number; // total stat points added across the player's squad
+  perRider: { id: string; gain: number }[]; // player squad gains this camp, biggest first
 }
 
 function cloneRider(r: Rider): Rider {
@@ -111,7 +118,7 @@ export function createDynasty(playerTeamId: string = PLAYER_TEAM.id): DynastySta
     budgets,
     season: createSeason(SEASON_CALENDAR),
     lastTeamRank: {},
-    trainedThisGap: [],
+    lastTraining: null,
   };
 }
 
@@ -179,41 +186,61 @@ export function releaseRider(dynasty: DynastyState, riderId: string): ActionChec
   return { ok: true };
 }
 
-export interface TrainResult extends ActionCheck {
-  gain?: number;
+// --- auto-training (development you watch, not a chore) -----------------------
+
+/**
+ * Which completed-event counts trigger an automatic training camp, spread evenly
+ * through the calendar (never on the opening or closing race). For the 14-race
+ * season with 4 camps this is [3, 6, 8, 11].
+ */
+export function campEventIndices(calendarLength: number): number[] {
+  const out: number[] = [];
+  for (let i = 1; i <= TRAIN_CAMPS_PER_SEASON; i++) {
+    out.push(Math.round((calendarLength * i) / (TRAIN_CAMPS_PER_SEASON + 1)));
+  }
+  return out;
 }
 
 /**
- * Coach a rider: nudge one stat up (diminishing returns, capped) at the cost of
- * added season fatigue. One session per rider per race gap — the fatigue is the
- * real limiter (a rider trained hard arrives at their next race tired).
+ * Run one training camp: develop **every contracted rider** (rivals too, so the
+ * peloton keeps pace) a small step toward their ceiling via `trainingTick` — the
+ * young and high-potential gain most, veterans nothing. Returns a summary of the
+ * *player's* squad gains for the UI. No fatigue, no player input: it just happens.
  */
-export function trainRider(dynasty: DynastyState, riderId: string, stat: StatKey): TrainResult {
-  const rider = dynasty.roster.find((r) => r.id === riderId);
-  if (!rider || rider.teamId === null) return { ok: false, reason: 'Not on a team' };
-  if (dynasty.trainedThisGap.includes(riderId)) return { ok: false, reason: 'Already trained this gap' };
-  const gain = trainingGain(rider.stats[stat]);
-  if (gain <= 0) return { ok: false, reason: 'Stat already maxed' };
-  rider.stats[stat] = Math.round((rider.stats[stat] + gain) * 10) / 10;
-  dynasty.season.fatigue.set(riderId, (dynasty.season.fatigue.get(riderId) ?? 0) + TRAIN_FATIGUE_COST);
-  dynasty.trainedThisGap.push(riderId);
-  return { ok: true, gain };
+function runTrainingBlock(dynasty: DynastyState): TrainingBlockSummary {
+  const perRider: { id: string; gain: number }[] = [];
+  for (const r of dynasty.roster) {
+    if (r.teamId === null) continue; // free agents have no coach; they develop at the rollover
+    const gain = trainingTick(r);
+    if (r.teamId === dynasty.playerTeamId) perRider.push({ id: r.id, gain });
+  }
+  perRider.sort((a, b) => b.gain - a.gain);
+  const totalGain = Math.round(perRider.reduce((s, p) => s + p.gain, 0) * 10) / 10;
+  return {
+    afterEvent: dynasty.season.eventIndex,
+    improvedCount: perRider.filter((p) => p.gain > 0).length,
+    totalGain,
+    perRider,
+  };
 }
 
 // --- event & season transitions ----------------------------------------------
 
 /**
  * Finish a race event: bank it in the season (points + carried fatigue), pay out
- * prize money to teams, and open a fresh training gap. Wraps `season.finishEvent`
- * so the UI has one call. Pass the dynasty roster so team membership/standings
- * read the *current* squads.
+ * prize money to teams, and — at the season's spaced-out camp milestones — run an
+ * automatic training camp (stashed on `dynasty.lastTraining` for the UI). Wraps
+ * `season.finishEvent` so the UI has one call. Pass the dynasty roster so team
+ * membership/standings read the *current* squads.
  */
 export function finishSeasonEvent(dynasty: DynastyState, tour: TourState): SeasonResult {
   const result = finishEvent(dynasty.season, tour, dynasty.roster);
   const race = RACES_BY_ID.get(result.raceId)!;
   const prize = eventPrizeByTeam(result.classification, race.prestige, (id) => teamOf(dynasty, id));
   for (const [teamId, cash] of prize) dynasty.budgets[teamId] = (dynasty.budgets[teamId] ?? 0) + cash;
-  dynasty.trainedThisGap = [];
+  dynasty.lastTraining = campEventIndices(dynasty.season.calendar.length).includes(dynasty.season.eventIndex)
+    ? runTrainingBlock(dynasty)
+    : null;
   return result;
 }
 
@@ -331,7 +358,7 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   dynasty.seasonNumber += 1;
   dynasty.season = createSeason(SEASON_CALENDAR);
   dynasty.season.fatigue = carried;
-  dynasty.trainedThisGap = [];
+  dynasty.lastTraining = null;
 
   return {
     seasonNumber: finishedSeason,
