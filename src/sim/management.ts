@@ -5,12 +5,8 @@ import {
   SPONSOR_BASE,
   SPONSOR_RANK_BONUS,
   SEASON_EVENT_POINTS,
-  TRAIN_MAX_GAIN,
-  TRAIN_MIN_GAIN,
-  TRAIN_REF,
-  TRAIN_SOFT_CAP,
 } from '../data/tuning.ts';
-import type { Rider, StatKey } from '../data/types.ts';
+import type { Rider } from '../data/types.ts';
 import { riderSalary } from './rating.ts';
 
 /**
@@ -72,27 +68,6 @@ export function eventPrizeByTeam(
   for (const [id, cash] of byTeam) byTeam.set(id, Math.round(cash));
   return byTeam;
 }
-
-/**
- * How much one training session raises a stat: full value at/below the reference
- * level, tapering to nothing at the soft cap (coaching can polish, not create).
- * Returns 0 once a stat is at or above the cap.
- */
-export function trainingGain(currentStat: number): number {
-  if (currentStat >= TRAIN_SOFT_CAP) return 0;
-  const raw = (TRAIN_MAX_GAIN * (TRAIN_SOFT_CAP - currentStat)) / (TRAIN_SOFT_CAP - TRAIN_REF);
-  return Math.min(TRAIN_MAX_GAIN, Math.max(TRAIN_MIN_GAIN, raw));
-}
-
-/** Stats a coach can train (consistency is a temperament, not coached here). */
-export const TRAINABLE_STATS: StatKey[] = [
-  'climbing',
-  'flat',
-  'sprint',
-  'puncheur',
-  'endurance',
-  'stamina',
-];
 
 export interface ActionCheck {
   ok: boolean;

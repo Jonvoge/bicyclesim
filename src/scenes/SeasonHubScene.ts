@@ -15,7 +15,7 @@ import { COLORS, FONT } from '../ui/theme.ts';
 /**
  * Season hub (Phase 4 + 5): the calendar with results so far, the team's finances
  * at a glance, world-layer navigation, the door to Team HQ (squad, transfers,
- * training), and the button to ride the next race. A finished season crowns its
+ * development), and the button to ride the next race. A finished season crowns its
  * champion and rolls the dynasty into the next year.
  */
 export class SeasonHubScene extends Phaser.Scene {

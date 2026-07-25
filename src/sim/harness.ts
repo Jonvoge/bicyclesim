@@ -19,7 +19,7 @@ import { simulateStage } from './stageSim.ts';
 import { buildRaceStory } from './raceNarrative.ts';
 import { bestSuitedRider, buildTacticsMap, defaultTeamTactics, defaultTeamTacticsFor } from './raceSetup.ts';
 import { riderRating, riderSalary, salaryFor, signingFeeFor } from './rating.ts';
-import { scoutReport } from './development.ts';
+import { DEV_STATS, scoutReport } from './development.ts';
 import { sponsorIncome } from './management.ts';
 import {
   createDynasty,
@@ -32,7 +32,6 @@ import {
   rolloverSeason,
   signRider,
   teamRiders,
-  trainRider,
 } from '../state/dynasty.ts';
 import { computeGc, createTour, isTourComplete, recordStageResult, ridersForStage } from './standings.ts';
 import {
@@ -295,14 +294,14 @@ console.log('\n########## MANAGEMENT: ECONOMY, TRANSFERS & TRAINING ##########')
   const sign = signRider(d, target.id);
   console.log(`\nSign ${target.name}: ${sign.ok ? 'done' : sign.reason} → budget now ${playerBudget(d)}, squad ${playerRiders(d).length}`);
 
-  const pupil = playerRiders(d).find((r) => r.stats.climbing < 80)!;
-  const before = pupil.stats.climbing;
-  const t = trainRider(d, pupil.id, 'climbing');
-  console.log(`Train ${pupil.name} climbing: ${before} → ${pupil.stats.climbing} (+${t.gain?.toFixed(1)}), fatigue now ${(d.season.fatigue.get(pupil.id) ?? 0).toFixed(1)}`);
+  // auto-training: pick the youngest player rider and watch the season's camps develop them
+  const pupil = [...playerRiders(d)].sort((a, b) => a.age - b.age)[0];
+  const pupilBefore = { ...pupil.stats };
 
   // play the whole season with this squad, then roll into next year
   const rng = new Rng(77);
   let prize = 0;
+  let camps = 0;
   const startBudget = playerBudget(d);
   while (!isSeasonComplete(d.season)) {
     const field = racingRoster(d);
@@ -315,9 +314,13 @@ console.log('\n########## MANAGEMENT: ECONOMY, TRANSFERS & TRAINING ##########')
       recordStageResult(tour, stage, story.result, tactics, riders);
     }
     finishSeasonEvent(d, tour);
+    if (d.lastTraining) camps++;
   }
   prize = playerBudget(d) - startBudget;
   console.log(`\nSeason ${d.seasonNumber} raced — prize money earned by player: ${prize}`);
+
+  const grew = DEV_STATS.map((k) => `${k} ${pupilBefore[k]}→${pupil.stats[k]}`).filter((_, i) => pupil.stats[DEV_STATS[i]] > pupilBefore[DEV_STATS[i]]);
+  console.log(`Auto-training: ${camps} camps ran. ${pupil.name} (age ${pupil.age}) developed: ${grew.length ? grew.join(', ') : 'no change (near ceiling)'}`);
 
   const summary = rolloverSeason(d);
   console.log(

@@ -10,6 +10,7 @@ import { riderRating, salaryFor } from '../sim/rating.ts';
 import { currentRace, startEvent } from '../sim/season.ts';
 import { isTourComplete, recordStageResult, ridersForStage } from '../sim/standings.ts';
 import {
+  campEventIndices,
   createDynasty,
   finishSeasonEvent,
   freeAgents,
@@ -22,7 +23,6 @@ import {
   signRider,
   startSeasonEvent,
   teamRiders,
-  trainRider,
   type DynastyState,
 } from './dynasty.ts';
 
@@ -103,25 +103,33 @@ describe('transfers', () => {
   });
 });
 
-describe('training', () => {
-  it('raises a stat and tires the rider, once per gap', () => {
-    const d = createDynasty();
-    const r = playerRiders(d)[0];
-    const stat = r.stats.climbing;
-    const res = trainRider(d, r.id, 'climbing');
-    expect(res.ok).toBe(true);
-    expect(r.stats.climbing).toBeGreaterThan(stat);
-    expect(d.season.fatigue.get(r.id)!).toBeGreaterThan(0);
-    // a second session in the same gap is refused
-    expect(trainRider(d, r.id, 'climbing').ok).toBe(false);
+describe('auto-training camps', () => {
+  it('spaces the camps evenly through the season (never the opener/closer)', () => {
+    expect(campEventIndices(14)).toEqual([3, 6, 8, 11]);
+    for (const i of campEventIndices(14)) {
+      expect(i).toBeGreaterThan(0);
+      expect(i).toBeLessThan(14);
+    }
   });
 
-  it('a new race gap re-opens training', () => {
+  it('fires only at the milestone events and develops the player squad', () => {
     const d = createDynasty();
-    const r = playerRiders(d)[0];
-    trainRider(d, r.id, 'sprint');
-    playEvent(d, 1); // finishing an event clears the gap
-    expect(trainRider(d, r.id, 'sprint').ok).toBe(true);
+    const camps = campEventIndices(d.season.calendar.length);
+    let sawCamp = false;
+    for (let e = 0; e < d.season.calendar.length; e++) {
+      const atMilestone = camps.includes(e + 1); // eventIndex after this event
+      playEvent(d, 10 + e);
+      if (atMilestone) {
+        expect(d.lastTraining).not.toBeNull();
+        expect(d.lastTraining!.afterEvent).toBe(e + 1);
+        expect(d.lastTraining!.improvedCount).toBeGreaterThan(0);
+        expect(d.lastTraining!.totalGain).toBeGreaterThan(0); // riders actually got stronger
+        sawCamp = true;
+      } else {
+        expect(d.lastTraining).toBeNull();
+      }
+    }
+    expect(sawCamp).toBe(true);
   });
 });
 

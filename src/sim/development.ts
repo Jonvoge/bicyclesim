@@ -24,6 +24,9 @@ import {
   SCOUT_CERTAIN_AGE,
   SCOUT_NOISE_MAX,
   STAT_FLOOR,
+  TRAIN_FOCUS_STATS,
+  TRAIN_OFFTYPE_WEIGHT,
+  TRAIN_TICK_RATE,
 } from '../data/tuning.ts';
 import type { BaseStatKey, Rider, StatKey } from '../data/types.ts';
 import { Rng } from './rng.ts';
@@ -109,6 +112,40 @@ export function ageOneSeason(rider: Rider): void {
     }
     // peak < age <= start → plateau (hold)
   }
+}
+
+/** A rider's `n` strongest developing stats — the ones that define their type. */
+function topDevStats(rider: Rider, n: number): Set<StatKey> {
+  return new Set([...DEV_STATS].sort((a, b) => rider.stats[b] - rider.stats[a]).slice(0, n));
+}
+
+/**
+ * One automatic "training camp" tick (Phase 6-era development, no manual friction):
+ * nudge a rider's developing stats a small step toward their ceilings. Bigger for
+ * the young — **0 once at or past their peak**, so you can't train up a veteran —
+ * scaled by the headroom they still have (their **potential**), and concentrated
+ * on the two stats that define their **type** so a specialist sharpens rather than
+ * flattening into an all-rounder. Ceiling-bounded and fatigue-free: it just brings
+ * a rider to the potential they already have sooner. Returns the total stat points
+ * added (for the UI); mutates the rider. Pure/deterministic (no rng).
+ */
+export function trainingTick(rider: Rider): number {
+  seedDevelopment(rider);
+  const peak = rider.peakAge!;
+  const youth = clamp((peak - rider.age) / Math.max(1, peak - PROSPECT_AGE_MIN), 0, 1);
+  if (youth <= 0) return 0;
+  const focus = topDevStats(rider, TRAIN_FOCUS_STATS);
+  let gained = 0;
+  for (const k of DEV_STATS) {
+    const cur = rider.stats[k];
+    const cap = rider.ceiling?.[k] ?? cur;
+    if (cap <= cur) continue;
+    const weight = focus.has(k) ? 1 : TRAIN_OFFTYPE_WEIGHT;
+    const next = round1(Math.min(cap, cur + TRAIN_TICK_RATE * youth * weight * (cap - cur)));
+    gained += next - cur;
+    rider.stats[k] = next;
+  }
+  return round1(gained);
 }
 
 /** Whether a rider retires this off-season (rises with age; certain by the max). */

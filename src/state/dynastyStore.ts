@@ -41,7 +41,6 @@ interface SavedDynasty {
   budgets: Record<string, number>;
   season: SavedSeason;
   lastTeamRank: Record<string, number>;
-  trainedThisGap: string[];
   meta?: SlotMeta;
 }
 
@@ -128,7 +127,6 @@ export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
       budgets: dynasty.budgets,
       season: packSeason(dynasty.season),
       lastTeamRank: dynasty.lastTeamRank,
-      trainedThisGap: dynasty.trainedThisGap,
       meta: {
         seasonNumber: dynasty.seasonNumber,
         racesDone: dynasty.season.results.length,
@@ -151,7 +149,7 @@ export function loadDynastyFromSlot(slot: number): DynastyState | null {
     budgets: s.budgets ?? {},
     season: unpackSeason(s.season),
     lastTeamRank: s.lastTeamRank ?? {},
-    trainedThisGap: s.trainedThisGap ?? [],
+    lastTraining: null, // recomputed each event; camps are not persisted
   };
 }
 

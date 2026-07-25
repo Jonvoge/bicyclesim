@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { RIDERS_BY_ID } from '../data/riders.ts';
-import { MAX_SQUAD_SIZE, MIN_SQUAD_SIZE, TRAIN_SOFT_CAP } from '../data/tuning.ts';
+import { MAX_SQUAD_SIZE, MIN_SQUAD_SIZE } from '../data/tuning.ts';
 import type { Rider } from '../data/types.ts';
 import {
   canRelease,
@@ -9,7 +9,6 @@ import {
   eventPrizeByTeam,
   salaryOf,
   sponsorIncome,
-  trainingGain,
   wageBill,
 } from './management.ts';
 import { riderRating, salaryFor, signingFeeFor } from './rating.ts';
@@ -64,14 +63,6 @@ describe('event prize money', () => {
     const high = eventPrizeByTeam(classification, 100, teamOf);
     expect(high.get('t-grenoble')!).toBeGreaterThan(high.get('t-vesma')!);
     expect(high.get('t-grenoble')!).toBeGreaterThan(low.get('t-grenoble')!);
-  });
-});
-
-describe('training gain', () => {
-  it('gives more to a low stat than a high one, and nothing at the cap', () => {
-    expect(trainingGain(50)).toBeGreaterThan(trainingGain(80));
-    expect(trainingGain(TRAIN_SOFT_CAP)).toBe(0);
-    expect(trainingGain(TRAIN_SOFT_CAP + 3)).toBe(0);
   });
 });
 

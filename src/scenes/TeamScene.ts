@@ -19,7 +19,7 @@ import { COLORS, FONT } from '../ui/theme.ts';
 /**
  * Team HQ (Phase 5): the between-races management hub. Finances at the top
  * (budget, wage bill, next sponsor cheque), the squad with each rider's value and
- * contract, a Release lever, and the doors to Transfers and Training.
+ * contract, a Release lever, and the doors to Transfers and Development.
  */
 export class TeamScene extends Phaser.Scene {
   private dynasty!: DynastyState;
@@ -49,7 +49,7 @@ export class TeamScene extends Phaser.Scene {
 
     // actions
     makeButton(this, width / 2 - 82, 152, 'Transfers', () => this.scene.start('Transfers', { dynasty: this.dynasty }), { width: 150, height: 34, fontSize: 14, fill: COLORS.buttonSelected });
-    makeButton(this, width / 2 + 82, 152, 'Training', () => this.scene.start('Training', { dynasty: this.dynasty }), { width: 150, height: 34, fontSize: 14, fill: COLORS.buttonSelected });
+    makeButton(this, width / 2 + 82, 152, 'Development', () => this.scene.start('Training', { dynasty: this.dynasty }), { width: 150, height: 34, fontSize: 14, fill: COLORS.buttonSelected });
 
     if (this.note) this.add.text(width / 2, 176, this.note, { fontFamily: FONT, fontSize: '11px', color: '#e28f3b' }).setOrigin(0.5);
 
