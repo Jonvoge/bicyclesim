@@ -38,6 +38,8 @@ const GROUP_MIN_SEP = 16; // groups never visually overlap on the road (px)
 const COUNT_LABEL_MIN = 5; // groups at least this big get a rider-count label
 const GAP_LABEL_MIN_SEC = 10; // show "+m:ss" under a group this far behind
 const LABEL_POOL = 6;
+const SCROLL_PX_PER_SEC = 130; // roadside terrain scroll speed at 1× — the illusion of forward motion
+const FINISH_REVEAL_T = 0.8; // the finish line is out of sight until the closing stretch, then it appears
 
 const frac = (n: number): number => n - Math.floor(n);
 
@@ -98,6 +100,11 @@ export class RaceScene extends Phaser.Scene {
   private startLine!: Phaser.GameObjects.Graphics;
   private startLabel!: Phaser.GameObjects.Text;
   private startFaded = false;
+  private terrainGfx!: Phaser.GameObjects.Graphics;
+  private finishGfx!: Phaser.GameObjects.Graphics;
+  private finishLabel!: Phaser.GameObjects.Text;
+  private scrollX = 0;
+  private finishRevealed = false;
   private profile!: StageProfileView;
   private speedBtn!: Button;
   private ticker: TickerLine[] = [];
@@ -126,6 +133,8 @@ export class RaceScene extends Phaser.Scene {
     this.eventIdx = 0;
     this.maxFinish = 1;
     this.startFaded = false;
+    this.scrollX = 0;
+    this.finishRevealed = false;
     this.tour = data.tour;
     this.dynasty = data.dynasty;
     this.tactics = data.playerTactics;
@@ -174,14 +183,22 @@ export class RaceScene extends Phaser.Scene {
     // groups overview strip
     this.groupsText = this.add.text(width / 2, 176, '', { fontFamily: FONT, fontSize: '12px', color: COLORS.text }).setOrigin(0.5);
 
-    // road: finish line (right); field flows left → right. The finish stays put.
-    const fl = this.add.graphics();
-    fl.lineStyle(2, 0xffffff, 0.4);
-    for (let yy = this.roadTop; yy < this.roadBottom; yy += 10) fl.lineBetween(this.frontX, yy, this.frontX, yy + 5);
-    this.add.text(this.frontX, this.roadTop - 10, 'FINISH', { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
+    // roadside terrain: verge posts that scroll past the field (drawn each frame in
+    // drawTerrain). Created first so it sits behind the riders and the road lines —
+    // it's what sells "the peloton is travelling" when the glyphs barely move.
+    this.terrainGfx = this.add.graphics();
 
-    // start marker (left) — its own objects so it can fade once the race has rolled
-    // out (a stationary line the field appears to ride backwards over otherwise)
+    // finish line (right): out of sight until the closing stretch, then it appears
+    // as the finish comes up — nothing to ride "toward" for the bulk of the stage.
+    this.finishGfx = this.add.graphics();
+    this.finishGfx.lineStyle(2, 0xffffff, 0.4);
+    for (let yy = this.roadTop; yy < this.roadBottom; yy += 10) this.finishGfx.lineBetween(this.frontX, yy, this.frontX, yy + 5);
+    this.finishLabel = this.add.text(this.frontX, this.roadTop - 10, 'FINISH', { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.finishGfx.setAlpha(0);
+    this.finishLabel.setAlpha(0);
+
+    // start marker (left) — its own objects so it can recede once the race has
+    // rolled out (a stationary line the field otherwise appears to ride back over)
     this.startLine = this.add.graphics();
     this.startLine.lineStyle(1, 0xffffff, 0.15);
     this.startLine.lineBetween(this.raceLeftX, this.roadTop, this.raceLeftX, this.roadBottom);
@@ -283,12 +300,19 @@ export class RaceScene extends Phaser.Scene {
     const tPos = Math.min(this.t, 1);
     const dt = Math.min(deltaMs / 1000, 0.1);
 
-    // once the field has rolled out, retire the start marker so nothing appears to
-    // ride back across a stationary line
+    // scroll the roadside terrain past the field — the sense of speed the barely
+    // moving glyphs can't give on their own
+    this.drawTerrain(dt);
+
+    // once the field has rolled out, let the start marker recede up the road (slide
+    // left + fade) rather than sitting there for the field to ride back across
     if (!this.startFaded && tPos > OPEN_T) {
       this.startFaded = true;
-      this.tweens.add({ targets: [this.startLine, this.startLabel], alpha: 0, duration: 500 });
+      this.tweens.add({ targets: [this.startLine, this.startLabel], x: '-=64', alpha: 0, duration: 700, ease: 'Quad.in' });
     }
+
+    // the finish comes into sight in the closing stretch
+    if (!this.finishRevealed && tPos >= FINISH_REVEAL_T) this.revealFinish();
 
     if (this.t < 1) this.layoutRiders(tPos, dt, time);
     else this.runInToLine();
@@ -487,6 +511,36 @@ export class RaceScene extends Phaser.Scene {
     return this.raceLeftX + (this.frontX - this.raceLeftX) * progress;
   }
 
+  /**
+   * Roadside verge posts scrolling right→left, redrawn each frame from a single
+   * scroll accumulator. Two parallax depths give the road a little thickness. This
+   * is the motion cue: the glyphs sit near-still (their x is race position, not
+   * ground speed), so the *world* moving past is what reads as "riding".
+   */
+  private drawTerrain(dt: number): void {
+    this.scrollX += SCROLL_PX_PER_SEC * dt * this.speed;
+    const g = this.terrainGfx;
+    g.clear();
+    const left = this.trackLeft;
+    const right = this.scale.width - this.trackLeft;
+    const row = (y: number, len: number, spacing: number, parallax: number, alpha: number): void => {
+      g.lineStyle(2, 0xffffff, alpha);
+      const off = ((this.scrollX * parallax) % spacing + spacing) % spacing;
+      for (let x = right - off; x >= left; x -= spacing) g.lineBetween(x, y, x, y + len);
+    };
+    // near verges (full speed) just inside the road band, plus a slower, fainter
+    // far layer inset from them for depth — all clear of the rider lane at mid-road
+    row(this.roadTop + 2, 7, 44, 1, 0.12);
+    row(this.roadBottom - 9, 7, 44, 1, 0.12);
+    row(this.roadTop + 15, 4, 92, 0.5, 0.06);
+    row(this.roadBottom - 19, 4, 92, 0.5, 0.06);
+  }
+
+  private revealFinish(): void {
+    this.finishRevealed = true;
+    this.tweens.add({ targets: [this.finishGfx, this.finishLabel], alpha: 1, duration: 450 });
+  }
+
   private addRadioLine(text: string, kind: RaceEvent['kind'] | 'info'): void {
     const colors: Record<string, string> = {
       break: '#f5c518',
@@ -577,6 +631,7 @@ export class RaceScene extends Phaser.Scene {
     for (const a of this.actors) if (!a.crossed) a.glyph.setVisible(false);
     for (const l of this.countLabels) l.setVisible(false);
     for (const l of this.gapLabels) l.setVisible(false);
+    if (!this.finishRevealed) this.revealFinish(); // ensure the line is shown (e.g. after Skip)
     this.groupsText.setText('— Finish —');
     this.progressBar.width = this.scale.width - 2 * this.trackLeft;
     this.kmText.setText('FINISH');
