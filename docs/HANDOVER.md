@@ -14,7 +14,9 @@
   (mountains select, breaks stick, fatigue bites), race-view visuals (compact peloton, everyone moves,
   believable glyph), **pick-5 squads** (deeper rosters, choose exactly 5/race), and **pick your team**
   (`dynasty.playerTeamId` threaded everywhere; a TeamSelect screen on new-dynasty — you can run any of
-  the 8). In flight: stats-before-signing, lower budgets, collapse Free+Breakaway, auto-training.
+  the 8), **collapsed Free+Breakaway into one "Free / Attack" role**, **lowered the economy** a lot
+  (a star free agent is out of reach in season 1), and **stats-before-signing** (rider archetype +
+  a live 5-stat readout on every Transfers *and* Team HQ row). In flight: auto-training.
 - **What's left is the human's game to grow:** the big **feel/balance tuning on a phone** (the sim
   says `tuning.ts` is in a sane range, but "does it *feel* fair and dramatic?" needs real play), plus
   optional content and the deferred extras below. There is no Phase 9 — the SPEC is fully built.
@@ -36,7 +38,9 @@
   layer** (`raceNarrative.ts`) drives it: a morning break, chase, late attacks, incidents
   (crash/puncture), finish groups. Broadcast/TV-style, group-centric view (see "Design decisions").
 - **Rider roles** (replaced "one protected rider + one strategy"): a **role sheet**, one role per
-  rider — Leader / Sprinter / Breakaway / Domestique / Free (`tactics.ts` `ROLES`).
+  rider — Leader / Sprinter / Domestique / **Free / Attack** (`tactics.ts` `ROLES`). *Free* is the
+  merged old Free+Breakaway (post-playtest): one "rides his own race — up the road in the break, or
+  attacks late" gamble instead of two overlapping roles.
 - **Race-view rework** — every rider is one always-visible glyph in eased paceline formations
   (the old "pack blob" is gone). Bunch sprints, role-respecting breaks, multi-feature stage profiles.
 - **Terrain-specialist balance** — sharpened `STAGE_WEIGHTS` + roster so sprinters own the flats,
@@ -142,7 +146,8 @@ No persistent browser dep. To view/record the running app:
     `finishEvent` (prestige-scaled points, carry + recover fatigue, archive), rider/team standings.
   - `raceSetup.ts` — `defaultTeamTactics` / `defaultTeamTacticsFor` (roster-driven; the pre-filled
     sheet for the player AND rivals), `buildTacticsMap`.
-  - `rating.ts` (Phase 5) — `riderRating` (0–100 overall) → `salaryFor` → `signingFeeFor`.
+  - `rating.ts` (Phase 5) — `riderRating` (0–100 overall) → `salaryFor` → `signingFeeFor`; plus
+    `riderType` (dominant-stat archetype label) + `statLine` (compact 5-stat readout) for the UI.
   - `management.ts` (Phase 5, pure formulas) — `sponsorIncome`, `wageBill`, `eventPrizeByTeam`,
     `trainingGain`, `canSign` / `canRelease`. The stateful transitions that use them live in
     `src/state/dynasty.ts`.
@@ -202,7 +207,7 @@ No persistent browser dep. To view/record the running app:
   sync with the results reveal**; winner gets a gold pop.
 - Finish groups share a time (`s.t.`); terrain sets the threshold. Incidents: punctures (~60%)
   never DNF, only crashes rarely do. Race-radio ticker + groups strip (backmost LEFT, break RIGHT).
-- Player roles are visible (road triangle + L/S/B/D/F letters in results).
+- Player roles are visible (road triangle + L/S/D/F letters in results).
 
 **Tactics = the role sheet + team effort** (SPEC §5.5, §5.8):
 - One role per rider; `defaultTeamTactics` pre-fills a sensible sheet so START-mashing works.

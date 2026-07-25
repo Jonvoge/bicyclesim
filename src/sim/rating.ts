@@ -52,3 +52,34 @@ export function signingFeeFor(rating: number): number {
 export function riderSalary(rider: Rider): number {
   return salaryFor(riderRating(rider));
 }
+
+/**
+ * A rider's archetype label from their dominant offensive stat (for the UI — so
+ * you can tell a rider's *type* at a glance before signing). Close-across stats →
+ * "All-rounder".
+ */
+export function riderType(rider: Rider): string {
+  const s = rider.stats;
+  const cands: [string, number][] = [
+    ['Climber', s.climbing],
+    ['Sprinter', s.sprint],
+    ['Puncheur', s.puncheur],
+    ['Rouleur', s.flat],
+  ];
+  cands.sort((a, b) => b[1] - a[1]);
+  return cands[0][1] - cands[1][1] >= 6 ? cands[0][0] : 'All-rounder';
+}
+
+/** Short labels for the five offensive stats, in display order (for the UI). */
+export const STAT_ABBREV: [BaseStatKey, string][] = [
+  ['climbing', 'CLM'],
+  ['flat', 'FLT'],
+  ['sprint', 'SPR'],
+  ['puncheur', 'PUN'],
+  ['endurance', 'END'],
+];
+
+/** A compact one-line stat readout, e.g. "CLM 87  FLT 72  SPR 55  PUN 66  END 78". */
+export function statLine(rider: Rider): string {
+  return STAT_ABBREV.map(([k, label]) => `${label} ${rider.stats[k]}`).join('   ');
+}

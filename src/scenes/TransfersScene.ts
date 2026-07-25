@@ -3,7 +3,7 @@ import { teamColor } from '../data/teamColors.ts';
 import { MAX_SQUAD_SIZE } from '../data/tuning.ts';
 import { scoutReport } from '../sim/development.ts';
 import { salaryOf } from '../sim/management.ts';
-import { riderRating, signingFeeFor } from '../sim/rating.ts';
+import { riderRating, riderType, signingFeeFor, statLine } from '../sim/rating.ts';
 import {
   freeAgents,
   playerBudget,
@@ -15,7 +15,7 @@ import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
-const MAX_VISIBLE = 11; // rows that fit without scrolling (avoids interactive-in-scroll issues)
+const MAX_VISIBLE = 9; // rows that fit without scrolling (avoids interactive-in-scroll issues)
 
 /**
  * Transfers (Phase 5, free agency): the market of unsigned riders. Each shows a
@@ -57,22 +57,25 @@ export class TransfersScene extends Phaser.Scene {
     }
     const market = all.slice(0, MAX_VISIBLE);
 
-    const top = 122;
-    const rowH = 60;
+    const top = 118;
+    const rowH = 72;
     market.forEach((r, i) => {
       const y = top + i * rowH;
       const col = teamColor(r.teamId);
       const sc = scoutReport(r);
       const stars = '★'.repeat(sc.stars) + '·'.repeat(5 - sc.stars);
       const young = !sc.certain;
-      this.add.rectangle(width / 2, y + 22, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
+      this.add.rectangle(width / 2, y + 30, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
       this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1);
       this.add.text(42, y + 12, r.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
-      this.add.text(42, y + 30, `${r.nationality} · age ${r.age} · now ${riderRating(r)}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+      // archetype + who/where/what-now, so the rider's type reads at a glance
+      this.add.text(42, y + 31, `${riderType(r)} · ${r.nationality} · age ${r.age} · now ${riderRating(r)}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+      // current stats — viewable before you commit the fee
+      this.add.text(42, y + 50, statLine(r), { fontFamily: FONT, fontSize: '10px', color: '#8fb4c8' }).setOrigin(0, 0.5);
       // potential (fuzzy for the young → gold to flag the gamble)
-      this.add.text(width - 92, y + 30, `${stars} ${young ? sc.label : ''}`.trim(), { fontFamily: FONT, fontSize: '10px', color: young ? '#f5c518' : COLORS.textMuted }).setOrigin(1, 0.5);
+      this.add.text(width - 92, y + 31, `${stars} ${young ? sc.label : ''}`.trim(), { fontFamily: FONT, fontSize: '10px', color: young ? '#f5c518' : COLORS.textMuted }).setOrigin(1, 0.5);
       this.add.text(width - 92, y + 12, `fee ${signingFeeFor(riderRating(r))} · ${salaryOf(r)}/yr`, { fontFamily: FONT, fontSize: '11px', color: '#f5c518' }).setOrigin(1, 0.5);
-      makeButton(this, width - 48, y + 22, 'Sign', () => this.sign(r.id), { width: 74, height: 26, fontSize: 12, fill: COLORS.buttonSelected });
+      makeButton(this, width - 48, y + 30, 'Sign', () => this.sign(r.id), { width: 74, height: 26, fontSize: 12, fill: COLORS.buttonSelected });
     });
     if (all.length > MAX_VISIBLE) {
       this.add.text(width / 2, top + market.length * rowH + 4, `… +${all.length - MAX_VISIBLE} more (top ${MAX_VISIBLE} shown)`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0.5);

@@ -138,7 +138,7 @@ console.log('under different role sheets (500 runs, same seeds across sheets):\n
   const sheets: [string, TeamTactics][] = [
     ['leader + 5 domestiques', playerSheet({ [star]: 'leader', ...Object.fromEntries(others.map((id) => [id, 'domestique'])) })],
     ['leader, others free', playerSheet({ [star]: 'leader' })],
-    ['star on breakaway', playerSheet({ [star]: 'breakaway' })],
+    ['star free/attack', playerSheet({ [star]: 'free' })],
     ['everyone free', playerSheet({})],
   ];
   for (const [label, sheet] of sheets) {

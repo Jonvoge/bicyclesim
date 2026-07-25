@@ -4,7 +4,7 @@ import { TEAMS, TEAMS_BY_ID } from '../data/teams.ts';
 import { MAX_SQUAD_SIZE } from '../data/tuning.ts';
 import { scoutReport } from '../sim/development.ts';
 import { salaryOf, sponsorIncome } from '../sim/management.ts';
-import { riderRating } from '../sim/rating.ts';
+import { riderRating, riderType, statLine } from '../sim/rating.ts';
 import {
   playerBudget,
   playerRiders,
@@ -57,23 +57,25 @@ export class TeamScene extends Phaser.Scene {
     this.add.text(20, 194, 'SQUAD', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted });
     this.add.text(width - 20, 194, 'rating · salary · yrs', { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5);
     const top = 214;
-    const rowH = 62;
+    const rowH = 68;
     squad
       .slice()
       .sort((a, b) => riderRating(b) - riderRating(a))
       .forEach((r, i) => {
         const y = top + i * rowH;
         const col = teamColor(r.teamId);
-        this.add.rectangle(width / 2, y + 22, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
+        this.add.rectangle(width / 2, y + 26, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
         this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1);
         this.add.text(42, y + 12, r.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
         const sc = scoutReport(r);
         const potential = sc.certain ? '' : `  ·  ${'★'.repeat(sc.stars)}${'·'.repeat(5 - sc.stars)} potential`;
-        this.add.text(42, y + 30, `age ${r.age}${potential}`, { fontFamily: FONT, fontSize: '10px', color: sc.certain ? COLORS.textMuted : '#f5c518' }).setOrigin(0, 0.5);
+        // archetype up front so you can read the squad's shape at a glance
+        this.add.text(42, y + 30, `${riderType(r)} · age ${r.age}${potential}`, { fontFamily: FONT, fontSize: '10px', color: sc.certain ? COLORS.textMuted : '#f5c518' }).setOrigin(0, 0.5);
+        this.add.text(42, y + 48, statLine(r), { fontFamily: FONT, fontSize: '10px', color: '#8fb4c8' }).setOrigin(0, 0.5);
         this.add
           .text(width - 88, y + 12, `${riderRating(r)} · ${salaryOf(r)} · ${r.contractSeasonsLeft ?? '—'}yr`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted })
           .setOrigin(1, 0.5);
-        makeButton(this, width - 48, y + 32, 'Release', () => this.release(r.id), { width: 74, height: 22, fontSize: 11 });
+        makeButton(this, width - 48, y + 34, 'Release', () => this.release(r.id), { width: 74, height: 22, fontSize: 11 });
       });
   }
 
