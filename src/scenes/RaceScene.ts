@@ -52,6 +52,7 @@ interface Actor {
   out: boolean; // DNF'd / finished and faded from the road
   runInFromX: number | null; // road x when the clock hit t=1 (finish run-in start)
   crossed: boolean;
+  lastX: number; // furthest-right target so far — the road only flows forward (no backsliding)
 }
 
 interface TickerLine {
@@ -94,6 +95,9 @@ export class RaceScene extends Phaser.Scene {
   private progressBar!: Phaser.GameObjects.Rectangle;
   private kmText!: Phaser.GameObjects.Text;
   private groupsText!: Phaser.GameObjects.Text;
+  private startLine!: Phaser.GameObjects.Graphics;
+  private startLabel!: Phaser.GameObjects.Text;
+  private startFaded = false;
   private profile!: StageProfileView;
   private speedBtn!: Button;
   private ticker: TickerLine[] = [];
@@ -121,6 +125,7 @@ export class RaceScene extends Phaser.Scene {
     this.revealed = 0;
     this.eventIdx = 0;
     this.maxFinish = 1;
+    this.startFaded = false;
     this.tour = data.tour;
     this.dynasty = data.dynasty;
     this.tactics = data.playerTactics;
@@ -169,14 +174,18 @@ export class RaceScene extends Phaser.Scene {
     // groups overview strip
     this.groupsText = this.add.text(width / 2, 176, '', { fontFamily: FONT, fontSize: '12px', color: COLORS.text }).setOrigin(0.5);
 
-    // road: start marker (left) and finish line (right); field flows left → right
+    // road: finish line (right); field flows left → right. The finish stays put.
     const fl = this.add.graphics();
-    fl.lineStyle(1, 0xffffff, 0.15);
-    fl.lineBetween(this.raceLeftX, this.roadTop, this.raceLeftX, this.roadBottom);
     fl.lineStyle(2, 0xffffff, 0.4);
     for (let yy = this.roadTop; yy < this.roadBottom; yy += 10) fl.lineBetween(this.frontX, yy, this.frontX, yy + 5);
-    this.add.text(this.raceLeftX, this.roadTop - 10, 'START', { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
     this.add.text(this.frontX, this.roadTop - 10, 'FINISH', { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
+
+    // start marker (left) — its own objects so it can fade once the race has rolled
+    // out (a stationary line the field appears to ride backwards over otherwise)
+    this.startLine = this.add.graphics();
+    this.startLine.lineStyle(1, 0xffffff, 0.15);
+    this.startLine.lineBetween(this.raceLeftX, this.roadTop, this.raceLeftX, this.roadBottom);
+    this.startLabel = this.add.text(this.raceLeftX, this.roadTop - 10, 'START', { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
 
     // pooled on-road labels (group sizes, gaps)
     for (let i = 0; i < LABEL_POOL; i++) {
@@ -248,6 +257,7 @@ export class RaceScene extends Phaser.Scene {
         out: false,
         runInFromX: null,
         crossed: false,
+        lastX: this.raceLeftX,
       });
     });
   }
@@ -272,6 +282,13 @@ export class RaceScene extends Phaser.Scene {
     this.t += ((deltaMs / 1000) * this.speed * (inFinale ? FINALE_SLOWDOWN : 1)) / MAIN_T_SECONDS;
     const tPos = Math.min(this.t, 1);
     const dt = Math.min(deltaMs / 1000, 0.1);
+
+    // once the field has rolled out, retire the start marker so nothing appears to
+    // ride back across a stationary line
+    if (!this.startFaded && tPos > OPEN_T) {
+      this.startFaded = true;
+      this.tweens.add({ targets: [this.startLine, this.startLabel], alpha: 0, duration: 500 });
+    }
 
     if (this.t < 1) this.layoutRiders(tPos, dt, time);
     else this.runInToLine();
@@ -352,7 +369,12 @@ export class RaceScene extends Phaser.Scene {
         const row = i % rows;
         const jit = frac(Math.sin(m.a.packSeed * 78.233 + 1.7) * 43758.5453) - 0.5;
         const wob = Math.sin(time / 520 + m.a.packSeed) * 1.0;
-        const tx = frontX - col * FORM_DX - (row % 2) * 3;
+        // the road only flows toward the finish: a rider who loses time falls off
+        // the leader's pace, they never physically ride backwards. Clamp each
+        // target so a shattering group / a caught break can't slingshot glyphs left
+        // (and never back across the start line).
+        const tx = Math.max(frontX - col * FORM_DX - (row % 2) * 3, m.a.lastX);
+        m.a.lastX = tx;
         const ty = yMid + (row - (rows - 1) / 2) * FORM_DY + jit * 4 + wob;
         g.x += (tx - g.x) * ease;
         g.y += (ty - g.y) * ease;
