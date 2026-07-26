@@ -381,25 +381,28 @@ export class RaceScene extends Phaser.Scene {
       frontX = Math.max(frontX, this.trackLeft + 8 + depth);
       prevTailX = frontX - depth;
 
-      // stable in-group order → stable slots; everything eases, nothing jumps
+      // stable in-group order → stable slots; everything eases, nothing jumps.
+      // A bunch bigger than the formation packs its overflow into the SAME slots
+      // (a dense clump) rather than hiding riders — hiding made them blink and
+      // teleport in and out of the back as the cluster membership flickered.
       members.forEach((m, i) => {
         const g = m.a.glyph;
-        if (i >= shown) {
-          g.setVisible(false); // folded into the bunch (counted, not drawn)
-          return;
-        }
         g.setVisible(true);
-        const col = Math.floor(i / rows);
-        const row = i % rows;
+        const slot = i < shown ? i : (shown - 1) - ((i - shown) % Math.max(1, shown - 1));
+        const col = Math.floor(slot / rows);
+        const row = slot % rows;
         const jit = frac(Math.sin(m.a.packSeed * 78.233 + 1.7) * 43758.5453) - 0.5;
         const wob = Math.sin(time / 520 + m.a.packSeed) * 1.0;
+        // overflow riders sit slightly off their shared slot so a packed bunch
+        // reads as a dense clump, not a single stacked glyph
+        const overflow = i >= shown ? (frac(Math.sin(m.a.packSeed * 12.9898) * 43758.5453) - 0.5) * 6 : 0;
         // the road only flows toward the finish: a rider who loses time falls off
         // the leader's pace, they never physically ride backwards. Clamp each
         // target so a shattering group / a caught break can't slingshot glyphs left
         // (and never back across the start line).
-        const tx = Math.max(frontX - col * FORM_DX - (row % 2) * 3, m.a.lastX);
+        const tx = Math.max(frontX - col * FORM_DX - (row % 2) * 3 + overflow, m.a.lastX);
         m.a.lastX = tx;
-        const ty = yMid + (row - (rows - 1) / 2) * FORM_DY + jit * 4 + wob;
+        const ty = yMid + (row - (rows - 1) / 2) * FORM_DY + jit * 4 + wob + overflow * 0.4;
         g.x += (tx - g.x) * ease;
         g.y += (ty - g.y) * ease;
       });
