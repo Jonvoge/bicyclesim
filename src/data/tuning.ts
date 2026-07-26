@@ -157,14 +157,20 @@ export const WIN_MARGIN_BY_TYPE: Record<string, number> = {
   summitFinish: 1.5,
 };
 
-/** Terrain break-friendliness (0 = sprinters control, 1 = breaks thrive). */
+/**
+ * Terrain break-friendliness (0 = sprinters control, 1 = breaks thrive).
+ * A big MOUNTAIN day is the classic break-wins terrain — the GC group marks
+ * itself and lets the move go — so it's the friendliest. A SUMMIT FINISH stays
+ * lower: the favourites want the stage win up the final climb, so the break is
+ * caught more often (playtest note: mountain breaks felt like they never stuck).
+ */
 export const BREAK_FRIENDLINESS: Record<string, number> = {
   flat: 0.12,
   summitFinish: 0.38,
-  mountain: 0.5,
   cobbled: 0.52,
   descentFinish: 0.55,
   hilly: 0.6,
+  mountain: 0.82,
 };
 
 /** Terrain selectiveness for late attacks (climbs reward the attacker). */
