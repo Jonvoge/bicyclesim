@@ -125,8 +125,14 @@ export function interpGap(gaps: GapKey[], t: number): number {
   return last.gap;
 }
 
-function lastName(riderId: string): string {
-  return (RIDERS_BY_ID.get(riderId)?.name ?? riderId).split(' ').slice(-1)[0];
+/**
+ * Rider lookup for names/stats in the narrative. Must be the ACTUAL field for this
+ * race (input.riders) — a dynasty's signed free agents, prospects and new blood
+ * aren't in the static RIDERS_BY_ID, so relying on that printed their raw id
+ * (e.g. "fa-gen-3") in the race radio. Fall back to the static roster, then the id.
+ */
+function makeLastName(byId: Map<string, { name: string }>) {
+  return (riderId: string): string => (byId.get(riderId)?.name ?? RIDERS_BY_ID.get(riderId)?.name ?? riderId).split(' ').slice(-1)[0];
 }
 
 function fmtLead(sec: number): string {
@@ -149,6 +155,8 @@ function idJitter(id: string, salt: number): number {
 
 export function buildRaceStory(input: StageSimInput): RaceStory {
   const { stage, rng } = input;
+  const byId = new Map(input.riders.map((r) => [r.id, r]));
+  const lastName = makeLastName(byId);
   const scored = scoreRiders(input);
   const events: RaceEvent[] = [];
   const friendliness = BREAK_FRIENDLINESS[stage.type] ?? 0.3;
@@ -246,7 +254,7 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   const committedInBreak = breakIds.filter((id) => committed.has(id)).length;
   // a break of strong flat-road engines rides faster and holds on longer
   const meanFlat = breakIds.length
-    ? breakIds.reduce((s, id) => s + (RIDERS_BY_ID.get(id)?.stats.flat ?? BREAK_SURVIVE_FLAT_PIVOT), 0) / breakIds.length
+    ? breakIds.reduce((s, id) => s + (byId.get(id)?.stats.flat ?? RIDERS_BY_ID.get(id)?.stats.flat ?? BREAK_SURVIVE_FLAT_PIVOT), 0) / breakIds.length
     : BREAK_SURVIVE_FLAT_PIVOT;
   const flatBonus = Math.max(
     -BREAK_SURVIVE_FLAT_CAP,
