@@ -1,4 +1,5 @@
 import { ALL_RIDERS } from '../data/freeAgents.ts';
+import { conditionForEvent, defaultFocusPlanId, FOCUS_PLANS_BY_ID } from '../data/focusPlans.ts';
 import { RACES_BY_ID, SEASON_CALENDAR } from '../data/races.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { TEAMS, PLAYER_TEAM } from '../data/teams.ts';
@@ -101,6 +102,7 @@ export function createDynasty(playerTeamId: string = PLAYER_TEAM.id): DynastySta
   }
   for (const r of roster) {
     seedDevelopment(r); // hidden peakAge / ceiling / developmentRate (Phase 6)
+    if (!r.focusPlanId) r.focusPlanId = defaultFocusPlanId(r); // season-long Condition plan (Season Focus ext)
     if (r.teamId) {
       r.salary = riderSalary(r);
       r.contractSeasonsLeft = seedContract(r.id);
@@ -183,6 +185,18 @@ export function releaseRider(dynasty: DynastyState, riderId: string): ActionChec
   rider.teamId = null;
   rider.salary = undefined;
   rider.contractSeasonsLeft = undefined;
+  return { ok: true };
+}
+
+/**
+ * Set a rider's season Focus plan (Season Focus ext). Rejects an unknown plan id.
+ * Takes effect from the next event opened (Condition is seeded at `startSeasonEvent`).
+ */
+export function setFocusPlan(dynasty: DynastyState, riderId: string, planId: string): ActionCheck {
+  const rider = dynasty.roster.find((r) => r.id === riderId);
+  if (!rider) return { ok: false, reason: 'Unknown rider' };
+  if (!FOCUS_PLANS_BY_ID.has(planId)) return { ok: false, reason: 'Unknown plan' };
+  rider.focusPlanId = planId;
   return { ok: true };
 }
 
@@ -349,6 +363,9 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
     dynasty.roster = dynasty.roster.filter((r) => !cut.has(r.id));
   }
 
+  // every rider (new prospects included) carries a default season focus plan
+  for (const r of dynasty.roster) if (!r.focusPlanId) r.focusPlanId = defaultFocusPlanId(r);
+
   // winter rest: carry a heavily-recovered fatigue into the new season (survivors only)
   const live = new Set(dynasty.roster.map((r) => r.id));
   const carried = new Map<string, number>();
@@ -424,7 +441,12 @@ export function pickRaceSquad(
  */
 export function startSeasonEvent(dynasty: DynastyState, race: Race): TourState {
   const tour = createTour(race);
-  for (const r of racingRoster(dynasty)) tour.fatigue.set(r.id, dynasty.season.fatigue.get(r.id) ?? 0);
+  tour.condition = new Map();
+  for (const r of racingRoster(dynasty)) {
+    tour.fatigue.set(r.id, dynasty.season.fatigue.get(r.id) ?? 0);
+    // seed each rider's season Condition for this event from their focus plan
+    tour.condition.set(r.id, conditionForEvent(r.focusPlanId, dynasty.season.eventIndex, dynasty.season.calendar.length));
+  }
   const stage = STAGES_BY_ID.get(race.stageIds[0])!;
   const isTour = race.stageIds.length > 1;
   const starters = new Set<string>();

@@ -1,4 +1,5 @@
 import {
+  CONDITION_NEUTRAL,
   FATIGUE_BASE,
   FATIGUE_REF_KM,
   STAGE_DIFFICULTY_BY_TYPE,
@@ -20,6 +21,7 @@ export interface TourState {
   stageIds: string[];
   stageIndex: number; // the next stage to ride (== stageIds.length when done)
   fatigue: Map<string, number>; // riderId → currentFatigue going into the next stage
+  condition?: Map<string, number>; // riderId → season Condition for this event (Season Focus); unset = neutral
   abandoned: Set<string>; // DNF'd — out of the tour and out of GC
   results: StageResult[]; // completed stages, in order
   starters?: Set<string>; // riders who took the start (undefined = the whole field); rested riders are excluded
@@ -67,7 +69,11 @@ export function isTourComplete(tour: TourState): boolean {
 export function ridersForStage(tour: TourState, allRiders: Rider[]): Rider[] {
   return allRiders
     .filter((r) => !tour.abandoned.has(r.id) && (!tour.starters || tour.starters.has(r.id)))
-    .map((r) => ({ ...r, currentFatigue: tour.fatigue.get(r.id) ?? 0 }));
+    .map((r) => ({
+      ...r,
+      currentFatigue: tour.fatigue.get(r.id) ?? 0,
+      condition: tour.condition?.get(r.id) ?? r.condition ?? CONDITION_NEUTRAL,
+    }));
 }
 
 /**

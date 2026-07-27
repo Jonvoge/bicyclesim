@@ -12,6 +12,21 @@
 export const SIGMA_MAX = 8;
 export const CONSISTENCY_FACTOR = 0.7;
 
+// --- Season Focus / Condition (docs/cycling-sim-SEASON-FOCUS.md, Part A) ---
+// A planned, season-long form curve layered on the daily swing (§5.3) and the
+// career development (§7): a rider builds toward a peak for their target races and
+// can't hold top form all year. `condition ∈ [0,1]`; CONDITION_NEUTRAL adds nothing
+// to perfScore, a full peak adds CONDITION_PERF_MAX (on par with a LEADER bonus).
+// Plans (src/data/focusPlans.ts) each spend a fixed FOCUS_BUDGET of hump-area, so a
+// sharp single peak goes higher than a double and Steady never peaks. ALL STARTING
+// GUESSES (SPEC §10) — CONDITION_PERF_MAX and the hump widths are the two most
+// likely to need the playtest.
+export const CONDITION_FLOOR = 0.35; // form when a rider is outside their planned window
+export const CONDITION_NEUTRAL = 0.5; // the condition that adds nothing to perfScore (the curve's zero point)
+export const CONDITION_PERF_MAX = 4; // perfScore lift at a full peak (condition = 1)
+export const FOCUS_BUDGET = 0.062; // target hump-area per plan (the conservation law, Part A.3)
+export const FOCUS_BUDGET_TOL = 0.03; // allowed area spread across plans (Steady sits a hair high)
+
 // --- Fatigue & recovery (SPEC §5.1, §5.8) ---
 export const FATIGUE_WEIGHT = 0.9; // per-point penalty of currentFatigue on perfScore
 export const STAMINA_FACTOR = 0.5; // how much stamina blunts across-stage fatigue gain
