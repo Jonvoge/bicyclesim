@@ -18,6 +18,8 @@ export const RACES: Race[] = [
   { id: 'r-liege', name: 'Liège–Bastan', type: 'oneDay', stageIds: ['st-liege'], prestige: 92 },
   { id: 'r-donostia', name: 'Donostia Clásica', type: 'oneDay', stageIds: ['st-donostia'], prestige: 70 },
   { id: 'r-montagne', name: 'Grand Prix Montagne', type: 'oneDay', stageIds: ['st-montagne'], prestige: 66 },
+  { id: 'r-montreol', name: 'Montréol Classic', type: 'oneDay', stageIds: ['st-montreol'], prestige: 68 },
+  { id: 'r-rainbow', name: 'Rainbow Championship', type: 'oneDay', stageIds: ['st-rainbow'], prestige: 93 },
   { id: 'r-lombardo', name: 'Il Lombardo', type: 'oneDay', stageIds: ['st-lombardo'], prestige: 90 },
 
   // --- stage races ---
@@ -35,16 +37,28 @@ export const RACES: Race[] = [
     stageIds: ['ga-1', 'ga-2', 'ga-3', 'ga-4', 'ga-5', 'ga-6', 'ga-7', 'ga-8', 'ga-9'],
     prestige: 100,
   },
+  {
+    id: 'r-iberia',
+    name: 'Vuelta a Iberia',
+    type: 'shortTour',
+    stageIds: ['vi-1', 'vi-2', 'vi-3', 'vi-4', 'vi-5'],
+    prestige: 86,
+  },
 ];
 
 export const RACES_BY_ID: Map<string, Race> = new Map(RACES.map((r) => [r.id, r]));
 
 /**
- * The season calendar (SPEC §6): the order races are contested through the year —
- * spring cobbles & classics, the Ardennes, then the grand tours, closing with the
- * autumn Monument. 14 events; the two tours span multiple race-days each.
+ * The season calendar (SPEC §6): the order races are contested through the year, in
+ * three balanced windows so a Season Focus plan (docs/cycling-sim-SEASON-FOCUS.md)
+ * has real targets whenever it peaks:
+ *   Spring  (1–9)   cobbles, classics & the Ardennes
+ *   Summer  (10–13) the grand tours
+ *   Autumn  (14–17) a late climber's tour, two autumn one-days & the closing Monument
+ * 17 events; the three tours span multiple race-days each.
  */
 export const SEASON_CALENDAR: string[] = [
+  // spring
   'r-omlopp',
   'r-strada',
   'r-sanreno',
@@ -54,9 +68,14 @@ export const SEASON_CALENDAR: string[] = [
   'r-amstal',
   'r-fleche',
   'r-liege',
+  // summer
   'r-provence',
   'r-donostia',
   'r-montagne',
   'r-aurelia',
+  // autumn
+  'r-iberia',
+  'r-montreol',
+  'r-rainbow',
   'r-lombardo',
 ];

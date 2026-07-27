@@ -21,7 +21,7 @@ import {
   TARGET_SQUAD_SIZE,
   TRAIN_CAMPS_PER_SEASON,
 } from '../data/tuning.ts';
-import type { Rider } from '../data/types.ts';
+import type { Rider, StatKey } from '../data/types.ts';
 import { ageOneSeason, generateDomestique, generateProspect, scoutReport, seedDevelopment, shouldRetire, trainingTick } from '../sim/development.ts';
 import {
   canRelease,
@@ -67,6 +67,7 @@ export interface DynastyState {
   season: SeasonState; // the season currently being contested
   lastTeamRank: Record<string, number>; // teamId → last season's finishing rank (sponsor income)
   lastTraining: TrainingBlockSummary | null; // the most recent auto-training camp (for the UI); null between camps
+  seasonDev: Record<string, Partial<Record<StatKey, number>>>; // player riderId → stat points gained SO FAR this season (reset at rollover)
 }
 
 /** What one automatic training camp did to the player's squad (for the UI). */
@@ -74,7 +75,7 @@ export interface TrainingBlockSummary {
   afterEvent: number; // races completed in the season when this camp ran
   improvedCount: number; // player riders who gained at least a little
   totalGain: number; // total stat points added across the player's squad
-  perRider: { id: string; gain: number }[]; // player squad gains this camp, biggest first
+  perRider: { id: string; gain: number; topStat?: StatKey }[]; // player squad gains this camp, biggest first (with the stat that moved most)
 }
 
 function cloneRider(r: Rider): Rider {
@@ -121,6 +122,7 @@ export function createDynasty(playerTeamId: string = PLAYER_TEAM.id): DynastySta
     season: createSeason(SEASON_CALENDAR),
     lastTeamRank: {},
     lastTraining: null,
+    seasonDev: {},
   };
 }
 
@@ -222,11 +224,19 @@ export function campEventIndices(calendarLength: number): number[] {
  * *player's* squad gains for the UI. No fatigue, no player input: it just happens.
  */
 function runTrainingBlock(dynasty: DynastyState): TrainingBlockSummary {
-  const perRider: { id: string; gain: number }[] = [];
+  const perRider: { id: string; gain: number; topStat?: StatKey }[] = [];
   for (const r of dynasty.roster) {
     if (r.teamId === null) continue; // free agents have no coach; they develop at the rollover
     const gain = trainingTick(r);
-    if (r.teamId === dynasty.playerTeamId) perRider.push({ id: r.id, gain });
+    if (r.teamId !== dynasty.playerTeamId) continue;
+    // the stat that moved most this camp (for the "camp moment" popup)
+    const topStat = (Object.entries(gain.byStat) as [StatKey, number][]).sort((a, b) => b[1] - a[1])[0]?.[0];
+    perRider.push({ id: r.id, gain: gain.total, topStat });
+    // accumulate the season-to-date development so the screen can show "+N this year"
+    const acc = (dynasty.seasonDev[r.id] ??= {});
+    for (const [k, d] of Object.entries(gain.byStat) as [StatKey, number][]) {
+      acc[k] = Math.round(((acc[k] ?? 0) + d) * 10) / 10;
+    }
   }
   perRider.sort((a, b) => b.gain - a.gain);
   const totalGain = Math.round(perRider.reduce((s, p) => s + p.gain, 0) * 10) / 10;
@@ -236,6 +246,20 @@ function runTrainingBlock(dynasty: DynastyState): TrainingBlockSummary {
     totalGain,
     perRider,
   };
+}
+
+/** Total stat points a player rider has gained so far this season (for the UI). */
+export function seasonDevTotal(dynasty: DynastyState, riderId: string): number {
+  const acc = dynasty.seasonDev[riderId];
+  if (!acc) return 0;
+  return Math.round(Object.values(acc).reduce((s, d) => s + (d ?? 0), 0) * 10) / 10;
+}
+
+/** The stat a player rider has developed most this season, if any (for the UI). */
+export function seasonDevTopStat(dynasty: DynastyState, riderId: string): StatKey | undefined {
+  const acc = dynasty.seasonDev[riderId];
+  if (!acc) return undefined;
+  return (Object.entries(acc) as [StatKey, number][]).sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
 // --- event & season transitions ----------------------------------------------
@@ -376,6 +400,7 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   dynasty.season = createSeason(SEASON_CALENDAR);
   dynasty.season.fatigue = carried;
   dynasty.lastTraining = null;
+  dynasty.seasonDev = {}; // the new season's development starts from zero
 
   return {
     seasonNumber: finishedSeason,

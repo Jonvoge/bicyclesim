@@ -86,7 +86,8 @@ describe('trainingTick — automatic development', () => {
       ceiling: { climbing: 92, flat: 84, sprint: 55, puncheur: 58, endurance: 70, stamina: 62 },
     });
     const gain = trainingTick(r);
-    expect(gain).toBeGreaterThan(0);
+    expect(gain.total).toBeGreaterThan(0);
+    expect(gain.byStat.climbing).toBeGreaterThan(0); // the signature stat is named as having moved
     expect(r.stats.climbing).toBeGreaterThan(80); // their signature grows
     expect(r.stats.climbing).toBeLessThanOrEqual(92); // but never past the ceiling
     expect(r.stats.sprint).toBe(55); // no headroom → no change
@@ -99,7 +100,7 @@ describe('trainingTick — automatic development', () => {
   it('gives a past-peak veteran nothing (you cannot train up age)', () => {
     const r = make(33, { peakAge: 27, developmentRate: 0.35, ceiling: { climbing: 99, sprint: 99 } });
     const before = { ...r.stats };
-    expect(trainingTick(r)).toBe(0);
+    expect(trainingTick(r).total).toBe(0);
     expect(r.stats).toEqual(before);
   });
 });

@@ -18,6 +18,7 @@ import type { Rider, Stage, StageResult } from '../data/types.ts';
 import { Rng } from './rng.ts';
 import { simulateStage } from './stageSim.ts';
 import { buildRaceStory } from './raceNarrative.ts';
+import { legReadFace, legReadLabel } from './legRead.ts';
 import { bestSuitedRider, buildTacticsMap, defaultTeamTactics, defaultTeamTacticsFor } from './raceSetup.ts';
 import { riderRating, riderSalary, salaryFor, signingFeeFor } from './rating.ts';
 import { DEV_STATS, scoutReport } from './development.ts';
@@ -412,5 +413,33 @@ console.log('\n########## SEASON FOCUS: CONDITION CURVES ##########');
     }
     console.log(`    ${label.padEnd(40)} condition ${cond.toFixed(2)}  avg finish ${(sumPos / runs).toFixed(2).padStart(5)}  win ${((wins / runs) * 100).toFixed(1)}%`);
   }
+}
+console.log('');
+
+// --- 9. Daily form reveal: "read the legs" at the gun (Season Focus ext, Part B) --
+console.log('\n########## READ THE LEGS ##########');
+{
+  const stageId = 'st-flandts';
+  const stage = STAGES_BY_ID.get(stageId)!;
+  const tactics = new Map(TEAMS.map((t) => [t.id, defaultTeamTactics(t, stage)]));
+  const story = buildRaceStory({ stage, riders: RIDERS, tacticsByTeam: tactics, rng: new Rng(2026), playerTeamId: PLAYER_TEAM.id });
+  console.log(`\nYour squad's legs at the gun (${stage.name}), z = form swing in units of the rider's own σ:\n`);
+  for (const id of PLAYER_TEAM.riderIds) {
+    const info = story.legReads.get(id);
+    if (!info) continue;
+    console.log(`    ${legReadFace(info.read)}  ${riderName(id).padEnd(20)} ${legReadLabel(info.read).padEnd(11)} (z ${info.z >= 0 ? '+' : ''}${info.z.toFixed(2)})`);
+  }
+  const legs = story.events.filter((e) => e.kind === 'legs');
+  console.log(`\n  Race radio (legs): ${legs.length ? legs.map((e) => e.text).join(' · ') : '(a quiet day — nobody flying or flat)'}`);
+
+  // distribution check over many seeds: FLYING/off should be rare, normal common
+  const N = 4000;
+  const counts: Record<string, number> = { flying: 0, good: 0, normal: 0, heavy: 0, off: 0 };
+  const star = PLAYER_TEAM.riderIds[0];
+  for (let i = 0; i < N; i++) {
+    const s = buildRaceStory({ stage, riders: RIDERS, tacticsByTeam: tactics, rng: new Rng(i * 2654435761 + 9), playerTeamId: PLAYER_TEAM.id });
+    counts[s.legReads.get(star)!.read]++;
+  }
+  console.log(`\n  ${riderName(star)}'s leg-read over ${N} days: ` + Object.entries(counts).map(([k, n]) => `${k} ${((n / N) * 100).toFixed(1)}%`).join(' · '));
 }
 console.log('');

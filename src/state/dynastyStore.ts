@@ -1,5 +1,5 @@
 import { PLAYER_TEAM } from '../data/teams.ts';
-import type { Rider } from '../data/types.ts';
+import type { Rider, StatKey } from '../data/types.ts';
 import type { SeasonState } from '../sim/season.ts';
 import type { DynastyState } from './dynasty.ts';
 
@@ -41,6 +41,7 @@ interface SavedDynasty {
   budgets: Record<string, number>;
   season: SavedSeason;
   lastTeamRank: Record<string, number>;
+  seasonDev?: Record<string, Partial<Record<StatKey, number>>>; // season-to-date development (optional for pre-ext saves)
   meta?: SlotMeta;
 }
 
@@ -127,6 +128,7 @@ export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
       budgets: dynasty.budgets,
       season: packSeason(dynasty.season),
       lastTeamRank: dynasty.lastTeamRank,
+      seasonDev: dynasty.seasonDev,
       meta: {
         seasonNumber: dynasty.seasonNumber,
         racesDone: dynasty.season.results.length,
@@ -150,6 +152,7 @@ export function loadDynastyFromSlot(slot: number): DynastyState | null {
     season: unpackSeason(s.season),
     lastTeamRank: s.lastTeamRank ?? {},
     lastTraining: null, // recomputed each event; camps are not persisted
+    seasonDev: s.seasonDev ?? {},
   };
 }
 
