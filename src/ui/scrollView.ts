@@ -21,7 +21,7 @@ export class ScrollView {
     this.layer.setMask(mask.createGeometryMask());
     this.minY = Math.min(0, viewBottom - contentBottom - 8);
 
-    const zone = scene.add.zone(0, viewTop, width, viewBottom - viewTop).setOrigin(0, 0).setInteractive();
+    const zone = scene.add.zone(0, viewTop, width, viewBottom - viewTop).setOrigin(0, 0).setInteractive().setDepth(-1);
     zone.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.dragging = true;
       this.lastY = p.y;

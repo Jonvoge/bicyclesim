@@ -131,23 +131,25 @@ export class PreRaceScene extends Phaser.Scene {
       this.add.text(width / 2, top - 14, 'ROLES — tap a rider, then a role', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
     }
 
-    const rowH = 40;
+    const rowH = 44;
     this.squadIds.forEach((id, i) => {
       const rider = this.byId.get(id)!;
       const y = top + 18 + i * rowH;
       const bg = this.add
-        .rectangle(width / 2, y, width - 28, rowH - 5, COLORS.panel, 1)
+        .rectangle(width / 2, y, width - 28, rowH - 6, COLORS.panel, 1)
         .setStrokeStyle(1, COLORS.stroke)
         .setInteractive({ useHandCursor: true });
       bg.on('pointerup', () => this.selectRider(id));
-      this.add.text(30, y, rider.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
+      this.add.text(30, y - 7, rider.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
 
-      // stage suitability (how well the rider's stats match today's terrain) + (in
-      // the season) the "legs" bar for carried fatigue — the two inputs to the pick.
-      // Labelled "suit", not "fit": this is terrain match, NOT the rider's fitness
-      // (that's the fatigue bar to the right).
-      this.add.text(30, y + 13, `suit ${Math.round(baseScore(rider, this.stage))}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
-      if (this.dynasty) this.buildFatiguePip(148, y, this.tour.fatigue.get(id) ?? 0);
+      // Suitability is terrain match, fitness is the season plan's event condition,
+      // and legs is carried fatigue. They are separate inputs to today's race.
+      this.add.text(30, y + 11, `suit ${Math.round(baseScore(rider, this.stage))}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+      if (this.dynasty) {
+        const condition = this.tour.condition?.get(id) ?? 0.5;
+        this.add.text(88, y + 11, `fitness ${Math.round(condition * 100)}%`, { fontFamily: FONT, fontSize: '10px', color: condition >= 0.67 ? '#18b39a' : COLORS.textMuted }).setOrigin(0, 0.5);
+        this.buildFatiguePip(166, y, this.tour.fatigue.get(id) ?? 0);
+      }
 
       const chip = this.add.rectangle(width - 72, y, 98, 24, COLORS.panelAlt, 1);
       const chipText = this.add.text(width - 72, y, '', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: COLORS.textDark }).setOrigin(0.5);

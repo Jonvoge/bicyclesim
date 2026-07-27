@@ -6,6 +6,7 @@ import { riderType } from '../sim/rating.ts';
 import { playerRiders, setFocusPlan, type DynastyState } from '../state/dynasty.ts';
 import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
+import { ScrollView } from '../ui/scrollView.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
 /**
@@ -53,25 +54,28 @@ export class FocusPlanScene extends Phaser.Scene {
     const squad = playerRiders(this.dynasty).slice().sort((a, b) => a.name.localeCompare(b.name));
     const top = 116;
     const rowH = 84;
+    const contentBottom = top + Math.max(0, squad.length - 1) * rowH + rowH - 8;
+    const scroll = new ScrollView(this, 108, this.scale.height - 8, contentBottom, width);
     squad.forEach((r, i) => {
       const y = top + i * rowH;
       const planId = r.focusPlanId ?? DEFAULT_FOCUS_PLAN_ID;
       const plan = FOCUS_PLANS_BY_ID.get(planId) ?? FOCUS_PLANS_BY_ID.get(DEFAULT_FOCUS_PLAN_ID)!;
       const col = teamColor(r.teamId);
 
-      this.add.rectangle(width / 2, y + 34, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
-      this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1);
-      this.add.text(42, y + 12, r.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
-      this.add.text(42, y + 30, `${riderType(r)} · age ${r.age}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+      scroll.add(this.add.rectangle(width / 2, y + 34, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke));
+      scroll.add(this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1));
+      scroll.add(this.add.text(42, y + 12, r.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5));
+      scroll.add(this.add.text(42, y + 30, `${riderType(r)} · age ${r.age}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5));
 
       // the plan pill — tap to cycle to the next plan
-      makeButton(this, width - 82, y + 16, plan.label, () => this.cyclePlan(r.id), {
+      const planButton = makeButton(this, width - 82, y + 16, plan.label, () => this.cyclePlan(r.id), {
         width: 148,
         height: 26,
         fontSize: 12,
         fill: plan.color,
       });
-      this.add.text(width - 82, y + 34, plan.blurb, { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5);
+      scroll.add(planButton.container);
+      scroll.add(this.add.text(width - 82, y + 34, plan.blurb, { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0.5));
 
       // the rider's condition sparkline across the season, in the plan's colour
       let spark = '';
@@ -79,7 +83,7 @@ export class FocusPlanScene extends Phaser.Scene {
         const c = conditionForEvent(planId, e, N);
         spark += BARS[Math.max(0, Math.min(8, Math.round(c * 8)))];
       }
-      this.add.text(42, y + 54, spark, { fontFamily: 'monospace', fontSize: '13px', color: `#${plan.color.toString(16).padStart(6, '0')}` }).setOrigin(0, 0.5);
+      scroll.add(this.add.text(42, y + 54, spark, { fontFamily: 'monospace', fontSize: '13px', color: `#${plan.color.toString(16).padStart(6, '0')}` }).setOrigin(0, 0.5));
     });
 
     if (squad.length === 0) {

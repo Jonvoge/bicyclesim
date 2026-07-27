@@ -325,11 +325,11 @@ export const NEW_RIDERS_PER_SEASON = 7;
 export const FREE_AGENT_POOL_CAP = 16; // keep the market (and the save) bounded: cull the weakest spares
 export const PROSPECT_AGE_MIN = 19;
 export const PROSPECT_AGE_MAX = 22;
-export const PROSPECT_BASE_MIN = 42; // a prospect's non-signature stats start around here…
-export const PROSPECT_BASE_MAX = 66;
-export const PROSPECT_SIGNATURE_MIN = 60; // …their signature stat starts higher (raw talent showing)
-export const PROSPECT_SIGNATURE_MAX = 82; // a few prospects reach elite ceilings, so the peloton's
-// top tier is replenished as the authored stars retire (Phase 8 balance pass)
+export const PROSPECT_BASE_MIN = 44; // a prospect's non-signature stats start around here…
+export const PROSPECT_BASE_MAX = 68;
+export const PROSPECT_SIGNATURE_MIN = 64; // …their signature stat starts higher (raw talent showing)
+export const PROSPECT_SIGNATURE_MAX = 86; // enough prospects reach elite ceilings for new generations to
+// keep the top tier alive as the authored stars retire (Phase 8 balance pass)
 
 // Scouting fuzz — a young rider's shown potential is UNCERTAIN (the gamble). The
 // scouted ceiling carries a seeded error that shrinks to nothing as the rider

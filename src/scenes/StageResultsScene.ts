@@ -226,24 +226,24 @@ export class StageResultsScene extends Phaser.Scene {
     this.add.text(24, top - 18, '🟡 GENERAL CLASSIFICATION', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#f5c518' }).setOrigin(0, 0.5);
 
     const rowH = 24;
-    const rows = Math.min(13, gc.length);
+    const scroll = new ScrollView(this, top - 2, 786, top + 8 + gc.length * rowH, width);
     const leadTime = gc[0]?.totalTimeSec ?? 0;
-    for (let i = 0; i < rows; i++) {
+    for (let i = 0; i < gc.length; i++) {
       const row = gc[i];
       const rider = this.byId.get(row.riderId)!;
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + 8 + i * rowH;
-      if (isPlayer) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12);
-      if (i === 0) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.gold, 0.1);
-      this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(1, 0.5);
-      this.add.rectangle(46, y, 9, 9, col.jersey, 1);
+      if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12));
+      if (i === 0) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.gold, 0.1));
+      scroll.add(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(1, 0.5));
+      scroll.add(this.add.rectangle(46, y, 9, 9, col.jersey, 1));
       const name = this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '13px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 ? '#f5c518' : isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
-      if (isPlayer) this.roleLetter(60 + name.width + 5, y, roleOf(playerTactics, row.riderId));
+      scroll.add(name);
+      if (isPlayer) scroll.add(this.roleLetter(60 + name.width + 5, y, roleOf(playerTactics, row.riderId)));
       const label = i === 0 ? this.fmtTime(row.totalTimeSec) : `+${this.fmtGap(row.totalTimeSec - leadTime)}`;
-      this.add.text(width - 24, y, label, { fontFamily: FONT, fontSize: '12px', color: i === 0 ? '#f5c518' : COLORS.textMuted }).setOrigin(1, 0.5);
+      scroll.add(this.add.text(width - 24, y, label, { fontFamily: FONT, fontSize: '12px', color: i === 0 ? '#f5c518' : COLORS.textMuted }).setOrigin(1, 0.5));
     }
-    if (gc.length > rows) this.add.text(60, top + 8 + rows * rowH, `… +${gc.length - rows} more`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0, 0.5);
   }
 
   // --- tour finish: the overall winner + full final GC ------------------------
@@ -259,28 +259,28 @@ export class StageResultsScene extends Phaser.Scene {
 
     const top = 168;
     const rowH = 26;
-    const rows = Math.min(20, gc.length);
+    const scroll = new ScrollView(this, 148, 792, top + gc.length * rowH, width);
     const leadTime = gc[0].totalTimeSec;
-    for (let i = 0; i < rows; i++) {
+    for (let i = 0; i < gc.length; i++) {
       const row = gc[i];
       const rider = this.byId.get(row.riderId)!;
       const col = teamColor(rider.teamId);
       const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + i * rowH;
-      if (isPlayer) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12);
-      if (i === 0) this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.gold, 0.1);
-      this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5);
-      this.add.rectangle(46, y, 9, 9, col.jersey, 1);
-      this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 ? '#f5c518' : isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
-      this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5);
+      if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12));
+      if (i === 0) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.gold, 0.1));
+      scroll.add(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5));
+      scroll.add(this.add.rectangle(46, y, 9, 9, col.jersey, 1));
+      scroll.add(this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 ? '#f5c518' : isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5));
+      scroll.add(this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       const label = i === 0 ? this.fmtTime(row.totalTimeSec) : `+${this.fmtGap(row.totalTimeSec - leadTime)}`;
-      this.add.text(width - 20, y, label, { fontFamily: FONT, fontSize: '13px', color: i === 0 ? '#f5c518' : COLORS.textMuted }).setOrigin(1, 0.5);
+      scroll.add(this.add.text(width - 20, y, label, { fontFamily: FONT, fontSize: '13px', color: i === 0 ? '#f5c518' : COLORS.textMuted }).setOrigin(1, 0.5));
     }
   }
 
-  private roleLetter(x: number, y: number, role: ReturnType<typeof roleOf>): void {
+  private roleLetter(x: number, y: number, role: ReturnType<typeof roleOf>): Phaser.GameObjects.Text {
     const def = ROLES_BY_ID.get(role)!;
-    this.add.text(x, y, def.short, { fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: `#${def.color.toString(16).padStart(6, '0')}` }).setOrigin(0, 0.5);
+    return this.add.text(x, y, def.short, { fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: `#${def.color.toString(16).padStart(6, '0')}` }).setOrigin(0, 0.5);
   }
 
   private fmtTime(sec: number): string {

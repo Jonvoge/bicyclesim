@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { teamColor } from '../data/teamColors.ts';
 import { scoutReport } from '../sim/development.ts';
 import { riderRating, riderType } from '../sim/rating.ts';
-import { playerRiders, seasonDevTopStat, seasonDevTotal, type DynastyState } from '../state/dynasty.ts';
+import { playerRiders, seasonDevStatCount, seasonDevTopStat, seasonDevTotal, type DynastyState } from '../state/dynasty.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
@@ -38,7 +38,7 @@ export class TrainingScene extends Phaser.Scene {
 
     makeButton(this, 40, 30, '‹', () => this.scene.start('Team', { dynasty: this.dynasty }), { width: 40, height: 34, fontSize: 20 });
     this.add.text(width / 2, 24, 'Development', { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
-    this.add.text(width / 2, 47, 'training is automatic — camps develop by age · potential · type', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(width / 2, 50, 'automatic camps · age · potential · type', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0.5);
 
     // last-camp banner
     const last = this.dynasty.lastTraining;
@@ -64,6 +64,7 @@ export class TrainingScene extends Phaser.Scene {
       const stars = '★'.repeat(sc.stars) + '·'.repeat(5 - sc.stars);
       const seasonGain = seasonDevTotal(this.dynasty, r.id);
       const seasonStat = seasonDevTopStat(this.dynasty, r.id);
+      const seasonStatCount = seasonDevStatCount(this.dynasty, r.id);
 
       this.add.rectangle(width / 2, y + 24, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
       this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1);
@@ -73,8 +74,15 @@ export class TrainingScene extends Phaser.Scene {
       this.add.text(width - 20, y + 31, `${stars}${sc.certain ? '' : ' ' + sc.label}`, { fontFamily: FONT, fontSize: '10px', color: sc.certain ? COLORS.textMuted : '#f5c518' }).setOrigin(1, 0.5);
 
       // season-to-date development (the story the screen used to throw away)
-      const devText = seasonGain > 0 ? `▲ +${seasonGain} this season${seasonStat ? ` · ${STAT_LABELS[seasonStat] ?? seasonStat}` : ''}` : 'no camp growth yet this season';
-      this.add.text(42, y + 48, devText, { fontFamily: FONT, fontSize: '10px', color: seasonGain > 0 ? '#18b39a' : COLORS.textMuted }).setOrigin(0, 0.5);
+      const devText = seasonGain > 0
+        ? `▲ +${seasonGain} this season · ${seasonStatCount} stats${seasonStat ? ` · ${STAT_LABELS[seasonStat] ?? seasonStat} most` : ''}`
+        : 'no camp growth yet this season';
+      this.add.text(42, y + 48, devText, {
+        fontFamily: FONT,
+        fontSize: '10px',
+        color: seasonGain > 0 ? '#18b39a' : COLORS.textMuted,
+        wordWrap: { width: width - 62, useAdvancedWrap: true },
+      }).setOrigin(0, 0.5);
 
       // right: this camp's gain on top of the potential stars
       if (gain > 0) {

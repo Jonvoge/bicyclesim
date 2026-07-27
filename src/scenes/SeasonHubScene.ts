@@ -12,6 +12,7 @@ import {
 } from '../state/dynasty.ts';
 import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
+import { ScrollView } from '../ui/scrollView.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
 /**
@@ -47,17 +48,17 @@ export class SeasonHubScene extends Phaser.Scene {
     makeButton(this, width / 2 + 108, 76, 'Team HQ', () => this.scene.start('Team', { dynasty: this.dynasty }), { width: 108, height: 30, fontSize: 12, fill: COLORS.buttonSelected });
 
     // finances strip
-    this.add.rectangle(width / 2, 104, width - 24, 24, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
-    this.add.text(20, 104, `💰 ${playerBudget(this.dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0, 0.5);
-    this.add.text(width - 20, 104, `wages ${playerWageBill(this.dynasty).toLocaleString()}/yr`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(1, 0.5);
+    this.add.rectangle(width / 2, 108, width - 24, 26, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
+    this.add.text(20, 108, `💰 ${playerBudget(this.dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0, 0.5);
+    this.add.text(width - 20, 108, `wages ${playerWageBill(this.dynasty).toLocaleString()}/yr`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(1, 0.5);
 
     // season objective — the sponsor's board goal (Season Focus ext, Part E)
     const objective = objectiveForSeason(this.dynasty.seasonNumber);
     const status = objectiveStatus(objective, season, (id) => teamOf(this.dynasty, id) === this.dynasty.playerTeamId);
-    this.add.rectangle(width / 2, 130, width - 24, 24, COLORS.panel, 1).setStrokeStyle(1, status.met ? COLORS.gold : COLORS.stroke);
-    this.add.text(20, 130, `🎯 ${objective.text}`, { fontFamily: FONT, fontSize: '11px', color: status.met ? '#f5c518' : COLORS.text }).setOrigin(0, 0.5);
+    this.add.rectangle(width / 2, 140, width - 24, 26, COLORS.panel, 1).setStrokeStyle(1, status.met ? COLORS.gold : COLORS.stroke);
+    this.add.text(20, 140, `🎯 ${objective.text}`, { fontFamily: FONT, fontSize: '11px', color: status.met ? '#f5c518' : COLORS.text }).setOrigin(0, 0.5);
     this.add
-      .text(width - 20, 130, status.met ? `DONE ✓  +${objective.reward}` : `${status.current}/${status.target}`, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: status.met ? '#18b39a' : COLORS.textMuted })
+      .text(width - 20, 140, status.met ? `DONE ✓  +${objective.reward}` : `${status.current}/${status.target}`, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: status.met ? '#18b39a' : COLORS.textMuted })
       .setOrigin(1, 0.5);
 
     this.buildCalendar(width, done);
@@ -78,11 +79,12 @@ export class SeasonHubScene extends Phaser.Scene {
 
   private buildCalendar(width: number, done: boolean): void {
     const season = this.dynasty.season;
-    const top = 154;
-    const rowH = 34;
+    const top = 168;
+    const rowH = 44;
+    const scroll = new ScrollView(this, 160, 774, top + season.calendar.length * rowH, width);
     season.calendar.forEach((raceId, i) => {
       const race = RACES_BY_ID.get(raceId)!;
-      const y = top + i * rowH + 14;
+      const y = top + i * rowH + 18;
       const isNext = !done && i === season.eventIndex;
       const isDone = i < season.results.length;
 
@@ -90,24 +92,25 @@ export class SeasonHubScene extends Phaser.Scene {
       if (isDone) {
         bg.setInteractive({ useHandCursor: true }).on('pointerup', () => this.scene.start('Archive', { dynasty: this.dynasty, index: i }));
       }
+      scroll.add(bg);
 
       const stages = race.stageIds.length;
       const kind = stages === 1 ? 'one-day' : `${stages} stages`;
-      this.add.text(24, y - 6, race.name, { fontFamily: FONT, fontSize: '14px', color: isDone ? COLORS.textMuted : COLORS.text }).setOrigin(0, 0.5);
-      this.add.text(24, y + 9, `${kind} · prestige ${race.prestige}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+      scroll.add(this.add.text(24, y - 8, race.name, { fontFamily: FONT, fontSize: '14px', color: isDone ? COLORS.textMuted : COLORS.text }).setOrigin(0, 0.5));
+      scroll.add(this.add.text(24, y + 10, `${kind} · prestige ${race.prestige}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5));
 
       if (isDone) {
         const winner = rosterById(this.dynasty).get(season.results[i].winnerId);
         if (winner) {
           const col = teamColor(winner.teamId);
-          this.add.rectangle(width - 150, y, 8, 8, col.jersey, 1);
+          scroll.add(this.add.rectangle(width - 150, y, 8, 8, col.jersey, 1));
           const isPlayer = winner.teamId === this.dynasty.playerTeamId;
-          this.add.text(width - 140, y, winner.name, { fontFamily: FONT, fontSize: '12px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
+          scroll.add(this.add.text(width - 140, y, winner.name, { fontFamily: FONT, fontSize: '12px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5));
         }
       } else if (isNext) {
-        this.add.text(width - 24, y, '▶ NEXT', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(1, 0.5);
+        scroll.add(this.add.text(width - 24, y, '▶ NEXT', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(1, 0.5));
       } else {
-        this.add.text(width - 24, y, 'upcoming', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(1, 0.5);
+        scroll.add(this.add.text(width - 24, y, 'upcoming', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       }
     });
   }

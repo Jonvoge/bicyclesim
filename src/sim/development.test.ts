@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { RIDERS_BY_ID } from '../data/riders.ts';
 import { PROSPECT_AGE_MAX, PROSPECT_AGE_MIN, RETIRE_AGE_MAX, RETIRE_AGE_MIN } from '../data/tuning.ts';
 import type { Rider, StatKey } from '../data/types.ts';
+import { riderRating } from './rating.ts';
 import {
   ageOneSeason,
   DEV_STATS,
@@ -87,6 +88,7 @@ describe('trainingTick — automatic development', () => {
     });
     const gain = trainingTick(r);
     expect(gain.total).toBeGreaterThan(0);
+    expect(Object.keys(gain.byStat)).toHaveLength(5); // every stat with headroom moves, not just the focus pair
     expect(gain.byStat.climbing).toBeGreaterThan(0); // the signature stat is named as having moved
     expect(r.stats.climbing).toBeGreaterThan(80); // their signature grows
     expect(r.stats.climbing).toBeLessThanOrEqual(92); // but never past the ceiling
@@ -131,6 +133,19 @@ describe('generateProspect', () => {
     expect(r.peakAge).toBeDefined();
     expect(r.ceiling).toBeDefined();
     expect(r.name.split(' ').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('produces a generation capable of replacing the authored peloton', () => {
+    const prospects = Array.from({ length: 200 }, (_, i) => generateProspect(`cohort-${i}`, new Rng(i * 7919 + 17)));
+    const peakRatings = prospects
+      .map((r) => riderRating({
+        ...r,
+        stats: { ...r.stats, ...Object.fromEntries(DEV_STATS.map((k) => [k, r.ceiling?.[k] ?? r.stats[k]])) },
+      }))
+      .sort((a, b) => a - b);
+
+    expect(peakRatings[Math.floor(peakRatings.length / 2)]).toBeGreaterThanOrEqual(77);
+    expect(peakRatings.filter((rating) => rating >= 85).length).toBeGreaterThanOrEqual(15);
   });
 });
 

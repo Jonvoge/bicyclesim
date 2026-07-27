@@ -1,5 +1,6 @@
 import { PLAYER_TEAM } from '../data/teams.ts';
 import type { Rider, StatKey } from '../data/types.ts';
+import { DEV_STATS } from '../sim/development.ts';
 import type { SeasonState } from '../sim/season.ts';
 import type { DynastyState } from './dynasty.ts';
 
@@ -19,6 +20,9 @@ export const SLOT_COUNT = 3;
 const slotKey = (slot: number): string => `bicyclesim.dynasty.v1.slot${slot}`;
 const ACTIVE_KEY = 'bicyclesim.activeSlot';
 const LEGACY_KEY = 'bicyclesim.dynasty.v1';
+const PROSPECT_BALANCE_VERSION = 2;
+const LEGACY_PROSPECT_BASE_UPLIFT = 2;
+const LEGACY_PROSPECT_SIGNATURE_UPLIFT = 2;
 
 interface SavedSeason {
   calendar: string[];
@@ -35,6 +39,7 @@ interface SlotMeta {
 }
 
 interface SavedDynasty {
+  balanceVersion?: number;
   seasonNumber: number;
   playerTeamId?: string; // optional for pre-team-select saves (default below)
   roster: Rider[];
@@ -86,6 +91,25 @@ function readRaw(key: string): SavedDynasty | null {
   }
 }
 
+/** Bring prospects generated before the Phase 8 playtest rebalance onto the new ranges. */
+function migrateProspectBalance(saved: SavedDynasty): boolean {
+  if ((saved.balanceVersion ?? 1) >= PROSPECT_BALANCE_VERSION) return false;
+  const offensive: StatKey[] = ['climbing', 'flat', 'sprint', 'puncheur'];
+  for (const rider of saved.roster) {
+    if (!rider.id.startsWith('fa-gen-')) continue;
+    const signature = offensive.sort((a, b) => rider.stats[b] - rider.stats[a])[0];
+    for (const stat of DEV_STATS) {
+      const uplift = LEGACY_PROSPECT_BASE_UPLIFT + (stat === signature ? LEGACY_PROSPECT_SIGNATURE_UPLIFT : 0);
+      rider.stats[stat] = Math.min(99, rider.stats[stat] + uplift);
+      if (rider.ceiling?.[stat] !== undefined) {
+        rider.ceiling[stat] = Math.min(99, Math.max(rider.stats[stat], rider.ceiling[stat]! + uplift));
+      }
+    }
+  }
+  saved.balanceVersion = PROSPECT_BALANCE_VERSION;
+  return true;
+}
+
 /** One-time: move a pre-slots save into slot 1 so existing dynasties survive. */
 function migrateLegacy(): void {
   try {
@@ -122,6 +146,7 @@ export function setActiveSlot(slot: number): void {
 export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
   try {
     const saved: SavedDynasty = {
+      balanceVersion: PROSPECT_BALANCE_VERSION,
       seasonNumber: dynasty.seasonNumber,
       playerTeamId: dynasty.playerTeamId,
       roster: dynasty.roster,
@@ -144,6 +169,13 @@ export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
 export function loadDynastyFromSlot(slot: number): DynastyState | null {
   const s = readRaw(slotKey(slot));
   if (!s) return null;
+  if (migrateProspectBalance(s)) {
+    try {
+      localStorage.setItem(slotKey(slot), JSON.stringify(s));
+    } catch {
+      // play with the migrated in-memory save if storage is unavailable
+    }
+  }
   return {
     seasonNumber: s.seasonNumber ?? 1,
     playerTeamId: s.playerTeamId ?? PLAYER_TEAM.id,

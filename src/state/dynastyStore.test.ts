@@ -65,6 +65,37 @@ describe('save slots', () => {
     expect(pogar.ceiling).toBeDefined();
   });
 
+  it('uplifts prospects from older saves once', () => {
+    const d = createDynasty();
+    d.roster.push({
+      id: 'fa-gen-old-0',
+      name: 'Old Prospect',
+      nationality: 'Italy',
+      age: 21,
+      teamId: null,
+      stats: { climbing: 60, flat: 50, sprint: 50, puncheur: 50, endurance: 50, stamina: 50, consistency: 70 },
+      currentFatigue: 0,
+      peakAge: 27,
+      ceiling: { climbing: 70, flat: 60, sprint: 60, puncheur: 60, endurance: 60, stamina: 60 },
+      developmentRate: 0.3,
+    });
+    saveDynastyToSlot(0, d);
+    const key = 'bicyclesim.dynasty.v1.slot0';
+    const oldSave = JSON.parse(localStorage.getItem(key)!);
+    delete oldSave.balanceVersion;
+    localStorage.setItem(key, JSON.stringify(oldSave));
+
+    const migrated = loadDynastyFromSlot(0)!.roster.find((r) => r.id === 'fa-gen-old-0')!;
+    expect(migrated.stats.climbing).toBe(64);
+    expect(migrated.stats.flat).toBe(52);
+    expect(migrated.ceiling!.climbing).toBe(74);
+    expect(migrated.ceiling!.flat).toBe(62);
+
+    const loadedAgain = loadDynastyFromSlot(0)!.roster.find((r) => r.id === 'fa-gen-old-0')!;
+    expect(loadedAgain.stats.climbing).toBe(64);
+    expect(loadedAgain.stats.flat).toBe(52);
+  });
+
   it('the active-slot helpers read/write the active slot', () => {
     setActiveSlot(2);
     expect(getActiveSlot()).toBe(2);

@@ -263,6 +263,11 @@ export function seasonDevTopStat(dynasty: DynastyState, riderId: string): StatKe
   return (Object.entries(acc) as [StatKey, number][]).sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
+/** Number of different stats a player rider has improved this season (for the UI). */
+export function seasonDevStatCount(dynasty: DynastyState, riderId: string): number {
+  return Object.values(dynasty.seasonDev[riderId] ?? {}).filter((gain) => (gain ?? 0) > 0).length;
+}
+
 // --- event & season transitions ----------------------------------------------
 
 /**
