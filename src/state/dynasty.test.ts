@@ -183,8 +183,8 @@ describe('pick-5 race squads (Phase 8)', () => {
     const roster = teamRiders(d, PLAYER_TEAM.id);
     const fresh = pickRaceSquad(roster, stage, new Map(), false);
     expect(fresh.length).toBe(RACE_SQUAD_SIZE);
-    const cooked = pickRaceSquad(roster, stage, new Map([[fresh[0], 100]]), false);
-    expect(cooked).not.toContain(fresh[0]); // 100 fatigue drops the top pick out of the 5
+    const cooked = pickRaceSquad(roster, stage, new Map([[fresh[0], 10]]), false);
+    expect(cooked).not.toContain(fresh[0]);
   });
 });
 

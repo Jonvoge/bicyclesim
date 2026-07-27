@@ -10,13 +10,13 @@ import type { TeamTactics } from '../sim/tactics.ts';
 import {
   CONTRACT_MAX_SEASONS,
   CONTRACT_MIN_SEASONS,
-  FATIGUE_WEIGHT,
   FREE_AGENT_POOL_CAP,
   MIN_SQUAD_SIZE,
   NEW_RIDERS_PER_SEASON,
   OFFSEASON_RECOVERY_RATE,
   RACE_SQUAD_SIZE,
   RIVAL_STARTING_BUDGET,
+  SQUAD_SELECTION_FATIGUE_WEIGHT,
   STARTING_BUDGET,
   TARGET_SQUAD_SIZE,
   TRAIN_CAMPS_PER_SEASON,
@@ -471,7 +471,7 @@ export function pickRaceSquad(
   n: number = RACE_SQUAD_SIZE,
 ): string[] {
   return riders
-    .map((r) => ({ id: r.id, score: (isTour ? riderRating(r) : baseScore(r, stage)) - (seasonFatigue.get(r.id) ?? 0) * FATIGUE_WEIGHT }))
+    .map((r) => ({ id: r.id, score: (isTour ? riderRating(r) : baseScore(r, stage)) - (seasonFatigue.get(r.id) ?? 0) * SQUAD_SELECTION_FATIGUE_WEIGHT }))
     .sort((a, b) => b.score - a.score)
     .slice(0, n)
     .map((s) => s.id);

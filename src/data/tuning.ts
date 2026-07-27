@@ -9,7 +9,7 @@
  */
 
 // --- Daily form swing (SPEC §5.3) ---
-export const SIGMA_MAX = 8;
+export const SIGMA_MAX = 10;
 export const CONSISTENCY_FACTOR = 0.7;
 
 // --- Season Focus / Condition (docs/cycling-sim-SEASON-FOCUS.md, Part A) ---
@@ -23,7 +23,7 @@ export const CONSISTENCY_FACTOR = 0.7;
 // likely to need the playtest.
 export const CONDITION_FLOOR = 0.35; // form when a rider is outside their planned window
 export const CONDITION_NEUTRAL = 0.5; // the condition that adds nothing to perfScore (the curve's zero point)
-export const CONDITION_PERF_MAX = 4; // perfScore lift at a full peak (condition = 1)
+export const CONDITION_PERF_MAX = 6; // perfScore lift at a full peak (condition = 1)
 export const FOCUS_BUDGET = 0.062; // target hump-area per plan (the conservation law, Part A.3)
 export const FOCUS_BUDGET_TOL = 0.03; // allowed area spread across plans (Steady sits a hair high)
 
@@ -50,9 +50,10 @@ export const OBJECTIVE_WINS_REWARD = 300; // cash bonus for the wins goal
 export const OBJECTIVE_MONUMENT_REWARD = 400; // cash bonus for the Monument goal
 
 // --- Fatigue & recovery (SPEC §5.1, §5.8) ---
-export const FATIGUE_WEIGHT = 0.9; // per-point penalty of currentFatigue on perfScore
+export const FATIGUE_WEIGHT = 1.15; // per-point penalty of currentFatigue on perfScore
 export const STAMINA_FACTOR = 0.5; // how much stamina blunts across-stage fatigue gain
-export const RECOVERY_RATE = 0.6; // currentFatigue *= this between races / on rest (season, Phase 4)
+export const RECOVERY_RATE = 0.72; // currentFatigue *= this between races / on rest (season, Phase 4)
+export const SQUAD_SELECTION_FATIGUE_WEIGHT = 4; // fatigue matters extra when deciding whether a star should start again
 
 /**
  * Across-stage fatigue accrual within a tour (SPEC §5.8):
@@ -65,7 +66,7 @@ export const RECOVERY_RATE = 0.6; // currentFatigue *= this between races / on r
  */
 export const FATIGUE_BASE = 3.4; // scales raw fatigue gain per stage
 export const FATIGUE_REF_KM = 200; // a stage this long is "one unit" of length
-export const STAGE_RECOVERY_RATE = 0.92; // currentFatigue *= this overnight between tour stages
+export const STAGE_RECOVERY_RATE = 0.95; // currentFatigue *= this overnight between tour stages
 export const STAGE_DIFFICULTY_BY_TYPE: Record<string, number> = {
   flat: 0.85,
   cobbled: 1.35,
@@ -105,7 +106,7 @@ export const ROLE_FATIGUE_FREE = 1.1; // 'free/attack' (merged from breakaway) �
 // setting on top of the role sheet. Only meaningful in tours (a one-day race is
 // always ridden flat-out).
 export const CONSERVE_LEADER_PENALTY = 2; // perfScore penalty to a conserving team's leader
-export const CONSERVE_FATIGUE_MULT = 0.45; // team-wide fatigue-gain multiplier when conserving
+export const CONSERVE_FATIGUE_MULT = 0.25; // team-wide fatigue-gain multiplier when conserving
 
 // --- Season points & standings (SPEC §6, Phase 4) ---
 // Points a race awards its top finishers (one-day order or tour GC), scaled by

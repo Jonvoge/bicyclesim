@@ -144,7 +144,7 @@ describe('conserve effort lever (SPEC §5.8)', () => {
     const conservedF = sumTeamFatigueSeen(conserved);
     // the conserving team's leader ends the tour fresher
     expect(conserved.fatigue.get(star) ?? 0).toBeLessThan(raced.fatigue.get(star) ?? Infinity);
-    expect(conservedF).toBeLessThan(racedF);
+    expect(conservedF).toBeLessThan(racedF * 0.4);
   });
 });
 
