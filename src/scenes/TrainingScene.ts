@@ -2,9 +2,18 @@ import Phaser from 'phaser';
 import { teamColor } from '../data/teamColors.ts';
 import { scoutReport } from '../sim/development.ts';
 import { riderRating, riderType } from '../sim/rating.ts';
-import { playerRiders, type DynastyState } from '../state/dynasty.ts';
+import { playerRiders, seasonDevTopStat, seasonDevTotal, type DynastyState } from '../state/dynasty.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
+
+const STAT_LABELS: Record<string, string> = {
+  climbing: 'Climbing',
+  flat: 'Flat power',
+  sprint: 'Sprint',
+  puncheur: 'Puncheur',
+  endurance: 'Endurance',
+  stamina: 'Stamina',
+};
 
 /**
  * Development (formerly manual Training): a **read-only** window on how the squad
@@ -45,7 +54,7 @@ export class TrainingScene extends Phaser.Scene {
     const gainById = new Map((last?.perRider ?? []).map((p) => [p.id, p.gain]));
 
     const top = 108;
-    const rowH = 58;
+    const rowH = 64;
     squad.forEach((r, i) => {
       const y = top + i * rowH;
       const col = teamColor(r.teamId);
@@ -53,13 +62,19 @@ export class TrainingScene extends Phaser.Scene {
       const now = riderRating(r);
       const gain = gainById.get(r.id) ?? 0;
       const stars = '★'.repeat(sc.stars) + '·'.repeat(5 - sc.stars);
+      const seasonGain = seasonDevTotal(this.dynasty, r.id);
+      const seasonStat = seasonDevTopStat(this.dynasty, r.id);
 
-      this.add.rectangle(width / 2, y + 22, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
+      this.add.rectangle(width / 2, y + 24, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
       this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1);
       this.add.text(42, y + 12, r.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);
-      // type · age · now · scouted potential (fuzzy for the young — same stars as elsewhere)
+      // type · age · now (+season growth) · scouted potential (fuzzy for the young)
       this.add.text(42, y + 31, `${riderType(r)} · age ${r.age} · now ${now}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
       this.add.text(width - 20, y + 31, `${stars}${sc.certain ? '' : ' ' + sc.label}`, { fontFamily: FONT, fontSize: '10px', color: sc.certain ? COLORS.textMuted : '#f5c518' }).setOrigin(1, 0.5);
+
+      // season-to-date development (the story the screen used to throw away)
+      const devText = seasonGain > 0 ? `▲ +${seasonGain} this season${seasonStat ? ` · ${STAT_LABELS[seasonStat] ?? seasonStat}` : ''}` : 'no camp growth yet this season';
+      this.add.text(42, y + 48, devText, { fontFamily: FONT, fontSize: '10px', color: seasonGain > 0 ? '#18b39a' : COLORS.textMuted }).setOrigin(0, 0.5);
 
       // right: this camp's gain on top of the potential stars
       if (gain > 0) {

@@ -12,6 +12,43 @@
 export const SIGMA_MAX = 8;
 export const CONSISTENCY_FACTOR = 0.7;
 
+// --- Season Focus / Condition (docs/cycling-sim-SEASON-FOCUS.md, Part A) ---
+// A planned, season-long form curve layered on the daily swing (§5.3) and the
+// career development (§7): a rider builds toward a peak for their target races and
+// can't hold top form all year. `condition ∈ [0,1]`; CONDITION_NEUTRAL adds nothing
+// to perfScore, a full peak adds CONDITION_PERF_MAX (on par with a LEADER bonus).
+// Plans (src/data/focusPlans.ts) each spend a fixed FOCUS_BUDGET of hump-area, so a
+// sharp single peak goes higher than a double and Steady never peaks. ALL STARTING
+// GUESSES (SPEC §10) — CONDITION_PERF_MAX and the hump widths are the two most
+// likely to need the playtest.
+export const CONDITION_FLOOR = 0.35; // form when a rider is outside their planned window
+export const CONDITION_NEUTRAL = 0.5; // the condition that adds nothing to perfScore (the curve's zero point)
+export const CONDITION_PERF_MAX = 4; // perfScore lift at a full peak (condition = 1)
+export const FOCUS_BUDGET = 0.062; // target hump-area per plan (the conservation law, Part A.3)
+export const FOCUS_BUDGET_TOL = 0.03; // allowed area spread across plans (Steady sits a hair high)
+
+// --- Daily form reveal / "read the legs" (docs/cycling-sim-SEASON-FOCUS.md, Part B) ---
+// The daily form swing (§5.3) is revealed as a face at the gun (once tactics lock).
+// Bucketed by z-score = formSwing / σ, so "FLYING" means unusually good FOR THAT
+// RIDER — a metronome at +6 is a special day, a wildcard swings there routinely.
+export const LEGREAD_Z_FLYING = 1.5; // z ≥ this → 😤 FLYING!
+export const LEGREAD_Z_GOOD = 0.6; // z ≥ this → 🙂 Good legs
+export const LEGREAD_Z_HEAVY = -0.6; // z ≤ this → 😟 Heavy legs
+export const LEGREAD_Z_OFF = -1.5; // z ≤ this → 😫 Off day
+export const LEGREAD_RADIO_Z = 1.8; // |z| ≥ this on a RIVAL surfaces a radio line (your own always do)
+
+// A player rider winning a race at this Condition or higher "nailed the peak" — a
+// celebration (Part E), the payoff for planning. Pure UI, no mechanical bonus.
+export const PEAK_CELEBRATE_CONDITION = 0.78;
+
+// --- Season objective: the sponsor's board goal (Part E) ---
+// One goal a year, alternating, with a modest cash reward when met — direction
+// without complexity, on top of the existing prestige/sponsor loop. STARTING GUESSES.
+export const MONUMENT_PRESTIGE = 90; // a race this prestigious or above counts as a "Monument"
+export const OBJECTIVE_WINS_TARGET = 3; // "win N races this season"
+export const OBJECTIVE_WINS_REWARD = 300; // cash bonus for the wins goal
+export const OBJECTIVE_MONUMENT_REWARD = 400; // cash bonus for the Monument goal
+
 // --- Fatigue & recovery (SPEC §5.1, §5.8) ---
 export const FATIGUE_WEIGHT = 0.9; // per-point penalty of currentFatigue on perfScore
 export const STAMINA_FACTOR = 0.5; // how much stamina blunts across-stage fatigue gain

@@ -31,6 +31,7 @@ import {
   INCIDENT_PROB_MULTIPLIER_RISKY,
   INCIDENT_TIME_LOSS_MAX,
   INCIDENT_TIME_LOSS_MIN,
+  LEGREAD_RADIO_Z,
   LATE_ATTACK_MARGIN_MAX,
   LATE_ATTACK_MARGIN_MIN,
   LATE_ATTACK_OCCUR_BASE,
@@ -45,6 +46,7 @@ import {
   WIN_MARGIN_BY_TYPE,
 } from '../data/tuning.ts';
 import type { StageResult, StageResultEntry, StageType } from '../data/types.ts';
+import { isNotableLegRead, legReadForZ, type LegReadInfo } from './legRead.ts';
 import { perfToResult, scoreRiders, type StageSimInput } from './stageSim.ts';
 import { roleOf } from './tactics.ts';
 
@@ -81,7 +83,7 @@ export interface RiderStory {
   incident?: Incident;
 }
 
-export type RaceEventKind = 'break' | 'crash' | 'puncture' | 'catch' | 'attack' | 'finale' | 'info' | 'finish';
+export type RaceEventKind = 'break' | 'crash' | 'puncture' | 'catch' | 'attack' | 'finale' | 'info' | 'finish' | 'legs';
 
 export interface RaceEvent {
   t: number;
@@ -100,6 +102,7 @@ export interface RaceStory {
   groups: FinishGroup[];
   stories: Map<string, RiderStory>;
   events: RaceEvent[];
+  legReads: Map<string, LegReadInfo>; // per-rider "read the legs" (Season Focus ext, Part B)
   breakIds: string[];
   breakSurvived: boolean;
   attackerId: string | null;
@@ -159,6 +162,15 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   const lastName = makeLastName(byId);
   const scored = scoreRiders(input);
   const events: RaceEvent[] = [];
+
+  // "read the legs" (Season Focus ext, Part B): bucket each rider's daily form swing
+  // by its z-score. Full data for every rider (the UI reveals the player's team at
+  // the gun); dramatic ones also go to the race radio below.
+  const legReads = new Map<string, LegReadInfo>();
+  for (const s of scored) {
+    const z = s.sigmaUsed > 0 ? s.formSwing / s.sigmaUsed : 0;
+    legReads.set(s.riderId, { riderId: s.riderId, z, read: legReadForZ(z) });
+  }
   const friendliness = BREAK_FRIENDLINESS[stage.type] ?? 0.3;
   const selectiveness = TERRAIN_SELECTIVENESS[stage.type] ?? 0.4;
 
@@ -376,6 +388,17 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
       shape === 'selective' ? 'The lead group shatters!' : shape === 'sprint' ? "It's a bunch sprint!" : 'The favourites force the pace';
     events.push({ t: finaleT, kind: 'finale', text: finaleText });
   }
+
+  // leg-read radio at the gun (Season Focus ext, Part B): the player's notable legs
+  // (flying / off) always, rivals only when the day is extreme. Your own team's
+  // full read is on `legReads` for the UI faces; this is the shout-worthy subset.
+  for (const info of legReads.values()) {
+    if (dnfIds.has(info.riderId)) continue;
+    const isPlayer = teamOf.get(info.riderId) === playerTeamId;
+    const worthRadio = isPlayer ? isNotableLegRead(info.read) : Math.abs(info.z) >= LEGREAD_RADIO_Z && isNotableLegRead(info.read);
+    if (!worthRadio) continue;
+    events.push({ t: 0.02, kind: 'legs', text: `${lastName(info.riderId)} — ${info.read === 'flying' ? 'the legs are there today!' : 'no legs today'}` });
+  }
   events.sort((a, b) => a.t - b.t);
 
   // --- per-rider gap trajectories, quantized by group ------------------------
@@ -420,7 +443,7 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
     stories.set(id, { riderId: id, role, inBreak, gaps, incident });
   }
 
-  return { result, groups, stories, events, breakIds, breakSurvived, attackerId, finaleT, shape };
+  return { result, groups, stories, events, legReads, breakIds, breakSurvived, attackerId, finaleT, shape };
 }
 
 function clusterGroups(result: StageResult, threshold: number): FinishGroup[] {

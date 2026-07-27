@@ -19,6 +19,8 @@ export const STAGES: Stage[] = [
   { id: 'st-liege', name: 'Liège–Bastan', type: 'summitFinish', lengthKm: 258 },
   { id: 'st-donostia', name: 'Donostia Clásica', type: 'hilly', lengthKm: 227 },
   { id: 'st-montagne', name: 'Grand Prix Montagne', type: 'mountain', lengthKm: 196 },
+  { id: 'st-montreol', name: 'Montréol Classic', type: 'hilly', lengthKm: 201 },
+  { id: 'st-rainbow', name: 'Rainbow Championship', type: 'hilly', lengthKm: 272 },
   { id: 'st-lombardo', name: 'Il Lombardo', type: 'summitFinish', lengthKm: 238 },
 
   // --- Tour de Provence (short tour, 5 stages): a sprint opener, cobbles, two
@@ -40,6 +42,15 @@ export const STAGES: Stage[] = [
   { id: 'ga-7', name: "Aurelia · Stage 7", type: 'hilly', lengthKm: 197 },
   { id: 'ga-8', name: "Aurelia · Stage 8", type: 'mountain', lengthKm: 169 },
   { id: 'ga-9', name: "Aurelia · Stage 9", type: 'summitFinish', lengthKm: 158 },
+
+  // --- Vuelta a Iberia (short tour, 5 stages): a late-summer climber's race —
+  //     a sprint opener then a relentless run of mountains and summit finishes,
+  //     the GC target for a Grand Tour plan distinct from the Giro d'Aurelia ---
+  { id: 'vi-1', name: 'Iberia · Stage 1', type: 'flat', lengthKm: 182 },
+  { id: 'vi-2', name: 'Iberia · Stage 2', type: 'hilly', lengthKm: 174 },
+  { id: 'vi-3', name: 'Iberia · Stage 3', type: 'summitFinish', lengthKm: 166 },
+  { id: 'vi-4', name: 'Iberia · Stage 4', type: 'mountain', lengthKm: 188 },
+  { id: 'vi-5', name: 'Iberia · Stage 5', type: 'summitFinish', lengthKm: 159 },
 ];
 
 export const STAGES_BY_ID: Map<string, Stage> = new Map(STAGES.map((s) => [s.id, s]));

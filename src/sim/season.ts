@@ -1,3 +1,4 @@
+import { conditionForEvent } from '../data/focusPlans.ts';
 import { RACES_BY_ID } from '../data/races.ts';
 import { RECOVERY_RATE, SEASON_EVENT_POINTS } from '../data/tuning.ts';
 import type { Race, Rider } from '../data/types.ts';
@@ -55,7 +56,13 @@ export function startEvent(season: SeasonState, startList: Rider[]): TourState {
   const race = currentRace(season)!;
   const tour = createTour(race);
   tour.starters = new Set(startList.map((r) => r.id));
-  for (const rider of startList) tour.fatigue.set(rider.id, season.fatigue.get(rider.id) ?? 0);
+  tour.condition = new Map();
+  for (const rider of startList) {
+    tour.fatigue.set(rider.id, season.fatigue.get(rider.id) ?? 0);
+    // Condition only applies to riders on a plan (dynasty riders); an unplanned
+    // rider (raw harness/tests) is left out of the map → neutral, unchanged results.
+    if (rider.focusPlanId) tour.condition.set(rider.id, conditionForEvent(rider.focusPlanId, season.eventIndex, season.calendar.length));
+  }
   return tour;
 }
 

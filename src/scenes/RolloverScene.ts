@@ -31,11 +31,21 @@ export class RolloverScene extends Phaser.Scene {
     this.add.rectangle(width / 2, 228, width - 60, 1, COLORS.stroke, 1);
     this.line(width, 246, 'Net', `${summary.net >= 0 ? '+' : '−'}${Math.abs(summary.net).toLocaleString()}`, summary.net >= 0 ? '#18b39a' : '#e23b3b');
 
-    this.add.text(width / 2, 300, `New budget: ${playerBudget(dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0.5);
+    this.add.text(width / 2, 298, `New budget: ${playerBudget(dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0.5);
+
+    // season objective result (Season Focus ext, Part E)
+    this.add
+      .text(width / 2, 322, `🎯 ${summary.objectiveText}: ${summary.objectiveMet ? `MET  +${summary.objectiveReward}` : 'missed'}`, {
+        fontFamily: FONT,
+        fontSize: '12px',
+        fontStyle: 'bold',
+        color: summary.objectiveMet ? '#18b39a' : COLORS.textMuted,
+      })
+      .setOrigin(0.5);
 
     // squad & peloton changes over the winter (Phase 6)
     const byId = rosterById(dynasty);
-    let y = 344;
+    let y = 350;
     if (summary.retired.length > 0) {
       this.add.text(width / 2, y, '🚴 RETIRED FROM YOUR SQUAD', { fontFamily: FONT, fontSize: '12px', color: '#e28f3b' }).setOrigin(0.5);
       y += 22;

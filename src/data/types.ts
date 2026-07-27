@@ -30,8 +30,12 @@ export interface Rider {
   ceiling?: Partial<Record<StatKey, number>>;
   developmentRate?: number;
 
+  // --- season focus (Season Focus ext — docs/cycling-sim-SEASON-FOCUS.md) ---
+  focusPlanId?: string; // which season-long Condition plan this rider is on (durable, defaulted by archetype)
+
   // --- runtime ---
   currentFatigue: number; // 0 = fresh; accumulates over a tour (Phase 3)
+  condition?: number; // 0..1 today's planned form level, set on the stage copy per event (Season Focus ext)
   isInjured?: boolean; // Phase 3+
 
   // --- economy (Phase 5) ---

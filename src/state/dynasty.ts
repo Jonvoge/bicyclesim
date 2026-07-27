@@ -1,4 +1,5 @@
 import { ALL_RIDERS } from '../data/freeAgents.ts';
+import { conditionForEvent, defaultFocusPlanId, FOCUS_PLANS_BY_ID } from '../data/focusPlans.ts';
 import { RACES_BY_ID, SEASON_CALENDAR } from '../data/races.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { TEAMS, PLAYER_TEAM } from '../data/teams.ts';
@@ -20,7 +21,7 @@ import {
   TARGET_SQUAD_SIZE,
   TRAIN_CAMPS_PER_SEASON,
 } from '../data/tuning.ts';
-import type { Rider } from '../data/types.ts';
+import type { Rider, StatKey } from '../data/types.ts';
 import { ageOneSeason, generateDomestique, generateProspect, scoutReport, seedDevelopment, shouldRetire, trainingTick } from '../sim/development.ts';
 import {
   canRelease,
@@ -32,6 +33,7 @@ import {
   wageBill,
   type ActionCheck,
 } from '../sim/management.ts';
+import { objectiveForSeason, objectiveStatus } from '../sim/objectives.ts';
 import { riderRating, riderSalary, signingFeeFor } from '../sim/rating.ts';
 import { Rng } from '../sim/rng.ts';
 import {
@@ -66,6 +68,7 @@ export interface DynastyState {
   season: SeasonState; // the season currently being contested
   lastTeamRank: Record<string, number>; // teamId → last season's finishing rank (sponsor income)
   lastTraining: TrainingBlockSummary | null; // the most recent auto-training camp (for the UI); null between camps
+  seasonDev: Record<string, Partial<Record<StatKey, number>>>; // player riderId → stat points gained SO FAR this season (reset at rollover)
 }
 
 /** What one automatic training camp did to the player's squad (for the UI). */
@@ -73,7 +76,7 @@ export interface TrainingBlockSummary {
   afterEvent: number; // races completed in the season when this camp ran
   improvedCount: number; // player riders who gained at least a little
   totalGain: number; // total stat points added across the player's squad
-  perRider: { id: string; gain: number }[]; // player squad gains this camp, biggest first
+  perRider: { id: string; gain: number; topStat?: StatKey }[]; // player squad gains this camp, biggest first (with the stat that moved most)
 }
 
 function cloneRider(r: Rider): Rider {
@@ -101,6 +104,7 @@ export function createDynasty(playerTeamId: string = PLAYER_TEAM.id): DynastySta
   }
   for (const r of roster) {
     seedDevelopment(r); // hidden peakAge / ceiling / developmentRate (Phase 6)
+    if (!r.focusPlanId) r.focusPlanId = defaultFocusPlanId(r); // season-long Condition plan (Season Focus ext)
     if (r.teamId) {
       r.salary = riderSalary(r);
       r.contractSeasonsLeft = seedContract(r.id);
@@ -119,6 +123,7 @@ export function createDynasty(playerTeamId: string = PLAYER_TEAM.id): DynastySta
     season: createSeason(SEASON_CALENDAR),
     lastTeamRank: {},
     lastTraining: null,
+    seasonDev: {},
   };
 }
 
@@ -186,6 +191,18 @@ export function releaseRider(dynasty: DynastyState, riderId: string): ActionChec
   return { ok: true };
 }
 
+/**
+ * Set a rider's season Focus plan (Season Focus ext). Rejects an unknown plan id.
+ * Takes effect from the next event opened (Condition is seeded at `startSeasonEvent`).
+ */
+export function setFocusPlan(dynasty: DynastyState, riderId: string, planId: string): ActionCheck {
+  const rider = dynasty.roster.find((r) => r.id === riderId);
+  if (!rider) return { ok: false, reason: 'Unknown rider' };
+  if (!FOCUS_PLANS_BY_ID.has(planId)) return { ok: false, reason: 'Unknown plan' };
+  rider.focusPlanId = planId;
+  return { ok: true };
+}
+
 // --- auto-training (development you watch, not a chore) -----------------------
 
 /**
@@ -208,11 +225,19 @@ export function campEventIndices(calendarLength: number): number[] {
  * *player's* squad gains for the UI. No fatigue, no player input: it just happens.
  */
 function runTrainingBlock(dynasty: DynastyState): TrainingBlockSummary {
-  const perRider: { id: string; gain: number }[] = [];
+  const perRider: { id: string; gain: number; topStat?: StatKey }[] = [];
   for (const r of dynasty.roster) {
     if (r.teamId === null) continue; // free agents have no coach; they develop at the rollover
     const gain = trainingTick(r);
-    if (r.teamId === dynasty.playerTeamId) perRider.push({ id: r.id, gain });
+    if (r.teamId !== dynasty.playerTeamId) continue;
+    // the stat that moved most this camp (for the "camp moment" popup)
+    const topStat = (Object.entries(gain.byStat) as [StatKey, number][]).sort((a, b) => b[1] - a[1])[0]?.[0];
+    perRider.push({ id: r.id, gain: gain.total, topStat });
+    // accumulate the season-to-date development so the screen can show "+N this year"
+    const acc = (dynasty.seasonDev[r.id] ??= {});
+    for (const [k, d] of Object.entries(gain.byStat) as [StatKey, number][]) {
+      acc[k] = Math.round(((acc[k] ?? 0) + d) * 10) / 10;
+    }
   }
   perRider.sort((a, b) => b.gain - a.gain);
   const totalGain = Math.round(perRider.reduce((s, p) => s + p.gain, 0) * 10) / 10;
@@ -222,6 +247,20 @@ function runTrainingBlock(dynasty: DynastyState): TrainingBlockSummary {
     totalGain,
     perRider,
   };
+}
+
+/** Total stat points a player rider has gained so far this season (for the UI). */
+export function seasonDevTotal(dynasty: DynastyState, riderId: string): number {
+  const acc = dynasty.seasonDev[riderId];
+  if (!acc) return 0;
+  return Math.round(Object.values(acc).reduce((s, d) => s + (d ?? 0), 0) * 10) / 10;
+}
+
+/** The stat a player rider has developed most this season, if any (for the UI). */
+export function seasonDevTopStat(dynasty: DynastyState, riderId: string): StatKey | undefined {
+  const acc = dynasty.seasonDev[riderId];
+  if (!acc) return undefined;
+  return (Object.entries(acc) as [StatKey, number][]).sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
 // --- event & season transitions ----------------------------------------------
@@ -255,6 +294,9 @@ export interface RolloverSummary {
   retiredAll: number; // peloton-wide retirements
   emerged: number; // new prospects who turned pro into the free-agent pool
   autoSigned: string[]; // player rider ids called up automatically to fill a hole
+  objectiveText: string; // the season's board goal
+  objectiveMet: boolean; // did the player hit it?
+  objectiveReward: number; // cash bonus paid if met (0 otherwise)
 }
 
 /** Put a free agent onto a team (internal auto-fill; no fee, a fresh contract). */
@@ -294,6 +336,13 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   }
   const playerSponsor = sponsorIncome(dynasty.lastTeamRank[playerId], numTeams);
   const playerWages = wageBill(dynasty.roster, playerId);
+
+  // season objective (Part E): pay the sponsor's board-goal bonus if the player hit
+  // it (checked on the season's squad, before the winter roster changes)
+  const objective = objectiveForSeason(finishedSeason);
+  const objStatus = objectiveStatus(objective, dynasty.season, (id) => teamOf(dynasty, id) === playerId);
+  const objectiveReward = objStatus.met ? objective.reward : 0;
+  if (objectiveReward > 0) dynasty.budgets[playerId] += objectiveReward;
 
   // --- development: age + curve everyone, then retirements ---
   for (const r of dynasty.roster) ageOneSeason(r);
@@ -349,6 +398,9 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
     dynasty.roster = dynasty.roster.filter((r) => !cut.has(r.id));
   }
 
+  // every rider (new prospects included) carries a default season focus plan
+  for (const r of dynasty.roster) if (!r.focusPlanId) r.focusPlanId = defaultFocusPlanId(r);
+
   // winter rest: carry a heavily-recovered fatigue into the new season (survivors only)
   const live = new Set(dynasty.roster.map((r) => r.id));
   const carried = new Map<string, number>();
@@ -359,6 +411,7 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   dynasty.season = createSeason(SEASON_CALENDAR);
   dynasty.season.fatigue = carried;
   dynasty.lastTraining = null;
+  dynasty.seasonDev = {}; // the new season's development starts from zero
 
   return {
     seasonNumber: finishedSeason,
@@ -371,6 +424,9 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
     retiredAll,
     emerged: NEW_RIDERS_PER_SEASON,
     autoSigned,
+    objectiveText: objective.text,
+    objectiveMet: objStatus.met,
+    objectiveReward,
   };
 }
 
@@ -424,7 +480,12 @@ export function pickRaceSquad(
  */
 export function startSeasonEvent(dynasty: DynastyState, race: Race): TourState {
   const tour = createTour(race);
-  for (const r of racingRoster(dynasty)) tour.fatigue.set(r.id, dynasty.season.fatigue.get(r.id) ?? 0);
+  tour.condition = new Map();
+  for (const r of racingRoster(dynasty)) {
+    tour.fatigue.set(r.id, dynasty.season.fatigue.get(r.id) ?? 0);
+    // seed each rider's season Condition for this event from their focus plan
+    tour.condition.set(r.id, conditionForEvent(r.focusPlanId, dynasty.season.eventIndex, dynasty.season.calendar.length));
+  }
   const stage = STAGES_BY_ID.get(race.stageIds[0])!;
   const isTour = race.stageIds.length > 1;
   const starters = new Set<string>();

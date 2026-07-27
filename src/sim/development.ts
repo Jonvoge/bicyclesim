@@ -126,15 +126,22 @@ function topDevStats(rider: Rider, n: number): Set<StatKey> {
  * scaled by the headroom they still have (their **potential**), and concentrated
  * on the two stats that define their **type** so a specialist sharpens rather than
  * flattening into an all-rounder. Ceiling-bounded and fatigue-free: it just brings
- * a rider to the potential they already have sooner. Returns the total stat points
- * added (for the UI); mutates the rider. Pure/deterministic (no rng).
+ * a rider to the potential they already have sooner. Returns the total points added
+ * **and the per-stat breakdown** (for the UI's "camp moment"); mutates the rider.
+ * Pure/deterministic (no rng).
  */
-export function trainingTick(rider: Rider): number {
+export interface TrainingResult {
+  total: number; // total stat points added this camp
+  byStat: Partial<Record<StatKey, number>>; // per-stat gains (only the stats that moved)
+}
+
+export function trainingTick(rider: Rider): TrainingResult {
   seedDevelopment(rider);
   const peak = rider.peakAge!;
   const youth = clamp((peak - rider.age) / Math.max(1, peak - PROSPECT_AGE_MIN), 0, 1);
-  if (youth <= 0) return 0;
+  if (youth <= 0) return { total: 0, byStat: {} };
   const focus = topDevStats(rider, TRAIN_FOCUS_STATS);
+  const byStat: Partial<Record<StatKey, number>> = {};
   let gained = 0;
   for (const k of DEV_STATS) {
     const cur = rider.stats[k];
@@ -142,10 +149,12 @@ export function trainingTick(rider: Rider): number {
     if (cap <= cur) continue;
     const weight = focus.has(k) ? 1 : TRAIN_OFFTYPE_WEIGHT;
     const next = round1(Math.min(cap, cur + TRAIN_TICK_RATE * youth * weight * (cap - cur)));
+    const delta = round1(next - cur);
+    if (delta > 0) byStat[k] = delta;
     gained += next - cur;
     rider.stats[k] = next;
   }
-  return round1(gained);
+  return { total: round1(gained), byStat };
 }
 
 /** Whether a rider retires this off-season (rises with age; certain by the max). */

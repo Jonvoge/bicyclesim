@@ -1,7 +1,14 @@
 import { STAGE_WEIGHTS } from '../data/stageWeights.ts';
-import { FATIGUE_WEIGHT, GAP_COMPRESSION_BY_TYPE, GAP_SPREAD, REFERENCE_SPEED_KMH } from '../data/tuning.ts';
+import {
+  CONDITION_NEUTRAL,
+  CONDITION_PERF_MAX,
+  FATIGUE_WEIGHT,
+  GAP_COMPRESSION_BY_TYPE,
+  GAP_SPREAD,
+  REFERENCE_SPEED_KMH,
+} from '../data/tuning.ts';
 import type { BaseStatKey, Rider, Stage, StageResult, StageResultEntry } from '../data/types.ts';
-import { drawFormSwing } from './form.ts';
+import { sigma } from './form.ts';
 import type { Rng } from './rng.ts';
 import { effortOf, roleOf, tacticsEffect, type RoleCounts, type TeamTactics } from './tactics.ts';
 
@@ -28,6 +35,8 @@ export function baseScore(rider: Rider, stage: Stage): number {
 export interface ScoredRider {
   riderId: string;
   perfScore: number;
+  formSwing: number; // the day's form draw (SPEC §5.3) — surfaced for the leg-read reveal
+  sigmaUsed: number; // the σ that swing was drawn from, so z = formSwing / sigmaUsed
 }
 
 export interface StageSimInput {
@@ -63,10 +72,14 @@ export function scoreRiders(input: StageSimInput): ScoredRider[] {
     const effect = tacticsEffect(roleOf(tactics, rider.id), countsByTeam.get(rider.teamId ?? '') ?? noRoles, stage.type, effortOf(tactics));
 
     const base = baseScore(rider, stage);
-    const formSwing = drawFormSwing(rng, rider.stats.consistency, effect.sigmaMult);
+    const sigmaUsed = sigma(rider.stats.consistency) * effect.sigmaMult;
+    const formSwing = rng.gaussian(0, sigmaUsed);
     const fatiguePen = rider.currentFatigue * FATIGUE_WEIGHT;
-    const perfScore = base + formSwing - fatiguePen + effect.perfMod;
-    return { riderId: rider.id, perfScore };
+    // planned season-long form (Season Focus): NEUTRAL adds nothing, so riders with
+    // no plan (raw harness/tests) are unaffected; a full peak adds CONDITION_PERF_MAX.
+    const conditionMod = (2 * (rider.condition ?? CONDITION_NEUTRAL) - 1) * CONDITION_PERF_MAX;
+    const perfScore = base + formSwing - fatiguePen + effect.perfMod + conditionMod;
+    return { riderId: rider.id, perfScore, formSwing, sigmaUsed };
   });
 }
 

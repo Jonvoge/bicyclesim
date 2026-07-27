@@ -3,6 +3,7 @@ import { RACES_BY_ID } from '../data/races.ts';
 import { RIDERS_BY_ID } from '../data/riders.ts';
 import { teamColor } from '../data/teamColors.ts';
 import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
+import { PEAK_CELEBRATE_CONDITION } from '../data/tuning.ts';
 import type { Rider, Stage, StageResult } from '../data/types.ts';
 import { computeGc, isTourComplete, recordStageResult, type GcRow, type TourState } from '../sim/standings.ts';
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
@@ -28,9 +29,20 @@ interface ResultsData {
  * then it routes on: the next stage, or — on the final stage — the overall
  * classification and the race winner.
  */
+const STAT_LABELS: Record<string, string> = {
+  climbing: 'Climbing',
+  flat: 'Flat power',
+  sprint: 'Sprint',
+  puncheur: 'Puncheur',
+  endurance: 'Endurance',
+  stamina: 'Stamina',
+};
+
 export class StageResultsScene extends Phaser.Scene {
   private byId!: Map<string, Rider>;
   private playerTeamId!: string;
+  private pendingCamp?: DynastyState;
+  private peakWin = false; // a player rider won this event while peaked (Season Focus ext, Part E)
 
   constructor() {
     super('StageResults');
@@ -51,6 +63,16 @@ export class StageResultsScene extends Phaser.Scene {
     if (dynasty && complete) {
       finishSeasonEvent(dynasty, tour);
       saveDynasty(dynasty);
+    }
+    // a training camp may have fired on banking — surface it (Season Focus ext, Part C)
+    this.pendingCamp = dynasty && complete ? dynasty : undefined;
+
+    // "nailed the peak": did a player rider win this event while peaked? (Part E)
+    if (dynasty && (!isTour || complete)) {
+      const winnerId = isTour ? computeGc(tour)[0]?.riderId : result.order.find((e) => !e.dnf)?.riderId;
+      const winner = winnerId ? this.byId.get(winnerId) : undefined;
+      const cond = winnerId ? data.stageRiders.find((r) => r.id === winnerId)?.condition ?? 0.5 : 0.5;
+      this.peakWin = !!winner && winner.teamId === this.playerTeamId && cond >= PEAK_CELEBRATE_CONDITION;
     }
 
     // terminal action: next stage, back to the season hub, or back to the menu
@@ -75,6 +97,50 @@ export class StageResultsScene extends Phaser.Scene {
     }
 
     makeButton(this, width / 2, 812, label, advance, { width: 260, height: 46, fontSize: 18, fill: COLORS.buttonSelected });
+
+    if (this.pendingCamp) this.showCampMoment(this.pendingCamp);
+  }
+
+  /**
+   * The "🏕️ Training Camp!" moment (Season Focus ext, Part C). When a camp fired on
+   * banking the event, push it to the player — each rider's gain floats up with the
+   * stat that sharpened — rather than leaving it to be found on the Development page.
+   */
+  private showCampMoment(dynasty: DynastyState): void {
+    const camp = dynasty.lastTraining;
+    if (!camp || camp.improvedCount === 0) return;
+    const gainers = camp.perRider.filter((p) => p.gain > 0).slice(0, 6);
+    if (gainers.length === 0) return;
+
+    const { width, height } = this.scale;
+    const rowH = 30;
+    const panelH = 88 + gainers.length * rowH;
+    const cy = height / 2;
+    const objs: Phaser.GameObjects.GameObject[] = [];
+    objs.push(this.add.rectangle(width / 2, height / 2, width, height, 0x0a0a18, 0.72).setInteractive());
+    objs.push(this.add.rectangle(width / 2, cy, width - 48, panelH, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold));
+    objs.push(this.add.text(width / 2, cy - panelH / 2 + 22, '🏕️ Training Camp!', { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: '#f5c518' }).setOrigin(0.5));
+    objs.push(this.add.text(width / 2, cy - panelH / 2 + 44, `the squad put in the work · +${camp.totalGain.toFixed(1)} pts`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0.5));
+
+    gainers.forEach((p, i) => {
+      const rider = this.byId.get(p.id);
+      const y = cy - panelH / 2 + 70 + i * rowH;
+      const stat = p.topStat ? STAT_LABELS[p.topStat] ?? p.topStat : 'form';
+      objs.push(this.add.text(40, y, rider?.name ?? p.id, { fontFamily: FONT, fontSize: '14px', color: COLORS.text }).setOrigin(0, 0.5));
+      objs.push(this.add.text(width - 128, y, stat, { fontFamily: FONT, fontSize: '11px', color: '#8fb4c8' }).setOrigin(1, 0.5));
+      const gain = this.add.text(width - 40, y, `+${p.gain.toFixed(1)}`, { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(1, 0.5);
+      objs.push(gain);
+      // a little float-up on the gain number
+      this.tweens.add({ targets: gain, y: y - 4, duration: 500, delay: 120 * i, yoyo: true, ease: 'Quad.out' });
+    });
+
+    objs.push(this.add.text(width / 2, cy + panelH / 2 - 18, 'tap to continue', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0.5));
+    const container = this.add.container(0, 0, objs);
+    container.setAlpha(0);
+    this.tweens.add({ targets: container, alpha: 1, duration: 260 });
+    (objs[0] as Phaser.GameObjects.Rectangle).on('pointerup', () => {
+      this.tweens.add({ targets: container, alpha: 0, duration: 220, onComplete: () => container.destroy(true) });
+    });
   }
 
   // --- one-day race: the full finishing order (unchanged behaviour) -----------
@@ -88,7 +154,7 @@ export class StageResultsScene extends Phaser.Scene {
     this.add.text(width / 2, 60, `${stage.type} · ${stage.lengthKm} km`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
 
     this.add.rectangle(width / 2, 108, width - 30, 52, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
-    this.add.text(width / 2 - 150, 96, '🏆 WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0, 0.5);
+    this.add.text(width / 2 - 150, 96, this.peakWin ? '🏆 WINNER · 🌟 NAILED THE PEAK' : '🏆 WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0, 0.5);
     this.add.rectangle(width / 2 - 150 + 6, 120, 12, 12, winnerCol.jersey, 1).setOrigin(0.5);
     this.add.text(width / 2 - 130, 120, winner.name, { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0, 0.5);
     this.add.text(width / 2 + 145, 120, this.fmtTime(winnerTime), { fontFamily: FONT, fontSize: '14px', color: COLORS.textMuted }).setOrigin(1, 0.5);
@@ -187,7 +253,7 @@ export class StageResultsScene extends Phaser.Scene {
     const isPlayerChamp = champ.teamId === this.playerTeamId;
 
     this.add.rectangle(width / 2, 100, width - 30, 56, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
-    this.add.text(width / 2, 84, '🟡 OVERALL WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0.5);
+    this.add.text(width / 2, 84, this.peakWin ? '🟡 OVERALL WINNER · 🌟 NAILED THE PEAK' : '🟡 OVERALL WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0.5);
     this.add.rectangle(width / 2 - 96, 108, 13, 13, champCol.jersey, 1).setOrigin(0.5);
     this.add.text(width / 2 - 82, 108, champ.name, { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: isPlayerChamp ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
 

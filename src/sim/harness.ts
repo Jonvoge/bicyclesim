@@ -9,6 +9,7 @@
  * (SPEC §5).
  */
 
+import { conditionForEvent, FOCUS_PLANS, planArea } from '../data/focusPlans.ts';
 import { RACES, RACES_BY_ID, SEASON_CALENDAR } from '../data/races.ts';
 import { RIDERS, RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
@@ -17,6 +18,7 @@ import type { Rider, Stage, StageResult } from '../data/types.ts';
 import { Rng } from './rng.ts';
 import { simulateStage } from './stageSim.ts';
 import { buildRaceStory } from './raceNarrative.ts';
+import { legReadFace, legReadLabel } from './legRead.ts';
 import { bestSuitedRider, buildTacticsMap, defaultTeamTactics, defaultTeamTacticsFor } from './raceSetup.ts';
 import { riderRating, riderSalary, salaryFor, signingFeeFor } from './rating.ts';
 import { DEV_STATS, scoutReport } from './development.ts';
@@ -365,5 +367,79 @@ console.log('\n########## DEVELOPMENT: CAREERS RISE, PLATEAU & FADE ##########')
         `    ${r.name.padEnd(20)} age ${r.age} · now ${String(riderRating(r)).padStart(2)} · potential ${'★'.repeat(sc.stars)}${'·'.repeat(5 - sc.stars)} (${sc.label})`,
       );
     });
+}
+console.log('');
+
+// --- 8. Season Focus: condition curves + does a peak pay off? (Season Focus ext) --
+console.log('\n########## SEASON FOCUS: CONDITION CURVES ##########');
+{
+  const N = SEASON_CALENDAR.length;
+  // a compact sparkline of condition (0..1) across the season, per plan
+  const bars = ' ▁▂▃▄▅▆▇█';
+  const spark = (planId: string): string => {
+    let s = '';
+    for (let e = 0; e < N; e++) {
+      const c = conditionForEvent(planId, e, N);
+      s += bars[Math.max(0, Math.min(8, Math.round(c * 8)))];
+    }
+    return s;
+  };
+  console.log(`\nCondition across the ${N}-event calendar (each cell = one event), and the conserved form budget:\n`);
+  for (const plan of FOCUS_PLANS) {
+    console.log(`    ${plan.label.padEnd(16)} ${spark(plan.id)}   area ${planArea(plan).toFixed(3)}`);
+  }
+
+  // Does the peak actually pay? Run the queen summit finish with a star climber on
+  // a GRAND TOUR plan, timed to his peak event vs an off (spring) event — same
+  // seeds — and measure his average finishing position.
+  console.log('\nDoes peaking pay? Star climber on the summit finish, 400 seeds (same across scenarios):');
+  const stage = STAGES_BY_ID.get('st-lombardo')!;
+  const star = 'gr-pogar';
+  const scenarios: [string, number][] = [
+    ['peak window (grandTour, mid-season)', conditionForEvent('grandTour', Math.round(N * 0.68), N)],
+    ['off window   (grandTour, early spring)', conditionForEvent('grandTour', 1, N)],
+  ];
+  for (const [label, cond] of scenarios) {
+    const runs = 400;
+    let sumPos = 0;
+    let wins = 0;
+    for (let i = 0; i < runs; i++) {
+      const rng = new Rng(i * 2654435761 + 5);
+      const riders = RIDERS.map((r) => (r.id === star ? { ...r, condition: cond } : { ...r }));
+      const result = simulateStage({ stage, riders, tacticsByTeam: buildTacticsMap(stage, playerDefault(stage)), rng });
+      const pos = result.order.findIndex((e) => e.riderId === star) + 1;
+      sumPos += pos;
+      if (pos === 1) wins++;
+    }
+    console.log(`    ${label.padEnd(40)} condition ${cond.toFixed(2)}  avg finish ${(sumPos / runs).toFixed(2).padStart(5)}  win ${((wins / runs) * 100).toFixed(1)}%`);
+  }
+}
+console.log('');
+
+// --- 9. Daily form reveal: "read the legs" at the gun (Season Focus ext, Part B) --
+console.log('\n########## READ THE LEGS ##########');
+{
+  const stageId = 'st-flandts';
+  const stage = STAGES_BY_ID.get(stageId)!;
+  const tactics = new Map(TEAMS.map((t) => [t.id, defaultTeamTactics(t, stage)]));
+  const story = buildRaceStory({ stage, riders: RIDERS, tacticsByTeam: tactics, rng: new Rng(2026), playerTeamId: PLAYER_TEAM.id });
+  console.log(`\nYour squad's legs at the gun (${stage.name}), z = form swing in units of the rider's own σ:\n`);
+  for (const id of PLAYER_TEAM.riderIds) {
+    const info = story.legReads.get(id);
+    if (!info) continue;
+    console.log(`    ${legReadFace(info.read)}  ${riderName(id).padEnd(20)} ${legReadLabel(info.read).padEnd(11)} (z ${info.z >= 0 ? '+' : ''}${info.z.toFixed(2)})`);
+  }
+  const legs = story.events.filter((e) => e.kind === 'legs');
+  console.log(`\n  Race radio (legs): ${legs.length ? legs.map((e) => e.text).join(' · ') : '(a quiet day — nobody flying or flat)'}`);
+
+  // distribution check over many seeds: FLYING/off should be rare, normal common
+  const N = 4000;
+  const counts: Record<string, number> = { flying: 0, good: 0, normal: 0, heavy: 0, off: 0 };
+  const star = PLAYER_TEAM.riderIds[0];
+  for (let i = 0; i < N; i++) {
+    const s = buildRaceStory({ stage, riders: RIDERS, tacticsByTeam: tactics, rng: new Rng(i * 2654435761 + 9), playerTeamId: PLAYER_TEAM.id });
+    counts[s.legReads.get(star)!.read]++;
+  }
+  console.log(`\n  ${riderName(star)}'s leg-read over ${N} days: ` + Object.entries(counts).map(([k, n]) => `${k} ${((n / N) * 100).toFixed(1)}%`).join(' · '));
 }
 console.log('');
