@@ -3,6 +3,7 @@ import { RACES_BY_ID } from '../data/races.ts';
 import { RIDERS_BY_ID } from '../data/riders.ts';
 import { teamColor } from '../data/teamColors.ts';
 import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
+import { PEAK_CELEBRATE_CONDITION } from '../data/tuning.ts';
 import type { Rider, Stage, StageResult } from '../data/types.ts';
 import { computeGc, isTourComplete, recordStageResult, type GcRow, type TourState } from '../sim/standings.ts';
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
@@ -41,6 +42,7 @@ export class StageResultsScene extends Phaser.Scene {
   private byId!: Map<string, Rider>;
   private playerTeamId!: string;
   private pendingCamp?: DynastyState;
+  private peakWin = false; // a player rider won this event while peaked (Season Focus ext, Part E)
 
   constructor() {
     super('StageResults');
@@ -64,6 +66,14 @@ export class StageResultsScene extends Phaser.Scene {
     }
     // a training camp may have fired on banking — surface it (Season Focus ext, Part C)
     this.pendingCamp = dynasty && complete ? dynasty : undefined;
+
+    // "nailed the peak": did a player rider win this event while peaked? (Part E)
+    if (dynasty && (!isTour || complete)) {
+      const winnerId = isTour ? computeGc(tour)[0]?.riderId : result.order.find((e) => !e.dnf)?.riderId;
+      const winner = winnerId ? this.byId.get(winnerId) : undefined;
+      const cond = winnerId ? data.stageRiders.find((r) => r.id === winnerId)?.condition ?? 0.5 : 0.5;
+      this.peakWin = !!winner && winner.teamId === this.playerTeamId && cond >= PEAK_CELEBRATE_CONDITION;
+    }
 
     // terminal action: next stage, back to the season hub, or back to the menu
     const advance = () => {
@@ -144,7 +154,7 @@ export class StageResultsScene extends Phaser.Scene {
     this.add.text(width / 2, 60, `${stage.type} · ${stage.lengthKm} km`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
 
     this.add.rectangle(width / 2, 108, width - 30, 52, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
-    this.add.text(width / 2 - 150, 96, '🏆 WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0, 0.5);
+    this.add.text(width / 2 - 150, 96, this.peakWin ? '🏆 WINNER · 🌟 NAILED THE PEAK' : '🏆 WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0, 0.5);
     this.add.rectangle(width / 2 - 150 + 6, 120, 12, 12, winnerCol.jersey, 1).setOrigin(0.5);
     this.add.text(width / 2 - 130, 120, winner.name, { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0, 0.5);
     this.add.text(width / 2 + 145, 120, this.fmtTime(winnerTime), { fontFamily: FONT, fontSize: '14px', color: COLORS.textMuted }).setOrigin(1, 0.5);
@@ -243,7 +253,7 @@ export class StageResultsScene extends Phaser.Scene {
     const isPlayerChamp = champ.teamId === this.playerTeamId;
 
     this.add.rectangle(width / 2, 100, width - 30, 56, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
-    this.add.text(width / 2, 84, '🟡 OVERALL WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0.5);
+    this.add.text(width / 2, 84, this.peakWin ? '🟡 OVERALL WINNER · 🌟 NAILED THE PEAK' : '🟡 OVERALL WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0.5);
     this.add.rectangle(width / 2 - 96, 108, 13, 13, champCol.jersey, 1).setOrigin(0.5);
     this.add.text(width / 2 - 82, 108, champ.name, { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: isPlayerChamp ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
 

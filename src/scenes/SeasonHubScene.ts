@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
 import { teamColor } from '../data/teamColors.ts';
+import { objectiveForSeason, objectiveStatus } from '../sim/objectives.ts';
 import { isSeasonComplete, riderStandings } from '../sim/season.ts';
 import {
   playerBudget,
   playerWageBill,
   rosterById,
+  teamOf,
   type DynastyState,
 } from '../state/dynasty.ts';
 import { saveDynasty } from '../state/dynastyStore.ts';
@@ -49,14 +51,14 @@ export class SeasonHubScene extends Phaser.Scene {
     this.add.text(20, 104, `💰 ${playerBudget(this.dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0, 0.5);
     this.add.text(width - 20, 104, `wages ${playerWageBill(this.dynasty).toLocaleString()}/yr`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(1, 0.5);
 
-    // season-lead glance
-    const lead = riderStandings(season)[0];
-    if (lead) {
-      const r = rosterById(this.dynasty).get(lead.id)!;
-      this.add.rectangle(width / 2, 132, width - 24, 24, COLORS.panel, 1).setStrokeStyle(1, COLORS.gold);
-      this.add.text(20, 132, '🟡 SEASON LEAD', { fontFamily: FONT, fontSize: '11px', color: '#f5c518' }).setOrigin(0, 0.5);
-      this.add.text(width - 20, 132, `${r.name} · ${lead.points} pts`, { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: COLORS.text }).setOrigin(1, 0.5);
-    }
+    // season objective — the sponsor's board goal (Season Focus ext, Part E)
+    const objective = objectiveForSeason(this.dynasty.seasonNumber);
+    const status = objectiveStatus(objective, season, (id) => teamOf(this.dynasty, id) === this.dynasty.playerTeamId);
+    this.add.rectangle(width / 2, 130, width - 24, 24, COLORS.panel, 1).setStrokeStyle(1, status.met ? COLORS.gold : COLORS.stroke);
+    this.add.text(20, 130, `🎯 ${objective.text}`, { fontFamily: FONT, fontSize: '11px', color: status.met ? '#f5c518' : COLORS.text }).setOrigin(0, 0.5);
+    this.add
+      .text(width - 20, 130, status.met ? `DONE ✓  +${objective.reward}` : `${status.current}/${status.target}`, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: status.met ? '#18b39a' : COLORS.textMuted })
+      .setOrigin(1, 0.5);
 
     this.buildCalendar(width, done);
 
@@ -76,8 +78,8 @@ export class SeasonHubScene extends Phaser.Scene {
 
   private buildCalendar(width: number, done: boolean): void {
     const season = this.dynasty.season;
-    const top = 158;
-    const rowH = 43;
+    const top = 154;
+    const rowH = 34;
     season.calendar.forEach((raceId, i) => {
       const race = RACES_BY_ID.get(raceId)!;
       const y = top + i * rowH + 14;

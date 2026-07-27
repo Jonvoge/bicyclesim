@@ -33,6 +33,7 @@ import {
   wageBill,
   type ActionCheck,
 } from '../sim/management.ts';
+import { objectiveForSeason, objectiveStatus } from '../sim/objectives.ts';
 import { riderRating, riderSalary, signingFeeFor } from '../sim/rating.ts';
 import { Rng } from '../sim/rng.ts';
 import {
@@ -293,6 +294,9 @@ export interface RolloverSummary {
   retiredAll: number; // peloton-wide retirements
   emerged: number; // new prospects who turned pro into the free-agent pool
   autoSigned: string[]; // player rider ids called up automatically to fill a hole
+  objectiveText: string; // the season's board goal
+  objectiveMet: boolean; // did the player hit it?
+  objectiveReward: number; // cash bonus paid if met (0 otherwise)
 }
 
 /** Put a free agent onto a team (internal auto-fill; no fee, a fresh contract). */
@@ -332,6 +336,13 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   }
   const playerSponsor = sponsorIncome(dynasty.lastTeamRank[playerId], numTeams);
   const playerWages = wageBill(dynasty.roster, playerId);
+
+  // season objective (Part E): pay the sponsor's board-goal bonus if the player hit
+  // it (checked on the season's squad, before the winter roster changes)
+  const objective = objectiveForSeason(finishedSeason);
+  const objStatus = objectiveStatus(objective, dynasty.season, (id) => teamOf(dynasty, id) === playerId);
+  const objectiveReward = objStatus.met ? objective.reward : 0;
+  if (objectiveReward > 0) dynasty.budgets[playerId] += objectiveReward;
 
   // --- development: age + curve everyone, then retirements ---
   for (const r of dynasty.roster) ageOneSeason(r);
@@ -413,6 +424,9 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
     retiredAll,
     emerged: NEW_RIDERS_PER_SEASON,
     autoSigned,
+    objectiveText: objective.text,
+    objectiveMet: objStatus.met,
+    objectiveReward,
   };
 }
 

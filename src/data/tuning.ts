@@ -37,6 +37,18 @@ export const LEGREAD_Z_HEAVY = -0.6; // z ≤ this → 😟 Heavy legs
 export const LEGREAD_Z_OFF = -1.5; // z ≤ this → 😫 Off day
 export const LEGREAD_RADIO_Z = 1.8; // |z| ≥ this on a RIVAL surfaces a radio line (your own always do)
 
+// A player rider winning a race at this Condition or higher "nailed the peak" — a
+// celebration (Part E), the payoff for planning. Pure UI, no mechanical bonus.
+export const PEAK_CELEBRATE_CONDITION = 0.78;
+
+// --- Season objective: the sponsor's board goal (Part E) ---
+// One goal a year, alternating, with a modest cash reward when met — direction
+// without complexity, on top of the existing prestige/sponsor loop. STARTING GUESSES.
+export const MONUMENT_PRESTIGE = 90; // a race this prestigious or above counts as a "Monument"
+export const OBJECTIVE_WINS_TARGET = 3; // "win N races this season"
+export const OBJECTIVE_WINS_REWARD = 300; // cash bonus for the wins goal
+export const OBJECTIVE_MONUMENT_REWARD = 400; // cash bonus for the Monument goal
+
 // --- Fatigue & recovery (SPEC §5.1, §5.8) ---
 export const FATIGUE_WEIGHT = 0.9; // per-point penalty of currentFatigue on perfScore
 export const STAMINA_FACTOR = 0.5; // how much stamina blunts across-stage fatigue gain

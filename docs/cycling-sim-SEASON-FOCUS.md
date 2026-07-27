@@ -8,6 +8,13 @@
 > the harness), **all numbers are starting guesses** (SPEC §10), **fun/simplicity over realism**,
 > and **minimal friction** — every new lever must have a good default so a hands-off player is
 > never punished for ignoring it.
+>
+> **Status: BUILT** (all four parts + the two flavour moves, Parts A–E). Headless-first as planned:
+> `src/data/focusPlans.ts`, `src/sim/legRead.ts`, `src/sim/objectives.ts`, the `scoreRiders`
+> condition hook, the autumn calendar, and the camp-data changes are all covered by tests + harness
+> sections; the UI (Season Focus screen, gun-time leg-read reveal, training-camp moment, peak
+> celebration, season objective) sits on top. Every number below is still a **starting guess** — the
+> feel is the phone playtest, not settled here.
 
 ---
 
