@@ -15,6 +15,7 @@ import {
   type RaceStory,
   type RiderStory,
 } from '../sim/raceNarrative.ts';
+import { legReadFace, legReadLabel } from '../sim/legRead.ts';
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
 import { makeRiderRenderer, preloadSpriteTextures } from '../render/index.ts';
 import { Button, makeButton } from '../ui/button.ts';
@@ -84,6 +85,7 @@ export class RaceScene extends Phaser.Scene {
   private done = false;
   private revealed = 0;
   private eventIdx = 0;
+  private legReadOpen = false; // the "read the legs" reveal gates the race clock at the gun
 
   private trackLeft = 28;
   private raceLeftX = 52; // riders start here (left) and flow right toward the finish
@@ -131,6 +133,7 @@ export class RaceScene extends Phaser.Scene {
     this.done = false;
     this.revealed = 0;
     this.eventIdx = 0;
+    this.legReadOpen = false;
     this.maxFinish = 1;
     this.startFaded = false;
     this.scrollX = 0;
@@ -162,6 +165,57 @@ export class RaceScene extends Phaser.Scene {
     this.buildHeader(width);
     this.buildRoad();
     this.addRadioLine(`${this.stage.name} — ${this.stage.lengthKm} km`, 'info');
+    this.showLegReadReveal();
+  }
+
+  /**
+   * "Read the legs" at the gun (Season Focus ext, Part B). Tactics are locked, so
+   * this reveals — never lets you act on — how your squad woke up: each starter's
+   * planned Condition (the bar) and today's form (the face). Gates the race clock
+   * until dismissed, so the reveal lands before a pedal turns.
+   */
+  private showLegReadReveal(): void {
+    const starters = this.stageRiders.filter((r) => r.teamId === this.playerTeamId);
+    if (starters.length === 0) return;
+    this.legReadOpen = true;
+    const { width } = this.scale;
+    const rowH = 34;
+    const panelH = 74 + starters.length * rowH;
+    const cy = 150 + panelH / 2;
+    const objs: Phaser.GameObjects.GameObject[] = [];
+    const scrim = this.add.rectangle(width / 2, 316, width, 480, 0x0a0a18, 0.6).setInteractive();
+    const panel = this.add.rectangle(width / 2, cy, width - 40, panelH, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
+    objs.push(scrim, panel);
+    objs.push(this.add.text(width / 2, cy - panelH / 2 + 18, '🔍 READING THE LEGS', { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#f5c518' }).setOrigin(0.5));
+    objs.push(this.add.text(width / 2, cy - panelH / 2 + 36, 'how your squad woke up today', { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0.5));
+
+    starters.forEach((r, i) => {
+      const y = cy - panelH / 2 + 60 + i * rowH;
+      const read = this.story.legReads.get(r.id)?.read ?? 'normal';
+      const cond = r.condition ?? 0.5;
+      const barX = 190;
+      const barW = 86;
+      const condColor = cond > 0.66 ? 0x18b39a : cond > 0.45 ? 0xe0a23b : 0x8a8ab0;
+      const labelColor = read === 'flying' ? '#18b39a' : read === 'off' ? '#e23b3b' : COLORS.textMuted;
+      objs.push(this.add.text(40, y, legReadFace(read), { fontFamily: FONT, fontSize: '18px' }).setOrigin(0, 0.5));
+      objs.push(this.add.text(66, y, r.name.split(' ').slice(-1)[0], { fontFamily: FONT, fontSize: '13px', color: COLORS.text }).setOrigin(0, 0.5));
+      objs.push(this.add.rectangle(barX, y, barW, 8, COLORS.buttonFill, 1).setOrigin(0, 0.5));
+      objs.push(this.add.rectangle(barX, y, barW * cond, 8, condColor, 1).setOrigin(0, 0.5));
+      objs.push(this.add.text(barX + barW + 8, y, legReadLabel(read), { fontFamily: FONT, fontSize: '11px', fontStyle: read === 'flying' || read === 'off' ? 'bold' : 'normal', color: labelColor }).setOrigin(0, 0.5));
+    });
+
+    const container = this.add.container(0, 0, objs);
+    const btn = makeButton(this, width / 2, cy + panelH / 2 - 17, 'Race →', () => this.dismissLegRead(container), { width: 120, height: 30, fontSize: 14, fill: COLORS.buttonSelected });
+    container.add(btn.container);
+    container.setAlpha(0);
+    this.tweens.add({ targets: container, alpha: 1, duration: 220 });
+    this.time.delayedCall(3600, () => this.dismissLegRead(container));
+  }
+
+  private dismissLegRead(container: Phaser.GameObjects.Container): void {
+    if (!this.legReadOpen) return;
+    this.legReadOpen = false;
+    this.tweens.add({ targets: container, alpha: 0, duration: 220, onComplete: () => container.destroy(true) });
   }
 
   private buildHeader(width: number): void {
@@ -294,7 +348,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   update(time: number, deltaMs: number): void {
-    if (this.done) return;
+    if (this.done || this.legReadOpen) return; // hold the clock at the gun during the leg-read reveal
     const inFinale = this.t > this.story.finaleT && this.t < 1;
     this.t += ((deltaMs / 1000) * this.speed * (inFinale ? FINALE_SLOWDOWN : 1)) / MAIN_T_SECONDS;
     const tPos = Math.min(this.t, 1);
@@ -552,6 +606,7 @@ export class RaceScene extends Phaser.Scene {
       catch: '#18b39a',
       finale: '#f5c518',
       finish: '#f5c518',
+      legs: '#5fc9d6',
       info: '#8a8ab0',
     };
     // shift old lines down, cap at 4

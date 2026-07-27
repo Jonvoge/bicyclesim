@@ -48,8 +48,9 @@ export class TeamScene extends Phaser.Scene {
     this.stat(width - 24, 112, 'SQUAD', `${squad.length}/${MAX_SQUAD_SIZE}`, COLORS.text, true);
 
     // actions
-    makeButton(this, width / 2 - 82, 152, 'Transfers', () => this.scene.start('Transfers', { dynasty: this.dynasty }), { width: 150, height: 34, fontSize: 14, fill: COLORS.buttonSelected });
-    makeButton(this, width / 2 + 82, 152, 'Development', () => this.scene.start('Training', { dynasty: this.dynasty }), { width: 150, height: 34, fontSize: 14, fill: COLORS.buttonSelected });
+    makeButton(this, width / 2 - 122, 152, 'Transfers', () => this.scene.start('Transfers', { dynasty: this.dynasty }), { width: 114, height: 34, fontSize: 13, fill: COLORS.buttonSelected });
+    makeButton(this, width / 2, 152, 'Season Focus', () => this.scene.start('FocusPlan', { dynasty: this.dynasty }), { width: 114, height: 34, fontSize: 13, fill: COLORS.buttonSelected });
+    makeButton(this, width / 2 + 122, 152, 'Development', () => this.scene.start('Training', { dynasty: this.dynasty }), { width: 114, height: 34, fontSize: 13, fill: COLORS.buttonSelected });
 
     if (this.note) this.add.text(width / 2, 176, this.note, { fontFamily: FONT, fontSize: '11px', color: '#e28f3b' }).setOrigin(0.5);
 
