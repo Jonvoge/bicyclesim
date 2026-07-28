@@ -66,6 +66,8 @@ export const SQUAD_SELECTION_FATIGUE_WEIGHT = 4; // fatigue matters extra when d
  */
 export const FATIGUE_BASE = 3.4; // scales raw fatigue gain per stage
 export const FATIGUE_REF_KM = 200; // a stage this long is "one unit" of length
+export const LENGTH_ENDURANCE_RANGE_KM = 100; // distance from the reference that reaches the adjustment cap
+export const LENGTH_ENDURANCE_WEIGHT_SHIFT = 0.06; // max weight moved to/from endurance on extreme lengths
 export const STAGE_RECOVERY_RATE = 0.95; // currentFatigue *= this overnight between tour stages
 export const STAGE_DIFFICULTY_BY_TYPE: Record<string, number> = {
   flat: 0.85,
@@ -100,13 +102,11 @@ export const ROLE_FATIGUE_DOMESTIQUE = 1.3; // riding on the front for the leade
 export const ROLE_FATIGUE_FREE = 1.1; // 'free/attack' (merged from breakaway) — an active day in the wind
 
 // --- Team effort lever (SPEC §5.8, stage races) ---
-// A team can "conserve for GC" on a stage: less fatigue burned across the whole
-// team (fresher legs for the queen stage), paid for with a small perf penalty to
-// the leader today. This is the giant-killing trade-off, reborn as an effort
-// setting on top of the role sheet. Only meaningful in tours (a one-day race is
-// always ridden flat-out).
-export const CONSERVE_LEADER_PENALTY = 2; // perfScore penalty to a conserving team's leader
-export const CONSERVE_FATIGUE_MULT = 0.25; // team-wide fatigue-gain multiplier when conserving
+// A team can "conserve for GC" on a stage: every rider gives up stage ambition
+// in exchange for a moderated team-wide fatigue saving. Only meaningful in tours
+// (a one-day race is always ridden flat-out). STARTING GUESSES §10.
+export const CONSERVE_PERFORMANCE_PENALTY = 2.5;
+export const CONSERVE_FATIGUE_MULT = 0.7;
 
 // --- Season points & standings (SPEC §6, Phase 4) ---
 // Points a race awards its top finishers (one-day order or tour GC), scaled by

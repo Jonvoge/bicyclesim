@@ -2,7 +2,7 @@ import { PLAYER_TEAM } from '../data/teams.ts';
 import type { Rider, StatKey } from '../data/types.ts';
 import { DEV_STATS } from '../sim/development.ts';
 import type { SeasonState } from '../sim/season.ts';
-import type { DynastyState } from './dynasty.ts';
+import type { DynastyState, EventSettlementSummary } from './dynasty.ts';
 
 /**
  * localStorage persistence for dynasties (Phase 5 + Phase 8). A dynasty nests its
@@ -46,6 +46,7 @@ interface SavedDynasty {
   budgets: Record<string, number>;
   season: SavedSeason;
   lastTeamRank: Record<string, number>;
+  lastSettlement?: EventSettlementSummary | null;
   seasonDev?: Record<string, Partial<Record<StatKey, number>>>; // season-to-date development (optional for pre-ext saves)
   meta?: SlotMeta;
 }
@@ -153,6 +154,7 @@ export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
       budgets: dynasty.budgets,
       season: packSeason(dynasty.season),
       lastTeamRank: dynasty.lastTeamRank,
+      lastSettlement: dynasty.lastSettlement,
       seasonDev: dynasty.seasonDev,
       meta: {
         seasonNumber: dynasty.seasonNumber,
@@ -184,6 +186,7 @@ export function loadDynastyFromSlot(slot: number): DynastyState | null {
     season: unpackSeason(s.season),
     lastTeamRank: s.lastTeamRank ?? {},
     lastTraining: null, // recomputed each event; camps are not persisted
+    lastSettlement: s.lastSettlement ?? null,
     seasonDev: s.seasonDev ?? {},
   };
 }

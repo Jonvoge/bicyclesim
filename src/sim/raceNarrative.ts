@@ -47,8 +47,8 @@ import {
 } from '../data/tuning.ts';
 import type { StageResult, StageResultEntry, StageType } from '../data/types.ts';
 import { isNotableLegRead, legReadForZ, type LegReadInfo } from './legRead.ts';
-import { perfToResult, scoreRiders, type StageSimInput } from './stageSim.ts';
-import { roleOf } from './tactics.ts';
+import { perfToResult, preRaceReputation, scoreRiders, type StageSimInput } from './stageSim.ts';
+import { effortEffect, effortOf, roleOf } from './tactics.ts';
 
 /**
  * Race narrative layer (SPEC §5.9). A road race has TWO kinds of move, not one:
@@ -175,7 +175,11 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   const selectiveness = TERRAIN_SELECTIVENESS[stage.type] ?? 0.4;
 
   const byPerfDesc = [...scored].sort((a, b) => b.perfScore - a.perfScore);
-  const favourites = new Set(byPerfDesc.slice(0, FAVOURITE_COUNT).map((s) => s.riderId));
+  const byReputationDesc = [...input.riders].sort(
+    (a, b) => preRaceReputation(b, stage) - preRaceReputation(a, stage) || a.id.localeCompare(b.id),
+  );
+  const reputationRank = new Map(byReputationDesc.map((rider, index) => [rider.id, index]));
+  const favourites = new Set(byReputationDesc.slice(0, FAVOURITE_COUNT).map((rider) => rider.id));
   // riders given the BREAKAWAY role: non-favourites join the morning break,
   // favourites are saved for a committed late attack instead (§5.9)
   const committed = new Set<string>();
@@ -187,8 +191,9 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   const spokenFor = new Set<string>();
   for (const [teamId, t] of input.tacticsByTeam) {
     const isPlayerTeam = teamId === playerTeamId;
+    const allowsCommittedMoves = effortEffect(effortOf(t)).allowsCommittedMoves;
     for (const [riderId, role] of Object.entries(t.roles)) {
-      if (role === 'free') committed.add(riderId); // free/attack rider commits to the move
+      if (role === 'free' && allowsCommittedMoves) committed.add(riderId);
       else if (isPlayerTeam && (role === 'leader' || role === 'sprinter' || role === 'domestique')) spokenFor.add(riderId);
     }
   }
@@ -210,7 +215,9 @@ export function buildRaceStory(input: StageSimInput): RaceStory {
   // --- morning break: opportunists ONLY (favourites save it for later) --------
   const size = BREAK_MIN_SIZE + rng.int(BREAK_MAX_SIZE - BREAK_MIN_SIZE + 1);
   const opportunistPool = byPerfDesc.map((s) => s.riderId).filter((id) => !favourites.has(id) && !spokenFor.has(id));
-  const committedOpportunists = [...committed].filter((id) => !favourites.has(id));
+  const committedOpportunists = [...committed]
+    .filter((id) => !favourites.has(id))
+    .sort((a, b) => (reputationRank.get(a) ?? Infinity) - (reputationRank.get(b) ?? Infinity));
   const shuffled = opportunistPool.filter((id) => !committedOpportunists.includes(id));
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = rng.int(i + 1);

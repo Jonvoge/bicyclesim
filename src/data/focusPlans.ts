@@ -94,8 +94,34 @@ export function conditionAt(plan: FocusPlan, t: number): number {
  */
 export function conditionForEvent(planId: string | undefined, eventIndex: number, calendarLength: number): number {
   const plan = FOCUS_PLANS_BY_ID.get(planId ?? '') ?? FOCUS_PLANS_BY_ID.get(DEFAULT_FOCUS_PLAN_ID)!;
+  const rawCondition = rawConditionForEvent(plan, eventIndex, calendarLength);
+  const planLift = averageRawLift(plan, calendarLength);
+  const targetLift = FOCUS_PLANS.reduce((sum, candidate) => sum + averageRawLift(candidate, calendarLength), 0) / FOCUS_PLANS.length;
+  const normalized = CONDITION_FLOOR + (rawCondition - CONDITION_FLOOR) * (targetLift / Math.max(Number.EPSILON, planLift));
+  return Math.max(0, Math.min(1, normalized));
+}
+
+function rawConditionForEvent(plan: FocusPlan, eventIndex: number, calendarLength: number): number {
   const t = calendarLength <= 1 ? 0.5 : eventIndex / (calendarLength - 1);
   return conditionAt(plan, t);
+}
+
+function averageRawLift(plan: FocusPlan, calendarLength: number): number {
+  const count = Math.max(1, calendarLength);
+  let total = 0;
+  for (let eventIndex = 0; eventIndex < count; eventIndex++) {
+    total += rawConditionForEvent(plan, eventIndex, count) - CONDITION_FLOOR;
+  }
+  return total / count;
+}
+
+export function averageCalendarCondition(planId: string, calendarLength: number): number {
+  const count = Math.max(1, calendarLength);
+  let total = 0;
+  for (let eventIndex = 0; eventIndex < count; eventIndex++) {
+    total += conditionForEvent(planId, eventIndex, count);
+  }
+  return total / count;
 }
 
 /** Total hump-area of a plan — the conserved "form budget" (Part A.3). */

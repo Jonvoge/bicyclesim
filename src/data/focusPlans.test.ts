@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  averageCalendarCondition,
   conditionAt,
   conditionForEvent,
   defaultFocusPlanId,
@@ -8,7 +9,7 @@ import {
   FOCUS_PLANS_BY_ID,
   planArea,
 } from './focusPlans.ts';
-import { CONDITION_FLOOR, FOCUS_BUDGET, FOCUS_BUDGET_TOL } from './tuning.ts';
+import { CONDITION_FLOOR, CONDITION_PERF_MAX, FOCUS_BUDGET, FOCUS_BUDGET_TOL } from './tuning.ts';
 import type { Rider, StatKey } from './types.ts';
 
 function rider(stats: Partial<Record<StatKey, number>>): Rider {
@@ -71,6 +72,15 @@ describe('focus plan curves', () => {
     const springLate = conditionForEvent('spring', 11, N); // t≈0.69
     const gtLate = conditionForEvent('grandTour', 11, N);
     expect(gtLate).toBeGreaterThan(springLate);
+  });
+
+  it('normalizes every plan to the same discrete-calendar performance budget', () => {
+    for (const calendarLength of [12, 17]) {
+      const averageModifiers = FOCUS_PLANS.map(
+        (plan) => (2 * averageCalendarCondition(plan.id, calendarLength) - 1) * CONDITION_PERF_MAX,
+      );
+      expect(Math.max(...averageModifiers) - Math.min(...averageModifiers)).toBeLessThanOrEqual(0.15);
+    }
   });
 });
 

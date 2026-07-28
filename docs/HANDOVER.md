@@ -3,21 +3,21 @@
 > Snapshot for an agent picking this up. Read `CLAUDE.md` first (non-negotiable rules), then this.
 > Source of truth for scope is `docs/cycling-sim-SPEC.md` + `docs/cycling-sim-BUILD-PLAN.md` —
 > **the spec wins**; keep both updated when you change scope (we have been).
-> The broader post-core product backlog is `docs/NEXT-ITERATIONS.md`; track proposed UI,
-> reward-loop, rival-AI, legacy, and deferred ideas there rather than scattering new wishlists.
 > The approved Dynasty expansion is `docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`; its sections
-> 1-3 are committed and take precedence where future scope overlaps the broader backlog.
+> 1-3 are committed. Its section 12 is the single loose-ideas backlog.
 
-## Next expansion (planned, not implemented)
+## Next expansion (Section 1 implemented; playtest gate pending)
 
 The next committed work is specified in `docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`. It supersedes
 the old "nothing left but tuning" status below for **future Dynasty scope**, while this file remains
-the handover for the currently implemented core and `docs/NEXT-ITERATIONS.md` remains the broader
-product/UI backlog.
+the handover for the currently implemented core.
 
-The committed expansion has three ordered sections:
+The committed expansion has three ordered sections. Section 1 is implemented in the current
+worktree and must pass its phone playtest gate before Section 2 begins:
 
-1. Correct known race-balance issues (especially Conserve and the all-Free narrative exploit).
+1. **Implemented:** correct known race-balance issues (especially Conserve and the all-Free
+  narrative exploit), length-sensitive endurance, calendar-normalized Focus, and consequence
+  feedback/settlement summaries.
 2. Replace fixed Dynasty starts with founded player teams in seeded generated worlds.
 3. Add separate Pro/World divisions, calendars, promotion/relegation, wildcards, and world history.
 
@@ -241,10 +241,11 @@ No persistent browser dep. To view/record the running app:
 
 **Tactics = the role sheet + team effort** (SPEC §5.5, §5.8):
 - One role per rider; `defaultTeamTactics` pre-fills a sensible sheet so START-mashing works.
-- **Conserve** effort (tours) trades a small leader penalty today for less team fatigue → fresher
-  legs later. It's a deliberately **small in-tour edge**; energy's real teeth are at **season**
-  scale (fatigue carries across races). Don't crank the in-tour fatigue knobs to force it — that
-  just makes single tours grindy.
+- **Conserve** effort (tours) applies `-2.5` performance to every team rider, multiplies every
+  rider's fatigue gain by `0.70`, and disables committed-move bonuses. Matched-seed reports now
+  put Conserve-all below selective use in all three tours and two rider archetypes. Aurelia's
+  selective gain remains the high outlier (up to ~22 percentage points), so the Section 1 phone
+  gate should specifically judge long-tour freshness before generated-world tuning begins.
 
 **Balance / stats:**
 - Terrain **gap multiplier** (`GAP_COMPRESSION_BY_TYPE`) is the biggest lever on how a stage reads:

@@ -2,9 +2,12 @@ import { STAGE_WEIGHTS } from '../data/stageWeights.ts';
 import {
   CONDITION_NEUTRAL,
   CONDITION_PERF_MAX,
+  FATIGUE_REF_KM,
   FATIGUE_WEIGHT,
   GAP_COMPRESSION_BY_TYPE,
   GAP_SPREAD,
+  LENGTH_ENDURANCE_RANGE_KM,
+  LENGTH_ENDURANCE_WEIGHT_SHIFT,
   REFERENCE_SPEED_KMH,
 } from '../data/tuning.ts';
 import type { BaseStatKey, Rider, Stage, StageResult, StageResultEntry } from '../data/types.ts';
@@ -24,12 +27,33 @@ import { effortOf, roleOf, tacticsEffect, type RoleCounts, type TeamTactics } fr
 
 /** Weighted suitability of a rider for a stage type (~1–100). */
 export function baseScore(rider: Rider, stage: Stage): number {
-  const weights = STAGE_WEIGHTS[stage.type];
+  const weights = stageWeightsForLength(stage);
   let score = 0;
   for (const key of Object.keys(weights) as BaseStatKey[]) {
     score += rider.stats[key] * (weights[key] ?? 0);
   }
   return score;
+}
+
+/** Reallocate a bounded share of terrain weight to endurance as stages lengthen. */
+export function stageWeightsForLength(stage: Stage): Partial<Record<BaseStatKey, number>> {
+  const base = STAGE_WEIGHTS[stage.type];
+  const baseEndurance = base.endurance ?? 0;
+  const normalizedLength = Math.max(-1, Math.min(1, (stage.lengthKm - FATIGUE_REF_KM) / LENGTH_ENDURANCE_RANGE_KM));
+  const endurance = Math.max(0.01, Math.min(0.99, baseEndurance + normalizedLength * LENGTH_ENDURANCE_WEIGHT_SHIFT));
+  const otherScale = (1 - endurance) / Math.max(0.01, 1 - baseEndurance);
+  const adjusted: Partial<Record<BaseStatKey, number>> = {};
+  for (const key of Object.keys(base) as BaseStatKey[]) {
+    adjusted[key] = key === 'endurance' ? endurance : (base[key] ?? 0) * otherScale;
+  }
+  return adjusted;
+}
+
+/** Stable pre-race standing used for contextual favourite classification. */
+export function preRaceReputation(rider: Rider, stage: Stage): number {
+  const fatiguePen = rider.currentFatigue * FATIGUE_WEIGHT;
+  const conditionMod = (2 * (rider.condition ?? CONDITION_NEUTRAL) - 1) * CONDITION_PERF_MAX;
+  return baseScore(rider, stage) - fatiguePen + conditionMod;
 }
 
 export interface ScoredRider {
@@ -71,14 +95,10 @@ export function scoreRiders(input: StageSimInput): ScoredRider[] {
     const tactics = rider.teamId ? tacticsByTeam.get(rider.teamId) : undefined;
     const effect = tacticsEffect(roleOf(tactics, rider.id), countsByTeam.get(rider.teamId ?? '') ?? noRoles, stage.type, effortOf(tactics));
 
-    const base = baseScore(rider, stage);
+    const base = preRaceReputation(rider, stage);
     const sigmaUsed = sigma(rider.stats.consistency) * effect.sigmaMult;
     const formSwing = rng.gaussian(0, sigmaUsed);
-    const fatiguePen = rider.currentFatigue * FATIGUE_WEIGHT;
-    // planned season-long form (Season Focus): NEUTRAL adds nothing, so riders with
-    // no plan (raw harness/tests) are unaffected; a full peak adds CONDITION_PERF_MAX.
-    const conditionMod = (2 * (rider.condition ?? CONDITION_NEUTRAL) - 1) * CONDITION_PERF_MAX;
-    const perfScore = base + formSwing - fatiguePen + effect.perfMod + conditionMod;
+    const perfScore = base + formSwing + effect.perfMod;
     return { riderId: rider.id, perfScore, formSwing, sigmaUsed };
   });
 }

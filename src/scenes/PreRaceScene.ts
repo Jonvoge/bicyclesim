@@ -9,7 +9,7 @@ import { baseScore } from '../sim/stageSim.ts';
 import { defaultTeamTactics, defaultTeamTacticsFor } from '../sim/raceSetup.ts';
 import { currentRace } from '../sim/season.ts';
 import { computeGc, createTour, type TourState } from '../sim/standings.ts';
-import { ROLES, ROLES_BY_ID, type TacticRole, type TeamEffort, type TeamTactics } from '../sim/tactics.ts';
+import { effortEffect, ROLES, ROLES_BY_ID, type TacticRole, type TeamEffort, type TeamTactics } from '../sim/tactics.ts';
 import { playerRiders, rosterById, startSeasonEvent, type DynastyState } from '../state/dynasty.ts';
 import { Button, makeButton } from '../ui/button.ts';
 import { StageProfileView } from '../ui/stageProfile.ts';
@@ -175,13 +175,13 @@ export class PreRaceScene extends Phaser.Scene {
       this.restButton = makeButton(this, startX + ROLES.length * (btnW + gap), palY, 'Rest', () => this.toggleRest(), { width: btnW, height: 38, fontSize: 11 });
     }
     this.roleBlurb = this.add
-      .text(width / 2, palY + 30, '', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted, align: 'center', wordWrap: { width: 340 } })
+      .text(width / 2, palY + 30, '', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted, align: 'center', wordWrap: { width: 360 } })
       .setOrigin(0.5, 0);
 
     // effort lever (tours only) — save the team's legs for a later stage
     let startY = palY + 84;
     if (isTour) {
-      const effY = palY + 96;
+      const effY = palY + 116;
       this.add.text(width / 2, effY - 20, 'TEAM EFFORT', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
       const efforts: { id: TeamEffort; label: string }[] = [
         { id: 'race', label: 'Race' },
@@ -296,12 +296,16 @@ export class PreRaceScene extends Phaser.Scene {
     this.restButton?.setSelected(isRested);
     for (const { effort, btn } of this.effortButtons) btn.setSelected(effort === this.effort);
     const name = this.byId.get(this.selectedRiderId)!.name.split(' ').slice(-1)[0];
-    if (isRested) {
-      this.roleBlurb.setText(`${name} — Benched: sits this race out and recovers for the next.`);
-    } else {
-      const def = ROLES_BY_ID.get(currentRole)!;
-      this.roleBlurb.setText(`${name} — ${def.label}: ${def.blurb}`);
-    }
+    const riderBlurb = isRested
+      ? `${name} — Benched: sits this race out and recovers for the next.`
+      : `${name} — ${ROLES_BY_ID.get(currentRole)!.label}: ${ROLES_BY_ID.get(currentRole)!.blurb}`;
+    const effort = effortEffect(this.effort);
+    const effortBlurb = this.effortButtons.length === 0
+      ? ''
+      : this.effort === 'race'
+        ? '\nRace: contest today · full fatigue · attacks available.'
+        : `\nConserve: lower ambition · ${Math.round((1 - effort.fatigueMult) * 100)}% less fatigue · no committed attacks.`;
+    this.roleBlurb.setText(riderBlurb + effortBlurb);
 
     // pick-5 gate: START only when exactly RACE_SQUAD_SIZE are selected
     if (this.canRest) {

@@ -5,9 +5,9 @@ import { teamColor } from '../data/teamColors.ts';
 import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
 import { PEAK_CELEBRATE_CONDITION } from '../data/tuning.ts';
 import type { Rider, Stage, StageResult } from '../data/types.ts';
-import { computeGc, isTourComplete, recordStageResult, type GcRow, type TourState } from '../sim/standings.ts';
+import { computeGc, isTourComplete, recordStageResult, type GcRow, type StageFatigueSummary, type TourState } from '../sim/standings.ts';
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
-import { finishSeasonEvent, rosterById, type DynastyState } from '../state/dynasty.ts';
+import { finishSeasonEvent, rosterById, type DynastyState, type EventSettlementSummary } from '../state/dynasty.ts';
 import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
 import { ScrollView } from '../ui/scrollView.ts';
@@ -56,12 +56,13 @@ export class StageResultsScene extends Phaser.Scene {
     this.playerTeamId = dynasty?.playerTeamId ?? PLAYER_TEAM.id;
 
     // BANK the stage: fatigue + GC + abandons, and advance the tour.
-    recordStageResult(tour, stage, result, data.tacticsByTeam, data.stageRiders);
+    const stageFatigue = recordStageResult(tour, stage, result, data.tacticsByTeam, data.stageRiders);
     const complete = isTourComplete(tour);
 
     // Event over? Bank it into the dynasty (points, carried fatigue, prize) + save.
+    let settlement: EventSettlementSummary | undefined;
     if (dynasty && complete) {
-      finishSeasonEvent(dynasty, tour);
+      settlement = finishSeasonEvent(dynasty, tour);
       saveDynasty(dynasty);
     }
     // a training camp may have fired on banking — surface it (Season Focus ext, Part C)
@@ -98,7 +99,77 @@ export class StageResultsScene extends Phaser.Scene {
 
     makeButton(this, width / 2, 812, label, advance, { width: 260, height: 46, fontSize: 18, fill: COLORS.buttonSelected });
 
-    if (this.pendingCamp) this.showCampMoment(this.pendingCamp);
+    this.showConsequenceMoment(stageFatigue, settlement);
+  }
+
+  private showConsequenceMoment(stageRows: StageFatigueSummary[], settlement?: EventSettlementSummary): void {
+    const rows = stageRows.filter((row) => this.byId.get(row.riderId)?.teamId === this.playerTeamId).slice(0, 6);
+    if (rows.length === 0 && !settlement) return;
+
+    const { width, height } = this.scale;
+    const settlementLines = settlement ? 3 + (settlement.milestones.length > 0 ? 1 : 0) : 0;
+    const panelH = 88 + rows.length * 25 + settlementLines * 22;
+    const cy = height / 2;
+    const objects: Phaser.GameObjects.GameObject[] = [];
+    const shade = this.add.rectangle(width / 2, height / 2, width, height, 0x0a0a18, 0.72).setInteractive();
+    objects.push(shade);
+    objects.push(this.add.rectangle(width / 2, cy, width - 36, panelH, COLORS.panel, 1).setStrokeStyle(2, settlement ? COLORS.gold : COLORS.buttonSelected));
+    objects.push(this.add.text(width / 2, cy - panelH / 2 + 22, settlement ? 'EVENT SETTLED' : 'EFFORT REPORT', {
+      fontFamily: FONT,
+      fontSize: '18px',
+      fontStyle: 'bold',
+      color: settlement ? '#f5c518' : COLORS.accentText,
+    }).setOrigin(0.5));
+    objects.push(this.add.text(width / 2, cy - panelH / 2 + 43, 'fatigue gained · saved vs Race · next stage', {
+      fontFamily: FONT,
+      fontSize: '10px',
+      color: COLORS.textMuted,
+    }).setOrigin(0.5));
+
+    rows.forEach((row, index) => {
+      const rider = this.byId.get(row.riderId);
+      const y = cy - panelH / 2 + 69 + index * 25;
+      objects.push(this.add.text(32, y, rider?.name ?? row.riderId, { fontFamily: FONT, fontSize: '12px', color: COLORS.text }).setOrigin(0, 0.5));
+      const next = row.nextStage === null ? 'DNF' : row.nextStage.toFixed(1);
+      objects.push(this.add.text(width - 32, y, `+${row.gained.toFixed(1)} · saved ${row.savedVsRace.toFixed(1)} · ${next}`, {
+        fontFamily: FONT,
+        fontSize: '11px',
+        color: row.savedVsRace > 0 ? COLORS.accentText : COLORS.textMuted,
+      }).setOrigin(1, 0.5));
+    });
+
+    let y = cy - panelH / 2 + 75 + rows.length * 25;
+    if (settlement) {
+      const rank = settlement.teamRankAfter === undefined
+        ? 'unranked'
+        : settlement.teamRankBefore === undefined
+          ? `${settlement.teamRankAfter}`
+          : `${settlement.teamRankBefore} -> ${settlement.teamRankAfter}`;
+      objects.push(this.add.text(width / 2, y, `Team +${settlement.teamPointsGained} pts · rank ${rank}`, { fontFamily: FONT, fontSize: '12px', color: COLORS.text }).setOrigin(0.5));
+      y += 22;
+      objects.push(this.add.text(width / 2, y, `Prize +${settlement.prizeMoney.toLocaleString()} · balance ${settlement.budgetBalance.toLocaleString()}`, { fontFamily: FONT, fontSize: '12px', color: COLORS.accentText }).setOrigin(0.5));
+      y += 22;
+      objects.push(this.add.text(width / 2, y, `${settlement.objective.text}: ${settlement.objective.current}/${settlement.objective.target}`, { fontFamily: FONT, fontSize: '11px', color: settlement.objective.completed ? '#f5c518' : COLORS.textMuted }).setOrigin(0.5));
+      if (settlement.milestones.length > 0) {
+        y += 22;
+        objects.push(this.add.text(width / 2, y, settlement.milestones.join(' · '), { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#f5c518' }).setOrigin(0.5));
+      }
+    }
+
+    objects.push(this.add.text(width / 2, cy + panelH / 2 - 16, 'tap to continue', { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0.5));
+    const container = this.add.container(0, 0, objects).setAlpha(0);
+    this.tweens.add({ targets: container, alpha: 1, duration: 180 });
+    shade.on('pointerup', () => {
+      this.tweens.add({
+        targets: container,
+        alpha: 0,
+        duration: 140,
+        onComplete: () => {
+          container.destroy(true);
+          if (settlement?.training && this.pendingCamp) this.showCampMoment(this.pendingCamp);
+        },
+      });
+    });
   }
 
   /**

@@ -1,9 +1,9 @@
 # Dynasty Expansion - Handover and Build Plan
 
 > This document is the source of truth for the next expansion after the completed core build.
-> Read `CLAUDE.md`, `docs/HANDOVER.md`, `docs/NEXT-ITERATIONS.md`, and this document before changing
-> the expansion scope. `NEXT-ITERATIONS.md` remains the broader UI/reward/product backlog; this plan
-> takes precedence for the committed Dynasty work in sections 1-3.
+> Read `CLAUDE.md`, `docs/HANDOVER.md`, and this document before changing the expansion scope. This
+> is the sole post-core plan: the three workstreams labeled **Committed Section 1-3** are approved;
+> **Optional Section 4** and the **Loose Ideas Backlog** are not approved implementation scope.
 > The existing `cycling-sim-SPEC.md` still governs implemented behavior until a phase below updates
 > it. Where this plan deliberately changes old behavior, update the spec in the same PR.
 
@@ -50,7 +50,22 @@ management-heavy redesign.
 - Racing remains the center of the game. Management systems should support sporting decisions, not
   bury them.
 
-### 2.2 Experience targets
+### 2.2 Product experience loop
+
+Use this emotional loop as an acceptance lens for every committed system and screen:
+
+1. **Anticipate** - see the next target, the route, a rider nearing peak form, and the rival likely
+  to matter.
+2. **Prepare** - choose a squad, assign roles, and decide where to spend freshness.
+3. **Reveal** - discover the day's legs, breakaway, incidents, and rival intentions.
+4. **Pay off** - clearly count results, points, money, development, objective progress, fatigue, and
+  rank movement.
+5. **Remember** - preserve wins, promotions, rival performances, rider careers, and season history.
+
+This is not a separate feature phase. It is a clarity test: simulation consequences should be
+visible, attributable, and retained without adding constant micromanagement.
+
+### 2.3 Experience targets
 
 A typical Dynasty should produce this arc:
 
@@ -67,7 +82,7 @@ Found team
 
 Promotion is the end of the opening act, not the end of the Dynasty.
 
-### 2.3 Explicit non-goals for sections 1-3
+### 2.4 Explicit non-goals for sections 1-3
 
 - No live tactical input during a race.
 - No backend, accounts, online leagues, or server-generated worlds.
@@ -252,6 +267,23 @@ Stage results should show:
 - Current fatigue going into the next stage.
 
 Do not expose exact hidden random form or future results.
+
+In addition, define one structured event-settlement summary in the state/simulation layer. It should
+capture the consequences of completing an event before any scene animates them:
+
+- Finishing result and notable player-rider performances.
+- Rider and team points gained.
+- Rider and team rank movement.
+- Prize money and new budget balance.
+- Sponsor-objective progress or completion.
+- Fatigue gained, recovered, or saved.
+- Training-camp trigger and permanent gains.
+- Firsts, records, promotion consequences, and other persisted milestones.
+
+The UI may reveal this as a short, skippable sequence or an immediate summary, but it must read from
+the same structured payload. A single tap should complete any count-up immediately. This avoids
+quietly mutating important values in several scenes and gives future history/reward presentation one
+stable source.
 
 ### 4.9 Required tests and metrics
 
@@ -729,11 +761,21 @@ Committed minimum:
 - Terrain-aware role sheets.
 - Deterministic Race/Conserve effort policy in tours.
 - Fatigue-aware race participation and rider selection.
+- A lightweight deterministic **Rival Director plan** for each team and season:
+  - Two or three target races or windows derived from roster strengths and division calendar.
+  - One protected leader per target.
+  - A simple taper rule that values freshness before a target.
+  - A bounded tactical preference such as sprint control, break hunting, classics aggression, or GC
+    protection.
+- Visible intent: pre-race can identify one Team to Watch, its likely leader, and why the target
+  matters. Race radio may surface when that team commits to or loses its plan.
 - Basic offseason roster maintenance using generated needs.
 - Aging, development, retirement, and prospect intake for all teams.
 - Promotion and relegation without player special cases.
 
-Complex bidding, promises, and negotiation personalities remain optional section 4.
+Director plans are team-level strategy, not rider personalities or adaptive tactical scripts. They
+must have sensible defaults and remain competitive when the player ignores their signals. Complex
+bidding, promises, and negotiation personalities remain optional section 4.
 
 ### 6.8 Progression pace
 
@@ -772,13 +814,19 @@ Persist enough history for generated worlds to become memorable:
 
 - Division champions by season.
 - Promoted and relegated teams.
-- Race and tour winners.
+- Complete race, stage, tour, major-classic, and championship winners.
 - Rider and team season champions.
+- Rider career totals, including stage wins, event wins, major wins, and seasons/teams represented.
+- Team records and best season finishes.
+- Retired rider career totals and years spent on the player's team.
+- Record candidates such as youngest winner, longest streak, and largest GC margin.
 - Player milestones: first win, first wildcard, first promotion, first World Tour win, first major
   win, first homegrown winner, first top-division championship.
 
-This can initially be read-only text/list UI. Do not build a trophy-room metagame before the history
-data is proven useful.
+Persist the underlying facts from the first generated season even if their final presentation is not
+built yet. Do not rely on reconstructing records from a truncated top-N archive. Section 3 may ship a
+compact read-only history list; a richer palmares or Hall of Fame UI remains a loose idea in section
+12.
 
 ### 6.11 Season Focus across calendars
 
@@ -807,6 +855,13 @@ Additional views:
 - Team directory for both divisions.
 - World history including movement between divisions.
 - Rollover scene that clearly presents promoted/relegated teams before the new season starts.
+
+The event-settlement summary from section 4.8 should provide a compact payoff after each event:
+
+- Result and notable performance first.
+- Then points/rank, money/objective, fatigue/development, and rare milestones.
+- Meaningful animations only, always skippable.
+- No reward value should change only visually; the state transition occurs once before presentation.
 
 Keep operational screens compact and scan-friendly. Do not turn the Season Hub into a marketing-style
 dashboard or card wall.
@@ -999,10 +1054,9 @@ calendar eligibility, budget finiteness, development bounds, and history consist
 Build headless behavior before UI in every phase. Each PR should be reviewable and leave the game in a
 working state.
 
-Before starting PR 1A, finish or deliberately checkpoint any in-progress UI-overhaul work tracked in
-`NEXT-ITERATIONS.md`; do not discard concurrent user changes. UI/reward backlog items that are not
-already in progress do not block the committed expansion unless the user explicitly reprioritizes
-them.
+Before starting PR 1A, finish or deliberately checkpoint any in-progress UI-overhaul work; do not
+discard concurrent user changes. Loose UI/reward ideas in section 12 do not block the committed
+expansion unless the user explicitly reprioritizes them.
 
 ### PR 1A - Race effort and narrative correctness
 
@@ -1022,6 +1076,13 @@ them.
 
 **Section 1 playtest gate:** do not begin generated-world tuning until the race choices feel and
 measure correctly.
+
+Record at least these questions during the gate:
+
+- Can the player explain why time was gained or lost?
+- Is the Race/Conserve consequence visible without opening a lookup screen?
+- Did a focused attack feel risky while all-Free felt clearly worse?
+- Did stage length distinguish similar terrain without obscuring the route type?
 
 ### PR 2A - Save schema and pure world generators
 
@@ -1050,6 +1111,13 @@ measure correctly.
 **Section 2 playtest gate:** start several seeds and confirm proposals feel different, fair, and
 interesting before building promotion around their power distributions.
 
+Record at least these questions during the gate:
+
+- Can the player describe the squad's identity, strength, and weakness?
+- Do the three proposals create a real choice without exposing a clearly superior offer?
+- Does at least one prospect, veteran, or generated rival feel memorable?
+- Is potential uncertain but still useful for making a decision?
+
 ### PR 3A - Division model and calendars
 
 - Division eligibility and team standings.
@@ -1076,6 +1144,16 @@ interesting before building promotion around their power distributions.
 
 **Section 3 product gate:** play through at least one promotion and one top-division season before
 deciding whether optional section 4 is needed.
+
+Record at least these questions during the gate:
+
+- Is the next target and promotion/relegation position understandable within a few seconds?
+- Does every completed event visibly change at least one meaningful value or story?
+- Can the player name a rival team or rider and explain what they are targeting?
+- Did promotion materially change opponents, races, finances, and expectations?
+- Did a fading veteran and emerging rider feel like a visible transition rather than silent churn?
+- Did money create choices without trapping the save?
+- Which screen caused unnecessary taps, clipping, or cramped phone controls?
 
 ### Optional PR 4+
 
@@ -1128,3 +1206,120 @@ These are bounded decisions, not permission to reopen the overall direction:
 
 Do not resolve these by adding unrelated systems. Record each decision in this document and the spec
 when its owning PR begins.
+
+## 12. Loose Ideas Backlog - Not Approved Scope
+
+This section preserves useful ideas that are not part of committed sections 1-3. They may be pulled
+forward only by an explicit user decision. Do not treat ordering here as a delivery roadmap.
+
+### 12.1 UI and reward polish
+
+- Continue the mobile UI overhaul across Stage Results, Pre-Race, Team HQ, Development, Transfers,
+  Race, Standings, Peloton, Rollover, and utility screens.
+- Keep the Season Hub centered on one featured upcoming race, a compact calendar tracker, sponsor
+  progress, season pulse, and stable navigation.
+- Improve squad comparison, role clarity, fitness hierarchy, touch targets, and long-name handling.
+- Add stronger but restrained celebration frames for wins, objectives, breakthroughs, and training
+  gains.
+- Consider sound and optional haptics for rare events: confirm, race start, attack, incident, win,
+  objective, and camp gain.
+- Provide mute and reduced-motion controls before adding substantial motion/audio.
+
+Phone constraints for any future UI work:
+
+- Treat `390x844` as the primary acceptance canvas.
+- Keep essential controls clear of safe-area edges.
+- Do not place fixed calls to action over scrolling content.
+- Preserve approximately 44 design pixels for primary touch targets where practical.
+- Verify long names and values do not overlap.
+- Test both a phone-sized browser and installed PWA after toolbar/cache changes.
+
+### 12.2 Rivalries and world memory presentation
+
+- Derive close-finish rivalries, repeated terrain battles, nemeses, lead changes, streaks, droughts,
+  and breakthrough wins from persisted history.
+- Surface at most one current nemesis or rivalry prominently at a time.
+- Let rivalries expire when results no longer support them.
+- Do not give rivalries large hidden performance bonuses.
+- Build a richer palmares/Hall of Fame with rider careers, retired favorites, team records, firsts,
+  and records after section 3 proves the retained history model.
+
+### 12.3 Combo discoveries
+
+Potential Kairosoft-style labels using existing systems:
+
+- Peaked Condition + signature terrain + Leader role = `Perfect Target`.
+- Good/Flying legs + Free role + break-friendly route = `Breakaway Spark`.
+- Fresh squad + multiple domestiques + GC leader = `Mountain Train`.
+- Young rider + strong camp gain = `Breakthrough Prospect`.
+- Win while completing a sponsor objective = `Boardroom Hero`.
+
+Most combos should be celebratory labels, collection entries, reward multipliers, or tiny bounded
+bonuses. They must not overturn the core race probabilities. First discovery may receive a stronger
+reveal; repeats should remain compact.
+
+### 12.4 Richer rival transfer market
+
+- Contracts genuinely expire instead of silently auto-renewing.
+- Rivals evaluate roster gaps, age, salary, potential, philosophy, and budget.
+- Rivals compete for free agents and released riders.
+- The player receives clear warning before a contract expires or a rider can leave.
+- AI teams maintain legal squads with a safe academy fallback.
+
+This is distinct from the basic roster maintenance committed in section 3. Detailed competition,
+bidding, poaching, negotiation, and promises remain decision-gated with section 4.
+
+### 12.5 Time trials and team time trials
+
+- Treat ITTs and TTTs as a separate race shape with dedicated headless simulation, pacing,
+  presentation, squad rules, and results.
+- Use `flat` as part of their foundation, but do not disguise them as ordinary bunch stages.
+- Do not add them until the primary race and Dynasty loops feel complete.
+
+### 12.6 Art, sound, and presentation assets
+
+- Evaluate a final rider sprite atlas behind the existing renderer abstraction.
+- Add race-specific effects rather than decorative illustration that obscures game state.
+- Keep code-drawn rendering as a supported fallback until a replacement proves better.
+- Let audio and haptics amplify readable state, never compensate for unclear mechanics.
+
+### 12.7 Additional anticipation, reveal, and payoff ideas
+
+- Upcoming-target countdown and rider peak warning.
+- Route-specialist preview and squad-readiness grade.
+- Sponsor stretch target for the current window.
+- Stronger presentation for rare Flying/Off leg reads.
+- Rival weakness revealed through race radio instead of pre-race spoilers.
+- Clear attack-commitment and catch-danger states.
+- Personal best, first win, streak, upset, and breakthrough callouts.
+- Old/new stat presentation for permanent development gains.
+- Youth prospect debut and first meaningful result.
+- Compact season recap.
+- Optional board reactions after exceptional success or failure.
+- Newspaper-style headlines generated from structured outcomes.
+- One optional risk/reward decision between race windows, always with a sensible default.
+- More authored races or riders only when they create a new strategic target.
+
+### 12.8 Other deferred systems
+
+- Rider role promises and lightweight happiness.
+- Regional scouting assignments and report timers.
+- Detailed transfer bidding or auctions.
+- Injuries lasting beyond a stage incident.
+- Sponsor negotiation.
+- Overlapping race schedules requiring split squads.
+- Difficulty settings based on finances, scouting uncertainty, rival competence, or safety nets rather
+  than hidden race-stat bonuses.
+- Final facilities/staff decision options already described in section 7.
+
+### 12.9 Loose-idea success questions
+
+If any idea is proposed for promotion into committed scope, first state which observed problem it
+solves and how success will be measured. Useful product-level signals include:
+
+- The player identifies the next target and primary action quickly.
+- Event consequences are understood without lookup screens.
+- The player remembers a favorite rider and current rival after a season.
+- Reward presentation is satisfying but never slows repeated play.
+- Added systems retain sensible defaults and do not require constant micromanagement.
+- No realism feature advances unless it creates a clearer choice, stronger story, or better payoff.

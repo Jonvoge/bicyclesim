@@ -140,6 +140,10 @@ describe('economy over a season', () => {
     playEvent(d, 4);
     const gained = TEAMS.filter((t) => d.budgets[t.id] > before[t.id]);
     expect(gained.length).toBeGreaterThan(0); // somebody earned prize money
+    expect(d.lastSettlement).not.toBeNull();
+    expect(d.lastSettlement!.result.raceId).toBe(d.season.results[0].raceId);
+    expect(d.lastSettlement!.budgetBalance).toBe(playerBudget(d));
+    expect(d.lastSettlement!.fatigue).toHaveLength(playerRiders(d).length);
   });
 
   it('the rollover settles the books and starts a fresh season', () => {

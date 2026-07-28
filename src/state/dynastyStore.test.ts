@@ -65,6 +65,24 @@ describe('save slots', () => {
     expect(pogar.ceiling).toBeDefined();
   });
 
+  it('round-trips the latest structured event settlement', () => {
+    const d = createDynasty();
+    d.lastSettlement = {
+      result: { raceId: 'r-test', classification: [], winnerId: '' },
+      notablePlayerResults: [],
+      riderPointsGained: [],
+      teamPointsGained: 0,
+      prizeMoney: 25,
+      budgetBalance: 100,
+      objective: { text: 'Test', before: 0, current: 0, target: 1, completed: false },
+      fatigue: [],
+      training: null,
+      milestones: [],
+    };
+    saveDynastyToSlot(0, d);
+    expect(loadDynastyFromSlot(0)!.lastSettlement).toEqual(d.lastSettlement);
+  });
+
   it('uplifts prospects from older saves once', () => {
     const d = createDynasty();
     d.roster.push({

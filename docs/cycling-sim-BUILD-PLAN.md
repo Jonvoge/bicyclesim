@@ -115,10 +115,10 @@ leader (finish every stage to hold a place). Fatigue accrues per SPEC §5.8 —
 `gain = stageDifficulty · (1 − stamina/100·STAMINA_FACTOR) · fatigueMult`, with a mild overnight
 recovery (`STAGE_RECOVERY_RATE`) so a long tour reaches a plateau instead of ballooning. The
 global roster is never mutated: each stage rides fatigued rider **copies**. The **conserve**
-lever is a team `effort` flag on `TeamTactics` — it cuts the team's fatigue burn (`CONSERVE_FATIGUE_MULT`)
-for a small leader penalty today (`CONSERVE_LEADER_PENALTY`), so saving the flat/hilly days
-freshens the legs for the queen stage (harness shows fatigue-into-queen 7.0→4.4, queen gap
-+10s→+8s). Two tours added: **Tour de Provence** (5 stages) and **Giro d'Aurelia** (9). UI: the
+lever is a team `effort` flag on `TeamTactics` — it applies a team-wide performance cost,
+moderates every rider's fatigue gain, and suppresses committed moves. Matched-seed counterfactuals
+cover all three current tours and require selective use to beat Race-all while Conserve-all is
+worse. Two tours added: **Tour de Provence** (5 stages) and **Giro d'Aurelia** (9). UI: the
 scene loop is unified so a one-day race is a one-stage tour; PreRace shows the stage number,
 each rider's carried fatigue, a GC context line and (tours only) the Race/Conserve toggle;
 StageResults banks the stage then shows stage result + live GC, routing to the next stage or a

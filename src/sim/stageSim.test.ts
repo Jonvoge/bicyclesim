@@ -5,7 +5,7 @@ import { STAGES_BY_ID } from '../data/stages.ts';
 import { TEAMS, TEAMS_BY_ID } from '../data/teams.ts';
 import type { Stage } from '../data/types.ts';
 import { Rng } from './rng.ts';
-import { baseScore, simulateStage } from './stageSim.ts';
+import { baseScore, simulateStage, stageWeightsForLength } from './stageSim.ts';
 import { buildRaceStory, interpGap } from './raceNarrative.ts';
 import { defaultTeamTactics } from './raceSetup.ts';
 import type { TacticRole, TeamTactics } from './tactics.ts';
@@ -55,6 +55,21 @@ describe('baseScore — right stat for the right stage type', () => {
   });
   it('a puncheur/cobbled-type wins the cobbled classic', () => {
     expect(topStat('st-roubey', 'puncheur')).toBeGreaterThanOrEqual(82);
+  });
+
+  it('long stages reallocate a bounded share of suitability toward endurance', () => {
+    const short: Stage = { id: 'short', name: 'Short hills', type: 'hilly', lengthKm: 170 };
+    const long: Stage = { ...short, id: 'long', name: 'Long hills', lengthKm: 270 };
+    const shortWeights = stageWeightsForLength(short);
+    const longWeights = stageWeightsForLength(long);
+    expect(longWeights.endurance).toBeGreaterThan(shortWeights.endurance!);
+    expect(Object.values(shortWeights).reduce((sum, weight) => sum + weight, 0)).toBeCloseTo(1);
+    expect(Object.values(longWeights).reduce((sum, weight) => sum + weight, 0)).toBeCloseTo(1);
+
+    const durable = RIDERS_BY_ID.get('gr-pogar')!;
+    const shortScore = baseScore(durable, short);
+    const longScore = baseScore(durable, long);
+    expect(Math.abs(longScore - shortScore)).toBeLessThan(4);
   });
 });
 

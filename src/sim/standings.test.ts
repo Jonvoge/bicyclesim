@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { RIDERS } from '../data/riders.ts';
 import { TEAMS } from '../data/teams.ts';
+import { STAGE_RECOVERY_RATE } from '../data/tuning.ts';
 import type { Race, Stage } from '../data/types.ts';
 import { Rng } from './rng.ts';
 import { buildRaceStory } from './raceNarrative.ts';
@@ -125,15 +126,15 @@ describe('fatigue across stages (SPEC §5.8)', () => {
 });
 
 describe('conserve effort lever (SPEC §5.8)', () => {
-  it('conserving burns less fatigue than racing for the same rider/day', () => {
+  it('penalizes every role and lowers every rider fatigue gain', () => {
     const stage = STAGES[2];
-    const leaderRole = 'leader' as const;
-    const counts = roleCounts({ teamId: 't', roles: {} });
-    const racing = tacticsEffect(leaderRole, counts, stage.type, 'race');
-    const conserving = tacticsEffect(leaderRole, counts, stage.type, 'conserve');
-    expect(conserving.fatigueMult).toBeLessThan(racing.fatigueMult);
-    // …but it costs the leader perfScore today
-    expect(conserving.perfMod).toBeLessThan(racing.perfMod);
+    const counts = roleCounts({ teamId: 't', roles: { l: 'leader', s: 'sprinter', d: 'domestique', f: 'free' } });
+    for (const role of ['leader', 'sprinter', 'domestique', 'free'] as const) {
+      const racing = tacticsEffect(role, counts, stage.type, 'race');
+      const conserving = tacticsEffect(role, counts, stage.type, 'conserve');
+      expect(conserving.fatigueMult).toBeLessThan(racing.fatigueMult);
+      expect(conserving.perfMod).toBeLessThan(racing.perfMod);
+    }
   });
 
   it('over a tour, a team that conserves early carries less fatigue into the finish', () => {
@@ -144,7 +145,27 @@ describe('conserve effort lever (SPEC §5.8)', () => {
     const conservedF = sumTeamFatigueSeen(conserved);
     // the conserving team's leader ends the tour fresher
     expect(conserved.fatigue.get(star) ?? 0).toBeLessThan(raced.fatigue.get(star) ?? Infinity);
-    expect(conservedF).toBeLessThan(racedF * 0.4);
+    expect(conservedF).toBeLessThan(racedF * 0.71);
+  });
+
+  it('reports fatigue gained, saved, and carried into the next stage', () => {
+    const stage = STAGES[0];
+    const tour = createTour(RACE);
+    const riders = ridersForStage(tour, RIDERS);
+    const tactics = new Map(
+      TEAMS.map((team) => {
+        const sheet = defaultTeamTactics(team, stage);
+        return [team.id, { ...sheet, effort: team.id === 't-grenoble' ? ('conserve' as const) : ('race' as const) }];
+      }),
+    );
+    const story = buildRaceStory({ stage, riders, tacticsByTeam: tactics, rng: new Rng(88) });
+    const summary = recordStageResult(tour, stage, story.result, tactics, riders);
+    const conserved = summary.find((row) => RIDERS.find((rider) => rider.id === row.riderId)?.teamId === 't-grenoble')!;
+    const racing = summary.find((row) => RIDERS.find((rider) => rider.id === row.riderId)?.teamId !== 't-grenoble')!;
+    expect(conserved.gained).toBeGreaterThan(0);
+    expect(conserved.savedVsRace).toBeGreaterThan(0);
+    expect(conserved.nextStage).toBeCloseTo((conserved.incoming + conserved.gained) * STAGE_RECOVERY_RATE);
+    expect(racing.savedVsRace).toBe(0);
   });
 });
 

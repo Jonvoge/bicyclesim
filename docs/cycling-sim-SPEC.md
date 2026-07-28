@@ -180,6 +180,11 @@ the top on every terrain (playtest: the winner pool was too narrow). Paired with
 the star all-rounders are elite at only one or two disciplines (§4/`riders.ts`), this rotates who
 wins by terrain — pure sprinters take the flats, pure climbers the summits, puncheurs the hills.
 
+Stage length reallocates a bounded share of those terrain weights to endurance around
+`FATIGUE_REF_KM`: long stages add up to `LENGTH_ENDURANCE_WEIGHT_SHIFT`, short stages remove the
+same bounded share, and the other weights are renormalized so the total remains 1. Terrain identity
+therefore remains stronger than distance while durable riders gain a modest edge on very long days.
+
 **`flat`** (flat-road power / engine, the renamed `timeTrial`) is a real secondary factor on the
 flatter terrain — flat run-ins, the pavé, the break — so rouleurs matter there, but `sprint` still
 decides a bunch kick so the fast men keep winning the sprints. It also feeds **break survival**
@@ -229,9 +234,8 @@ palette is easy to widen without touching logic.
 |---|---|---|
 | LEADER | Backed for the win | `+LEADER_BASE_BONUS` (≈ +4) **plus** `+DOMESTIQUE_SUPPORT_BONUS` (≈ +1.2) per DOMESTIQUE on the sheet (counting at most `DOMESTIQUE_SUPPORT_CAP`, split if several leaders are named) |
 | SPRINTER | Sit in, save it for the kick | `+SPRINTER_BONUS` on likely bunch finishes (flat/hilly/cobbled), penalty if the climbs drop them (mountain/summitFinish); fatigueMult 0.8 |
-| BREAKAWAY | Sent up the road — the gamble | a *non-favourite* is guaranteed into the **morning break** and raises its survival odds (per committed rider, capped — §5.9); a *favourite* launches a committed **late attack** instead. `+BREAK_PERF_BONUS` on break-friendly terrain, small penalty on flat; wider σ; fatigueMult 1.2 |
+| FREE / ATTACK | Rides his own race — the gamble | a non-favourite commits to the **morning break**; a favourite commits to a **late attack**. `+BREAK_PERF_BONUS` on break-friendly terrain, small penalty on flat, wider σ, fatigueMult 1.1. More than `FREE_COORDINATION_LIMIT` riders causes a team-wide attacker crowd penalty. |
 | DOMESTIQUE | Works for the leader | small self-penalty (−`DOMESTIQUE_WORK_PENALTY`) — the work flows to the leader's bonus above; fatigueMult 1.3 (the bill arrives in Phase 3) |
-| FREE | Rides his own race | neutral; fatigueMult 0.9 |
 
 Fatigue multipliers are exposed now and consumed in **Phase 3** — that's when spending five
 domestiques on one day starts costing the rest of the week, and a team-level "conserve for GC"
@@ -284,10 +288,11 @@ race radio. Surfaced from **Phase 2** as visible drama rather than waiting for P
   (a mild recover so fatigue plateaus over a long tour rather than ballooning). Bigger recovery
   between *races* / on rest is `RECOVERY_RATE` (Phase 4).
 - **Conserve lever (team effort):** a team may ride a stage `conserve` instead of `race` — it cuts
-  the whole team's fatigue burn (`× CONSERVE_FATIGUE_MULT`) for a small perf penalty to the leader
-  that day (`CONSERVE_LEADER_PENALTY`). Saving the stages a GC leader can't win (flat/hilly)
-  freshens the legs for the mountains — the "spend today / pay tomorrow" trade-off, as an effort
-  setting on top of the role sheet.
+  every rider's fatigue gain (`× CONSERVE_FATIGUE_MULT`, currently 0.70) for a performance penalty
+  to every rider that day (`CONSERVE_PERFORMANCE_PENALTY`, currently −2.5). It also disables
+  committed-break survival bonuses and supported late-attack guarantees/bonuses. Saving suitable
+  easy stages freshens the legs for the mountains, while conserving decisive stages or the whole
+  tour gives up too much stage ambition.
 - **Purity:** the tour holds the fatigue map + abandon set; the global roster is never mutated —
   each stage rides fatigued rider **copies**, so a tour stays deterministic and re-runnable.
 - **TTT:** *(deferred with time trials — see §4; revisit with their own model.)*
@@ -303,9 +308,10 @@ engine**, not a replacement (fun over realism):
 1. **Base scores** come from §5.1 (`scoreRiders`).
 2. **A few bounded events adjust the result** (this is what makes watching *matter*):
    There are **two kinds of move**, not one — this is what keeps a race from feeling formulaic:
-   - **The morning break.** A small group (2–5) of **opportunists only** — never a favourite; the
-     strongest `FAVOURITE_COUNT` riders save it for later. The player can commit a *domestique*
-     to it via `BREAKAWAY`. Whether it **stays away** is emergent: `survive = clamp(BASE +
+   - **The morning break.** A small group (2–5) of **opportunists only** — never a favourite.
+     Favourites are selected before daily form and tactics from contextual terrain suitability,
+     condition and incoming fatigue, so crowd or effort penalties cannot demote a star into the
+     break. The player can commit a rider via `FREE / ATTACK`. Whether it **stays away** is emergent: `survive = clamp(BASE +
      TERRAIN·friendliness + tacticBonus, 0, MAX)`. Break-friendly days (hilly/cobbled) let it
      stick; sprinters' courses reel it in. If it survives, its strongest rider wins.
    - **Late attacks.** In the finale a **favourite** can jump clear — the player's leader if they
@@ -352,6 +358,13 @@ tunable); the narrative only ever nudges outcomes within bounded, tunable limits
   - **short tours:** 4–5 stages
   - **grand tours:** 8–10 stages
 - Win conditions (Phase 4): season ranking + prestige accumulated across the dynasty.
+- Season Focus lift is normalized over the actual discrete eligible calendar, not only nominal
+  Gaussian area. Calendar-wide average performance budgets remain within 0.15 while sharp, double,
+  and Steady plans retain different peak shapes.
+- Event completion produces one durable structured settlement summary before presentation: result,
+  player highlights, point/rank movement, prize and budget, objective movement, fatigue/recovery,
+  training and milestones. Stage banking likewise returns gain, Race-counterfactual saving and
+  next-stage fatigue for every starter.
 
 ---
 

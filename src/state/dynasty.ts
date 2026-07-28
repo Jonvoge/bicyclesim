@@ -39,6 +39,7 @@ import { Rng } from '../sim/rng.ts';
 import {
   createSeason,
   finishEvent,
+  riderStandings,
   teamStandings,
   type SeasonResult,
   type SeasonState,
@@ -68,6 +69,7 @@ export interface DynastyState {
   season: SeasonState; // the season currently being contested
   lastTeamRank: Record<string, number>; // teamId → last season's finishing rank (sponsor income)
   lastTraining: TrainingBlockSummary | null; // the most recent auto-training camp (for the UI); null between camps
+  lastSettlement: EventSettlementSummary | null; // consequences of the most recently completed event
   seasonDev: Record<string, Partial<Record<StatKey, number>>>; // player riderId → stat points gained SO FAR this season (reset at rollover)
 }
 
@@ -77,6 +79,21 @@ export interface TrainingBlockSummary {
   improvedCount: number; // player riders who gained at least a little
   totalGain: number; // total stat points added across the player's squad
   perRider: { id: string; gain: number; topStat?: StatKey }[]; // player squad gains this camp, biggest first (with the stat that moved most)
+}
+
+export interface EventSettlementSummary {
+  result: SeasonResult;
+  notablePlayerResults: { riderId: string; position: number }[];
+  riderPointsGained: { riderId: string; points: number; rankBefore?: number; rankAfter?: number }[];
+  teamPointsGained: number;
+  teamRankBefore?: number;
+  teamRankAfter?: number;
+  prizeMoney: number;
+  budgetBalance: number;
+  objective: { text: string; before: number; current: number; target: number; completed: boolean };
+  fatigue: { riderId: string; eventStart: number; eventEnd: number; recovered: number }[];
+  training: TrainingBlockSummary | null;
+  milestones: string[];
 }
 
 function cloneRider(r: Rider): Rider {
@@ -123,6 +140,7 @@ export function createDynasty(playerTeamId: string = PLAYER_TEAM.id): DynastySta
     season: createSeason(SEASON_CALENDAR),
     lastTeamRank: {},
     lastTraining: null,
+    lastSettlement: null,
     seasonDev: {},
   };
 }
@@ -277,7 +295,17 @@ export function seasonDevStatCount(dynasty: DynastyState, riderId: string): numb
  * `season.finishEvent` so the UI has one call. Pass the dynasty roster so team
  * membership/standings read the *current* squads.
  */
-export function finishSeasonEvent(dynasty: DynastyState, tour: TourState): SeasonResult {
+export function finishSeasonEvent(dynasty: DynastyState, tour: TourState): EventSettlementSummary {
+  const playerId = dynasty.playerTeamId;
+  const riderPointsBefore = new Map(dynasty.season.points);
+  const riderRanksBefore = new Map(riderStandings(dynasty.season).map((row, index) => [row.id, index + 1]));
+  const teamRowsBefore = teamStandings(dynasty.season, (id) => teamOf(dynasty, id));
+  const teamPointsBefore = teamRowsBefore.find((row) => row.id === playerId)?.points ?? 0;
+  const teamRankBefore = teamRowsBefore.findIndex((row) => row.id === playerId);
+  const fatigueBefore = new Map(dynasty.season.fatigue);
+  const objective = objectiveForSeason(dynasty.seasonNumber);
+  const objectiveBefore = objectiveStatus(objective, dynasty.season, (id) => teamOf(dynasty, id) === playerId);
+  const hadPlayerWin = dynasty.season.results.some((entry) => teamOf(dynasty, entry.winnerId) === playerId);
   const result = finishEvent(dynasty.season, tour, dynasty.roster);
   const race = RACES_BY_ID.get(result.raceId)!;
   const prize = eventPrizeByTeam(result.classification, race.prestige, (id) => teamOf(dynasty, id));
@@ -285,7 +313,54 @@ export function finishSeasonEvent(dynasty: DynastyState, tour: TourState): Seaso
   dynasty.lastTraining = campEventIndices(dynasty.season.calendar.length).includes(dynasty.season.eventIndex)
     ? runTrainingBlock(dynasty)
     : null;
-  return result;
+
+  const riderRanksAfter = new Map(riderStandings(dynasty.season).map((row, index) => [row.id, index + 1]));
+  const teamRowsAfter = teamStandings(dynasty.season, (id) => teamOf(dynasty, id));
+  const teamPointsAfter = teamRowsAfter.find((row) => row.id === playerId)?.points ?? 0;
+  const teamRankAfter = teamRowsAfter.findIndex((row) => row.id === playerId);
+  const objectiveAfter = objectiveStatus(objective, dynasty.season, (id) => teamOf(dynasty, id) === playerId);
+  const playerClassification = result.classification
+    .map((row, index) => ({ riderId: row.riderId, position: index + 1 }))
+    .filter((row) => teamOf(dynasty, row.riderId) === playerId);
+  const notablePlayerResults = playerClassification.filter((row, index) => row.position <= 10 || index === 0);
+  const riderPointsGained = playerRiders(dynasty)
+    .map((rider) => ({
+      riderId: rider.id,
+      points: (dynasty.season.points.get(rider.id) ?? 0) - (riderPointsBefore.get(rider.id) ?? 0),
+      rankBefore: riderRanksBefore.get(rider.id),
+      rankAfter: riderRanksAfter.get(rider.id),
+    }))
+    .filter((row) => row.points > 0);
+  const fatigue = playerRiders(dynasty).map((rider) => {
+    const eventStart = fatigueBefore.get(rider.id) ?? 0;
+    const eventEnd = dynasty.season.fatigue.get(rider.id) ?? 0;
+    const beforeRecovery = tour.fatigue.get(rider.id) ?? eventStart;
+    return { riderId: rider.id, eventStart, eventEnd, recovered: Math.max(0, beforeRecovery - eventEnd) };
+  });
+  const milestones: string[] = [];
+  if (!hadPlayerWin && teamOf(dynasty, result.winnerId) === playerId) milestones.push('First team win');
+
+  dynasty.lastSettlement = {
+    result,
+    notablePlayerResults,
+    riderPointsGained,
+    teamPointsGained: teamPointsAfter - teamPointsBefore,
+    teamRankBefore: teamRankBefore >= 0 ? teamRankBefore + 1 : undefined,
+    teamRankAfter: teamRankAfter >= 0 ? teamRankAfter + 1 : undefined,
+    prizeMoney: prize.get(playerId) ?? 0,
+    budgetBalance: playerBudget(dynasty),
+    objective: {
+      text: objective.text,
+      before: objectiveBefore.current,
+      current: objectiveAfter.current,
+      target: objectiveAfter.target,
+      completed: !objectiveBefore.met && objectiveAfter.met,
+    },
+    fatigue,
+    training: dynasty.lastTraining,
+    milestones,
+  };
+  return dynasty.lastSettlement;
 }
 
 export interface RolloverSummary {
@@ -416,6 +491,7 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   dynasty.season = createSeason(SEASON_CALENDAR);
   dynasty.season.fatigue = carried;
   dynasty.lastTraining = null;
+  dynasty.lastSettlement = null;
   dynasty.seasonDev = {}; // the new season's development starts from zero
 
   return {

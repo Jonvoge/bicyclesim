@@ -34,6 +34,14 @@ export interface GcRow {
   stagesFinished: number;
 }
 
+export interface StageFatigueSummary {
+  riderId: string;
+  incoming: number;
+  gained: number;
+  savedVsRace: number;
+  nextStage: number | null;
+}
+
 /** Difficulty of a stage as a fatigue unit (type × relative length). */
 export function stageDifficulty(stage: Stage): number {
   const typeW = STAGE_DIFFICULTY_BY_TYPE[stage.type] ?? 1;
@@ -87,12 +95,15 @@ export function recordStageResult(
   result: StageResult,
   tacticsByTeam: Map<string, TeamTactics>,
   stageRiders: Rider[],
-): void {
+): StageFatigueSummary[] {
   const byId = new Map(stageRiders.map((r) => [r.id, r]));
+  const fatigueSummary: StageFatigueSummary[] = [];
   for (const entry of result.order) {
+    const incoming = tour.fatigue.get(entry.riderId) ?? 0;
     if (entry.dnf) {
       tour.abandoned.add(entry.riderId);
       tour.fatigue.delete(entry.riderId);
+      fatigueSummary.push({ riderId: entry.riderId, incoming, gained: 0, savedVsRace: 0, nextStage: null });
       continue;
     }
     const rider = byId.get(entry.riderId);
@@ -100,11 +111,16 @@ export function recordStageResult(
     const tactics = rider.teamId ? tacticsByTeam.get(rider.teamId) : undefined;
     const counts = roleCounts(tactics);
     const effect = tacticsEffect(roleOf(tactics, rider.id), counts, stage.type, effortOf(tactics));
-    const gained = (tour.fatigue.get(rider.id) ?? 0) + fatigueGain(rider, stage, effect.fatigueMult);
-    tour.fatigue.set(rider.id, gained * STAGE_RECOVERY_RATE);
+    const raceEffect = tacticsEffect(roleOf(tactics, rider.id), counts, stage.type, 'race');
+    const gained = fatigueGain(rider, stage, effect.fatigueMult);
+    const savedVsRace = Math.max(0, fatigueGain(rider, stage, raceEffect.fatigueMult) - gained);
+    const nextStage = (incoming + gained) * STAGE_RECOVERY_RATE;
+    tour.fatigue.set(rider.id, nextStage);
+    fatigueSummary.push({ riderId: rider.id, incoming, gained, savedVsRace, nextStage });
   }
   tour.results.push(result);
   tour.stageIndex += 1;
+  return fatigueSummary;
 }
 
 /**

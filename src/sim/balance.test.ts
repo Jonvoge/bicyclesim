@@ -3,11 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { RIDERS } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { PLAYER_TEAM, TEAMS } from '../data/teams.ts';
-import { BREAK_MAX_PER_TEAM } from '../data/tuning.ts';
+import { BREAK_MAX_PER_TEAM, FAVOURITE_COUNT } from '../data/tuning.ts';
 import { buildRaceStory } from './raceNarrative.ts';
 import { defaultTeamTactics } from './raceSetup.ts';
 import { Rng } from './rng.ts';
-import { tacticsEffect, type TacticRole, type TeamTactics } from './tactics.ts';
+import { preRaceReputation } from './stageSim.ts';
+import { effortEffect, tacticsEffect, type TacticRole, type TeamTactics } from './tactics.ts';
 
 /**
  * Balance guards for the post-playtest race-feel pass: the mountains must actually
@@ -81,5 +82,56 @@ describe('attacking has a cost (no all-out-attack free lunch)', () => {
       const mine = story.breakIds.filter((id) => PLAYER_TEAM.riderIds.includes(id)).length;
       expect(mine).toBeLessThanOrEqual(BREAK_MAX_PER_TEAM);
     }
+  });
+
+  it('tactical penalties cannot demote an established favourite into the morning break', () => {
+    const stage = STAGES_BY_ID.get('st-strada')!;
+    const favourites = [...RIDERS]
+      .sort((a, b) => preRaceReputation(b, stage) - preRaceReputation(a, stage) || a.id.localeCompare(b.id))
+      .slice(0, FAVOURITE_COUNT)
+      .map((rider) => rider.id);
+    const allFreeByTeam = new Map(
+      TEAMS.map((team) => [
+        team.id,
+        { teamId: team.id, roles: Object.fromEntries(team.riderIds.map((id) => [id, 'free' as TacticRole])) },
+      ]),
+    );
+    for (let i = 0; i < 120; i++) {
+      const story = buildRaceStory({ stage, riders: RIDERS, tacticsByTeam: allFreeByTeam, rng: new Rng(i * 2654435761 + 11) });
+      expect(story.breakIds.some((id) => favourites.includes(id))).toBe(false);
+    }
+  });
+
+  it('conserving disables committed moves', () => {
+    expect(effortEffect('race').allowsCommittedMoves).toBe(true);
+    expect(effortEffect('conserve').allowsCommittedMoves).toBe(false);
+  });
+
+  it('a focused attack has more upside than all-Free but a worse average than a backed leader', () => {
+    const stage = STAGES_BY_ID.get('st-fleche')!;
+    const star = 'gr-pogar';
+    const rolesFor = (starRole: TacticRole, fill: TacticRole): TeamTactics => ({
+      teamId: PLAYER_TEAM.id,
+      roles: Object.fromEntries(PLAYER_TEAM.riderIds.map((id) => [id, id === star ? starRole : fill])),
+    });
+    const sheets = {
+      backed: rolesFor('leader', 'domestique'),
+      focused: rolesFor('free', 'domestique'),
+      allFree: rolesFor('free', 'free'),
+    };
+    const metrics = Object.fromEntries(Object.keys(sheets).map((key) => [key, { wins: 0, positions: 0 }])) as Record<keyof typeof sheets, { wins: number; positions: number }>;
+    const runs = 500;
+    for (let seed = 0; seed < runs; seed++) {
+      for (const [key, sheet] of Object.entries(sheets) as [keyof typeof sheets, TeamTactics][]) {
+        const tactics = new Map(TEAMS.map((team) => [team.id, team.isPlayer ? sheet : defaultTeamTactics(team, stage)]));
+        const story = buildRaceStory({ stage, riders: RIDERS, tacticsByTeam: tactics, rng: new Rng(seed * 2654435761 + 17), playerTeamId: PLAYER_TEAM.id });
+        const position = story.result.order.findIndex((row) => row.riderId === star) + 1;
+        metrics[key].positions += position;
+        if (position === 1) metrics[key].wins++;
+      }
+    }
+    expect(metrics.focused.wins).toBeGreaterThan(metrics.allFree.wins);
+    expect(metrics.focused.positions).toBeLessThan(metrics.allFree.positions);
+    expect(metrics.focused.positions).toBeGreaterThan(metrics.backed.positions);
   });
 });
