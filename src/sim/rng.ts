@@ -45,3 +45,18 @@ export class Rng {
     return arr[this.int(arr.length)];
   }
 }
+
+/** Stable independent seed streams: adding a name draw cannot move race RNG. */
+export function deriveSeed(rootSeed: number, ...parts: readonly (string | number)[]): number {
+  let hash = (rootSeed >>> 0) ^ 0x811c9dc5;
+  for (const part of parts) {
+    const text = String(part);
+    for (let index = 0; index < text.length; index++) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    hash ^= 0xff;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash || 0x9e3779b9;
+}

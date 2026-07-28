@@ -51,6 +51,91 @@ export interface Team {
   budget?: number; // Phase 5
 }
 
+export type DivisionId = 'world' | 'pro';
+
+export type TeamPhilosophy = 'mountain' | 'classics' | 'sprint' | 'development' | 'balanced' | 'opportunist';
+
+export interface TeamIdentity {
+  id: string;
+  name: string;
+  shortName: string;
+  country: string;
+  primaryColor: number;
+  accentColor: number;
+  philosophy: TeamPhilosophy;
+  foundedSeason: number;
+  isPlayer: boolean;
+}
+
+export interface TeamSeasonState {
+  division: DivisionId;
+  rankingPoints: number;
+  reputation: number;
+  budget: number;
+  lastRank?: number;
+}
+
+export interface RaceWinnerRecord {
+  season: number;
+  raceId: string;
+  riderId: string;
+  teamId: string;
+}
+
+export interface PromotionRecord {
+  season: number;
+  promotedTeamIds: string[];
+  relegatedTeamIds: string[];
+}
+
+export interface TeamChampionRecord {
+  season: number;
+  division: DivisionId;
+  teamId: string;
+}
+
+export interface SeasonHistory {
+  season: number;
+  riderChampionId?: string;
+  teamChampionIds: Partial<Record<DivisionId, string>>;
+}
+
+export interface WorldHistory {
+  seasons: SeasonHistory[];
+  raceWinners: RaceWinnerRecord[];
+  promotions: PromotionRecord[];
+  teamChampions: TeamChampionRecord[];
+}
+
+export interface WorldState {
+  schemaVersion: number;
+  seed: number;
+  rngState?: number;
+  teams: TeamIdentity[];
+  teamSeasons: Record<string, TeamSeasonState>;
+  history: WorldHistory;
+}
+
+export interface SquadProposal {
+  id: string;
+  riderIds: string[];
+  archetypes: string[];
+  totalRating: number;
+  wageBill: number;
+  averageAge: number;
+}
+
+export interface GeneratedWorldDraft {
+  world: WorldState;
+  riders: Rider[];
+  proposals: SquadProposal[];
+  diagnostics: WorldGenerationDiagnostics;
+}
+
+export interface WorldGenerationDiagnostics {
+  proposalAttempts: number[];
+}
+
 // Time trials (itt) and team time trials (ttt) are deferred — they are a
 // fundamentally different kind of racing and will get their own approach later.
 export type StageType =

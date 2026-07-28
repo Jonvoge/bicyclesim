@@ -365,3 +365,45 @@ export const GAP_COMPRESSION_BY_TYPE: Record<string, number> = {
   mountain: 3.8,
   summitFinish: 4.6,
 };
+
+// --- Generated world foundation (Dynasty expansion §5) ----------------------
+export const WORLD_SCHEMA_VERSION = 2;
+export const WORLD_TOP_TEAM_COUNT = 10;
+export const WORLD_PRO_TEAM_COUNT = 12; // includes the founded player team
+export const WORLD_ROSTER_SIZE = 8;
+export const WORLD_SQUAD_PROPOSAL_COUNT = 3;
+export const WORLD_BASE_FREE_AGENT_COUNT = 20; // plus 16 unchosen proposal riders = 36 after acceptance
+export const WORLD_PROSPECTS_PER_SEASON = 12;
+export const WORLD_STARTING_SEASON = 1;
+export const WORLD_TOP_TEAM_BUDGET = 5200;
+export const WORLD_PRO_TEAM_BUDGET = 1800;
+export const WORLD_PLAYER_STARTING_BUDGET = 1200;
+export const WORLD_TOP_REPUTATION = 70;
+export const WORLD_PRO_REPUTATION = 30;
+export const WORLD_PROPOSAL_MAX_RATING = 82;
+export const WORLD_PROPOSAL_RATING_SPREAD = 20;
+export const WORLD_TEAM_COLOR_MIN_DISTANCE = 24;
+export const WORLD_JERSEY_CONTRAST_MIN = 120;
+export const WORLD_GENERATION_MAX_ATTEMPTS = 80;
+export const WORLD_RIDER_BASE_STAT = 35;
+export const WORLD_RIDER_QUALITY_BASE = 10;
+export const WORLD_RIDER_PROFILE_RANGE = 45;
+export const WORLD_RIDER_STAT_NOISE = 3.5;
+export const WORLD_TOP_QUALITY_MIN = 0.84;
+export const WORLD_TOP_QUALITY_MAX = 0.98;
+export const WORLD_PRO_QUALITY_MIN = 0.69;
+export const WORLD_PRO_QUALITY_MAX = 0.82;
+export const WORLD_FREE_QUALITY_MIN = 0.64;
+export const WORLD_FREE_QUALITY_MAX = 0.8;
+export const WORLD_PROPOSAL_QUALITY_MIN = 0.7;
+export const WORLD_PROPOSAL_QUALITY_MAX = 0.82;
+export const WORLD_DEVELOPMENT_CURRENT_PENALTY = 0.06;
+export const WORLD_RIDER_AGE_MIN = 19;
+export const WORLD_RIDER_AGE_MAX = 34;
+export const WORLD_STARTER_YOUNG_AGE_MAX = 23;
+export const WORLD_STARTER_EXPERIENCED_AGE_MIN = 29;
+export const WORLD_CONSISTENCY_MIN = 58;
+export const WORLD_CONSISTENCY_RANGE = 28;
+export const WORLD_STAMINA_BASE = 54;
+export const WORLD_STAMINA_QUALITY_RANGE = 26;
+export const WORLD_STAMINA_ENDURANCE_RANGE = 8;
