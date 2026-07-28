@@ -15,6 +15,7 @@ import {
   recordDivisionEvent,
   resetDivisionCompetition,
   simulateBackgroundCompetition,
+  simulateBackgroundCompetitionProgress,
 } from '../sim/competition.ts';
 import { baseScore } from '../sim/stageSim.ts';
 import type { TeamTactics } from '../sim/tactics.ts';
@@ -417,6 +418,13 @@ export function finishSeasonEvent(dynasty: DynastyState, tour: TourState): Event
       if (gained > 0) pointGains.set(riderId, gained);
     }
     recordDivisionEvent(dynasty.world, dynasty.seasonNumber, race, result, pointGains, dynasty.roster, tour);
+    simulateBackgroundCompetitionProgress(
+      dynasty.world,
+      dynasty.seasonNumber,
+      dynasty.roster,
+      dynasty.season.calendar,
+      dynasty.season.eventIndex,
+    );
   }
   const prize = eventPrizeByTeam(result.classification, race.prestige, (id) => teamOf(dynasty, id));
   for (const [teamId, cash] of prize) setTeamBudget(dynasty, teamId, teamBudget(dynasty, teamId) + cash);
@@ -480,7 +488,7 @@ export interface RolloverSummary {
   wages: number; // player's wage bill paid
   net: number; // sponsor − wages
   expiring: string[]; // player rider ids whose contract ran out (auto-renewed for now)
-  retired: string[]; // player rider ids who retired this off-season
+  retired: { id: string; name: string }[]; // player riders who retired this off-season
   retiredAll: number; // peloton-wide retirements
   emerged: number; // new prospects who turned pro into the free-agent pool
   autoSigned: string[]; // player rider ids called up automatically to fill a hole
@@ -568,13 +576,13 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
 
   // --- development: age + curve everyone, then retirements ---
   for (const r of dynasty.roster) ageOneSeason(r);
-  const retired: string[] = [];
+  const retired: { id: string; name: string }[] = [];
   let retiredAll = 0;
   const survivors: Rider[] = [];
   for (const r of dynasty.roster) {
     if (shouldRetire(r, rng)) {
       retiredAll++;
-      if (r.teamId === playerId) retired.push(r.id);
+      if (r.teamId === playerId) retired.push({ id: r.id, name: r.name });
     } else {
       survivors.push(r);
     }

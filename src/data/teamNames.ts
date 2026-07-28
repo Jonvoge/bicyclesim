@@ -3,6 +3,37 @@ export interface GeneratedTeamName {
   shortName: string;
 }
 
+export interface TeamCaricature extends GeneratedTeamName {
+  country: string;
+}
+
+export const WORLD_TEAM_CARICATURES: readonly TeamCaricature[] = [
+  { name: 'Vismar Lease-a-Velo', shortName: 'VLV', country: 'Netherlands' },
+  { name: 'Desert Crown Emirates', shortName: 'DCE', country: 'United Arab Emirates' },
+  { name: 'Aeneos Grenadiers', shortName: 'AEN', country: 'United Kingdom' },
+  { name: 'Lydl-Trekker', shortName: 'LTK', country: 'Germany' },
+  { name: 'Crimson Bull-Bora', shortName: 'CBB', country: 'Germany' },
+  { name: 'Sudal Fast-Steppe', shortName: 'SFS', country: 'Belgium' },
+  { name: 'Alpecen-Deceunox', shortName: 'APD', country: 'Belgium' },
+  { name: 'Groupe-Ami FDJolie', shortName: 'GAF', country: 'France' },
+  { name: 'Decathlong AG2C', shortName: 'DAG', country: 'France' },
+  { name: 'MoviStarlet', shortName: 'MOV', country: 'Spain' },
+];
+
+export const PRO_TEAM_CARICATURES: readonly TeamCaricature[] = [
+  { name: 'Bahrein Glorious', shortName: 'BHG', country: 'Bahrain' },
+  { name: 'Jaybird Alula', shortName: 'JAY', country: 'Australia' },
+  { name: 'XDS Astanova', shortName: 'XDS', country: 'Kazakhstan' },
+  { name: 'EF EasyPostgrad', shortName: 'EFE', country: 'United States' },
+  { name: 'Picnic PosteNL', shortName: 'PPN', country: 'Netherlands' },
+  { name: 'Intermarch Want-More', shortName: 'IWM', country: 'Belgium' },
+  { name: 'Cofidish Credits', shortName: 'COF', country: 'France' },
+  { name: 'Uno-Ex Mobility', shortName: 'UXM', country: 'Norway' },
+  { name: 'Tudor Clockwork', shortName: 'TUD', country: 'Switzerland' },
+  { name: 'Q36 Point-Five', shortName: 'QPF', country: 'Switzerland' },
+  { name: 'Lotto Destiny', shortName: 'LTD', country: 'Belgium' },
+];
+
 export const GENERATED_TEAM_NAMES: GeneratedTeamName[] = [
   { name: 'Alpine Foundry', shortName: 'ALF' }, { name: 'Aster Union', shortName: 'AST' },
   { name: 'Baltic Relay', shortName: 'BLT' }, { name: 'Cinder Velo', shortName: 'CDV' },

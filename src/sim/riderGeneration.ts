@@ -26,7 +26,7 @@ import { ARCHETYPE_PROFILES, type RiderArchetype } from '../data/worldTemplates.
 import { seedDevelopment } from './development.ts';
 import { riderSalary } from './rating.ts';
 import type { Rng } from './rng.ts';
-import { generateRiderIdentity } from './riderNames.ts';
+import { generateRiderIdentity, generateWorldTourRiderIdentity } from './riderNames.ts';
 
 export type RiderGenerationTier = DivisionId | 'free' | 'proposal';
 
@@ -60,7 +60,9 @@ export function generateWorldRider(options: RiderGenerationOptions): Rider {
   const age = options.age ?? WORLD_RIDER_AGE_MIN + rng.int(WORLD_RIDER_AGE_MAX - WORLD_RIDER_AGE_MIN + 1);
   if (philosophy === 'development' && age <= 23) quality -= WORLD_DEVELOPMENT_CURRENT_PENALTY;
   const profile = ARCHETYPE_PROFILES[archetype];
-  const identity = generateRiderIdentity(rng, archetype, options.usedNames);
+  const identity = options.tier === 'world'
+    ? generateWorldTourRiderIdentity(rng, archetype, options.usedNames)
+    : generateRiderIdentity(rng, archetype, options.usedNames);
   const offensive = {} as Record<'climbing' | 'flat' | 'sprint' | 'puncheur' | 'endurance', number>;
   for (const key of Object.keys(profile) as (keyof typeof profile)[]) {
     offensive[key] = clampTierStat(

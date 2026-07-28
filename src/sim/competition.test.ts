@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RACES_BY_ID } from '../data/races.ts';
+import { PRO_CALENDAR, RACES_BY_ID, WORLD_CALENDAR } from '../data/races.ts';
 import { WILDCARD_MIN_REPUTATION } from '../data/tuning.ts';
 import { generateWorldDraft } from './worldGeneration.ts';
 import {
@@ -9,6 +9,7 @@ import {
   resetDivisionCompetition,
   selectEventField,
   simulateBackgroundCompetition,
+  simulateBackgroundCompetitionProgress,
 } from './competition.ts';
 
 describe('division competition', () => {
@@ -80,5 +81,19 @@ describe('division competition', () => {
     for (const division of ['world', 'pro'] as const) {
       expect(rankDivision(first.world, division, 1).some((row) => row.points > 0)).toBe(true);
     }
+  });
+
+  it('advances the opposite division alongside the player without simulating future player events', () => {
+    const draft = generateWorldDraft({ seed: 124 });
+    simulateBackgroundCompetitionProgress(draft.world, 1, draft.riders, PRO_CALENDAR, 1);
+
+    const worldWinners = draft.world.history.raceWinners.filter((entry) => WORLD_CALENDAR.includes(entry.raceId));
+    const proWinners = draft.world.history.raceWinners.filter((entry) => PRO_CALENDAR.includes(entry.raceId));
+    expect(worldWinners).toHaveLength(1);
+    expect(proWinners).toHaveLength(0);
+    expect(rankDivision(draft.world, 'world', 1).some((row) => row.points > 0)).toBe(true);
+
+    simulateBackgroundCompetitionProgress(draft.world, 1, draft.riders, PRO_CALENDAR, 1);
+    expect(draft.world.history.raceWinners.filter((entry) => WORLD_CALENDAR.includes(entry.raceId))).toHaveLength(1);
   });
 });

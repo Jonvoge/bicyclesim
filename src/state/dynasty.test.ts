@@ -259,6 +259,16 @@ describe('pick-5 race squads (Phase 8)', () => {
 });
 
 describe('development across the rollover (Phase 6)', () => {
+  it('keeps a retired player rider name in the rollover summary', () => {
+    const d = createDynasty();
+    const rider = playerRiders(d)[0];
+    rider.age = 100;
+    const summary = rolloverSeason(d);
+
+    expect(summary.retired).toContainEqual({ id: rider.id, name: rider.name });
+    expect(d.roster.some((entry) => entry.id === rider.id)).toBe(false);
+  });
+
   it('seeds hidden potential and ages the peloton at the rollover', () => {
     const d = createDynasty();
     for (const r of d.roster) {

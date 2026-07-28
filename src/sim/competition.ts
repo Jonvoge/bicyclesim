@@ -177,9 +177,14 @@ export function simulateBackgroundCompetition(
   season: number,
   riders: readonly Rider[],
   playedRaceIds: ReadonlySet<string>,
+  eligibleRaceIds?: ReadonlySet<string>,
 ): void {
   prepareCompetitionSeason(world, season);
-  for (const field of world.eventFields.filter((entry) => entry.season === season && !playedRaceIds.has(entry.raceId))) {
+  for (const field of world.eventFields.filter(
+    (entry) => entry.season === season
+      && !playedRaceIds.has(entry.raceId)
+      && (!eligibleRaceIds || eligibleRaceIds.has(entry.raceId)),
+  )) {
     if (world.history.raceWinners.some((entry) => entry.season === season && entry.raceId === field.raceId)) continue;
     const race = RACES_BY_ID.get(field.raceId)!;
     const rankedTeams = field.teamIds
@@ -218,6 +223,25 @@ export function simulateBackgroundCompetition(
       world.history.stageWinners.push({ season, raceId: race.id, stageId, riderId: winner.riderId, teamId: winner.teamId });
     }
   }
+}
+
+export function simulateBackgroundCompetitionProgress(
+  world: WorldState,
+  season: number,
+  riders: readonly Rider[],
+  playerCalendar: readonly string[],
+  completedPlayerEvents: number,
+): void {
+  const progress = Math.min(1, completedPlayerEvents / Math.max(1, playerCalendar.length));
+  const reserved = new Set(playerCalendar);
+  const dueRaceIds = new Set<string>();
+  for (const calendar of [WORLD_CALENDAR, PRO_CALENDAR]) {
+    const dueCount = Math.floor(progress * calendar.length + Number.EPSILON);
+    for (const raceId of calendar.slice(0, dueCount)) {
+      if (!reserved.has(raceId)) dueRaceIds.add(raceId);
+    }
+  }
+  simulateBackgroundCompetition(world, season, riders, new Set(), dueRaceIds);
 }
 
 export function applyDivisionMovement(world: WorldState, season: number): PromotionRecord {

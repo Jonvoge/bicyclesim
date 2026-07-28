@@ -3,16 +3,15 @@ import { RACES_BY_ID } from '../data/races.ts';
 import { RIDERS_BY_ID } from '../data/riders.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { PLAYER_TEAM } from '../data/teams.ts';
-import type { Race, Rider, Stage, StageType } from '../data/types.ts';
+import type { DivisionId, Rider, Stage, StageType } from '../data/types.ts';
 import { RACE_SQUAD_SIZE } from '../data/tuning.ts';
 import { baseScore } from '../sim/stageSim.ts';
-import { rankDivision } from '../sim/competition.ts';
-import { directorPlanFor } from '../sim/director.ts';
+import { riderRating, riderType } from '../sim/rating.ts';
 import { defaultTeamTactics, defaultTeamTacticsFor } from '../sim/raceSetup.ts';
 import { currentRace } from '../sim/season.ts';
 import { computeGc, createTour, type TourState } from '../sim/standings.ts';
 import { effortEffect, ROLES, ROLES_BY_ID, type TacticRole, type TeamEffort, type TeamTactics } from '../sim/tactics.ts';
-import { dynastyTeamName, playerRiders, rosterById, startSeasonEvent, teamRiders, type DynastyState } from '../state/dynasty.ts';
+import { playerRiders, rosterById, startSeasonEvent, type DynastyState } from '../state/dynasty.ts';
 import { Button, makeButton } from '../ui/button.ts';
 import { StageProfileView } from '../ui/stageProfile.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
@@ -57,6 +56,8 @@ export class PreRaceScene extends Phaser.Scene {
   private roleBlurb!: Phaser.GameObjects.Text;
   private startButton?: Button;
   private pickText?: Phaser.GameObjects.Text;
+  private riderProfileTitle!: Phaser.GameObjects.Text;
+  private riderProfileStats!: Phaser.GameObjects.Text;
 
   constructor() {
     super('PreRace');
@@ -115,11 +116,6 @@ export class PreRaceScene extends Phaser.Scene {
     new StageProfileView(this, width / 2 - 165, 72, 330, 58, this.stage.type);
     this.add.text(width / 2, 146, BLURBS[this.stage.type], { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted, align: 'center', wordWrap: { width: 330 } }).setOrigin(0.5);
 
-    // GC context (tours, after stage 1)
-    if (isTour && this.tour.results.length > 0) this.buildGcContext(width, 172);
-    const hasCompetitionRead = !!this.dynasty?.world && this.canRest;
-    if (hasCompetitionRead) this.buildCompetitionRead(width, race, 166);
-
     // role sheet — pre-filled default for this stage's terrain
     const defSheet = this.dynasty
       ? defaultTeamTacticsFor(this.playerTeamId, playerRiders(this.dynasty), this.stage)
@@ -127,7 +123,26 @@ export class PreRaceScene extends Phaser.Scene {
     this.roles = { ...defSheet.roles };
     this.selectedRiderId = this.squadIds.find((id) => this.roles[id] === 'leader') ?? this.squadIds[0];
 
-    const top = (isTour && this.tour.results.length > 0 ? 210 : 196) + (hasCompetitionRead ? 34 : 0);
+    // GC/field context and the selected rider's complete scouting read.
+    const hasGcRead = isTour && this.tour.results.length > 0;
+    const hasFieldRead = !!this.dynasty?.world && this.canRest;
+    if (hasGcRead) this.buildGcContext(width, 166);
+    if (hasFieldRead) this.buildFieldRead(width, race.id, race.eligibility.division, 164);
+    const profileY = hasGcRead ? 190 : hasFieldRead ? 182 : 168;
+    this.add.rectangle(width / 2, profileY + 9, width - 28, 40, COLORS.panelAlt, 1).setStrokeStyle(1, COLORS.stroke);
+    this.riderProfileTitle = this.add.text(28, profileY, '', {
+      fontFamily: FONT,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: COLORS.accentText,
+    }).setOrigin(0, 0.5);
+    this.riderProfileStats = this.add.text(28, profileY + 18, '', {
+      fontFamily: FONT,
+      fontSize: '9px',
+      color: COLORS.text,
+    }).setOrigin(0, 0.5);
+
+    const top = profileY + 45;
     if (this.canRest) {
       // the header line doubles as the live "Starting X/5" counter (set in refresh)
       this.pickText = this.add.text(width / 2, top - 14, '', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
@@ -212,44 +227,22 @@ export class PreRaceScene extends Phaser.Scene {
     this.refresh();
   }
 
-  private buildCompetitionRead(width: number, race: Race, y: number): void {
+  private buildFieldRead(width: number, raceId: string, division: DivisionId, y: number): void {
     const world = this.dynasty!.world!;
     const field = world.eventFields.find(
-      (entry) => entry.season === this.dynasty!.seasonNumber && entry.raceId === race.id,
+      (entry) => entry.season === this.dynasty!.seasonNumber && entry.raceId === raceId,
     );
     if (!field) return;
     const wildcard = field.wildcards.find((invite) => invite.teamId === this.playerTeamId);
     const fieldText = wildcard
       ? `WILDCARD  ·  ${wildcard.reason}`
-      : `${race.eligibility.division === 'world' ? 'WORLD TOUR' : 'PRO TOUR'} FIELD  ·  ${field.teamIds.length} TEAMS`;
+      : `${division === 'world' ? 'WORLD TOUR' : 'PRO TOUR'} FIELD  ·  ${field.teamIds.length} TEAMS`;
     this.add.text(width / 2, y, fieldText, {
       fontFamily: FONT,
       fontSize: '9px',
       fontStyle: 'bold',
       color: wildcard ? COLORS.accentText : COLORS.textMuted,
     }).setOrigin(0.5);
-
-    const rank = new Map(rankDivision(world, race.eligibility.division, this.dynasty!.seasonNumber).map((row, index) => [row.teamId, index]));
-    const candidates = field.teamIds
-      .filter((teamId) => teamId !== this.playerTeamId)
-      .map((teamId) => {
-        const plan = directorPlanFor(world, teamId, this.dynasty!.seasonNumber);
-        return { teamId, target: plan?.targets.find((entry) => entry.raceId === race.id), rank: rank.get(teamId) ?? 999 };
-      })
-      .sort((left, right) => Number(!!right.target) - Number(!!left.target) || left.rank - right.rank);
-    const watched = candidates[0];
-    if (!watched) return;
-    const leader = watched.target
-      ? this.byId.get(watched.target.leaderId)
-      : [...teamRiders(this.dynasty!, watched.teamId)].sort((left, right) => baseScore(right, this.stage) - baseScore(left, this.stage))[0];
-    const reason = watched.target?.reason ?? `${this.dynasty!.world!.teams.find((team) => team.id === watched.teamId)?.philosophy ?? 'balanced'} squad fits this course`;
-    this.add.text(width / 2, y + 16, `TEAM TO WATCH  ${dynastyTeamName(this.dynasty!, watched.teamId)}  ·  ${leader?.name ?? 'leader'}  ·  ${reason}`, {
-      fontFamily: FONT,
-      fontSize: '9px',
-      color: COLORS.text,
-      align: 'center',
-      wordWrap: { width: width - 36 },
-    }).setOrigin(0.5, 0);
   }
 
   private buildGcContext(width: number, y: number): void {
@@ -336,6 +329,14 @@ export class PreRaceScene extends Phaser.Scene {
     }
     const isRested = this.rested.has(this.selectedRiderId);
     const currentRole = this.roles[this.selectedRiderId] ?? 'free';
+    const selectedRider = this.byId.get(this.selectedRiderId)!;
+    const stats = selectedRider.stats;
+    this.riderProfileTitle.setText(
+      `${selectedRider.name}  ·  ${riderType(selectedRider).toUpperCase()}  ·  OVR ${riderRating(selectedRider)}  ·  AGE ${selectedRider.age}`,
+    );
+    this.riderProfileStats.setText(
+      `CLM ${stats.climbing}   FLT ${stats.flat}   SPR ${stats.sprint}   PUN ${stats.puncheur}   END ${stats.endurance}   STA ${stats.stamina}   CON ${stats.consistency}`,
+    );
     for (const { role, btn } of this.roleButtons) btn.setSelected(!isRested && role === currentRole);
     this.restButton?.setSelected(isRested);
     for (const { effort, btn } of this.effortButtons) btn.setSelected(effort === this.effort);

@@ -84,8 +84,8 @@ export class RolloverScene extends Phaser.Scene {
     if (summary.retired.length > 0) {
       this.add.text(width / 2, y, '🚴 RETIRED FROM YOUR SQUAD', { fontFamily: FONT, fontSize: '12px', color: '#e28f3b' }).setOrigin(0.5);
       y += 22;
-      for (const id of summary.retired) {
-        this.add.text(width / 2, y, byId.get(id)?.name ?? id, { fontFamily: FONT, fontSize: '13px', color: COLORS.text }).setOrigin(0.5);
+      for (const rider of summary.retired) {
+        this.add.text(width / 2, y, rider.name, { fontFamily: FONT, fontSize: '13px', color: COLORS.text }).setOrigin(0.5);
         y += 20;
       }
       y += 10;

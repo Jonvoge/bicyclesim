@@ -1,5 +1,4 @@
-import { COUNTRY_REGIONS } from '../data/countries.ts';
-import { GENERATED_TEAM_NAMES, GENERATED_TEAM_PALETTES } from '../data/teamNames.ts';
+import { GENERATED_TEAM_PALETTES, PRO_TEAM_CARICATURES, WORLD_TEAM_CARICATURES, type TeamCaricature } from '../data/teamNames.ts';
 import {
   WORLD_PRO_TEAM_COUNT,
   WORLD_STARTING_SEASON,
@@ -57,13 +56,12 @@ function takeDistinctPalette(
 
 export function generateTeamIdentities(seed: number, player: PlayerTeamInput = DEFAULT_PLAYER_TEAM): TeamIdentity[] {
   const rng = new Rng(deriveSeed(seed, 'identity'));
-  const names = shuffled(GENERATED_TEAM_NAMES.filter((entry) => entry.name !== player.name && entry.shortName !== player.shortName), rng);
-  const countries = shuffled(COUNTRY_REGIONS, rng);
   const seedTag = (seed >>> 0).toString(36);
   const teams: TeamIdentity[] = [];
   let generatedIndex = 0;
-  const addDivision = (division: 'world' | 'pro', count: number): void => {
+  const addDivision = (division: 'world' | 'pro', count: number, identities: readonly TeamCaricature[]): void => {
     const palettes = shuffled(GENERATED_TEAM_PALETTES, rng);
+    const names = shuffled(identities.filter((entry) => entry.name !== player.name && entry.shortName !== player.shortName), rng);
     const usedPrimaryColors = division === 'pro' ? [player.primaryColor] : [];
     for (let index = 0; index < count; index++) {
       const identity = names[generatedIndex];
@@ -73,7 +71,7 @@ export function generateTeamIdentities(seed: number, player: PlayerTeamInput = D
         id: `team-${seedTag}-${division}-${String(index + 1).padStart(2, '0')}`,
         name: identity.name,
         shortName: identity.shortName,
-        country: countries[generatedIndex % countries.length].label,
+        country: identity.country,
         primaryColor: palette.primary,
         accentColor: palette.accent,
         philosophy: AI_PHILOSOPHIES[(generatedIndex + rng.int(AI_PHILOSOPHIES.length)) % AI_PHILOSOPHIES.length],
@@ -83,8 +81,9 @@ export function generateTeamIdentities(seed: number, player: PlayerTeamInput = D
       generatedIndex++;
     }
   };
-  addDivision('world', WORLD_TOP_TEAM_COUNT);
-  addDivision('pro', WORLD_PRO_TEAM_COUNT - 1);
+  addDivision('world', WORLD_TOP_TEAM_COUNT, WORLD_TEAM_CARICATURES);
+  generatedIndex = 0;
+  addDivision('pro', WORLD_PRO_TEAM_COUNT - 1, PRO_TEAM_CARICATURES);
   teams.push({
     id: `team-${seedTag}-player`,
     name: player.name,

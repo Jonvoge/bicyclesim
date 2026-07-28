@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { WORLD_RIDER_CARICATURES } from '../data/names.ts';
+import { PRO_TEAM_CARICATURES, WORLD_TEAM_CARICATURES } from '../data/teamNames.ts';
 import { WORLD_BASE_FREE_AGENT_COUNT, WORLD_PRO_MAX_RATING, WORLD_PRO_MAX_STAT, WORLD_ROSTER_SIZE } from '../data/tuning.ts';
 import { riderRating } from './rating.ts';
 import type { TeamPhilosophy } from '../data/types.ts';
@@ -66,6 +68,24 @@ describe('generated world foundation', () => {
       expect(Math.max(...proRiders.map(riderRating))).toBeLessThanOrEqual(WORLD_PRO_MAX_RATING);
       expect(Math.max(...proRiders.flatMap((rider) => Object.values(rider.stats)))).toBeLessThanOrEqual(WORLD_PRO_MAX_STAT);
     }
+  });
+
+  it('uses caricature identities for AI teams and World Tour riders only', () => {
+    const draft = generateWorldDraft({ seed: 2026 });
+    const worldTeamNames = new Set(WORLD_TEAM_CARICATURES.map((team) => team.name));
+    const proTeamNames = new Set(PRO_TEAM_CARICATURES.map((team) => team.name));
+    const worldRiderNames = new Set(WORLD_RIDER_CARICATURES.map((rider) => rider.name));
+    const worldTeamIds = new Set(draft.world.teams
+      .filter((team) => draft.world.teamSeasons[team.id].division === 'world')
+      .map((team) => team.id));
+    const proTeamIds = new Set(draft.world.teams
+      .filter((team) => !team.isPlayer && draft.world.teamSeasons[team.id].division === 'pro')
+      .map((team) => team.id));
+
+    expect(draft.world.teams.filter((team) => worldTeamIds.has(team.id)).every((team) => worldTeamNames.has(team.name))).toBe(true);
+    expect(draft.world.teams.filter((team) => proTeamIds.has(team.id)).every((team) => proTeamNames.has(team.name))).toBe(true);
+    expect(draft.riders.filter((rider) => rider.teamId && worldTeamIds.has(rider.teamId)).every((rider) => worldRiderNames.has(rider.name))).toBe(true);
+    expect(draft.riders.filter((rider) => rider.teamId && proTeamIds.has(rider.teamId)).every((rider) => !worldRiderNames.has(rider.name))).toBe(true);
   });
 
   it('keeps generated division names varied and nationally coherent', () => {
