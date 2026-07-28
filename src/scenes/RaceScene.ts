@@ -40,6 +40,7 @@ const COUNT_LABEL_MIN = 5; // groups at least this big get a rider-count label
 const GAP_LABEL_MIN_SEC = 10; // show "+m:ss" under a group this far behind
 const LABEL_POOL = 6;
 const SCROLL_PX_PER_SEC = 130; // roadside terrain scroll speed at 1× — the illusion of forward motion
+const TERRAIN_REDRAW_SECONDS = 1 / 30;
 const FINISH_REVEAL_T = 0.8; // the finish line is out of sight until the closing stretch, then it appears
 
 const frac = (n: number): number => n - Math.floor(n);
@@ -106,6 +107,7 @@ export class RaceScene extends Phaser.Scene {
   private finishGfx!: Phaser.GameObjects.Graphics;
   private finishLabel!: Phaser.GameObjects.Text;
   private scrollX = 0;
+  private terrainRedrawElapsed = 0;
   private finishRevealed = false;
   private profile!: StageProfileView;
   private speedBtn!: Button;
@@ -137,6 +139,7 @@ export class RaceScene extends Phaser.Scene {
     this.maxFinish = 1;
     this.startFaded = false;
     this.scrollX = 0;
+    this.terrainRedrawElapsed = 0;
     this.finishRevealed = false;
     this.tour = data.tour;
     this.dynasty = data.dynasty;
@@ -356,7 +359,11 @@ export class RaceScene extends Phaser.Scene {
 
     // scroll the roadside terrain past the field — the sense of speed the barely
     // moving glyphs can't give on their own
-    this.drawTerrain(dt);
+    this.terrainRedrawElapsed += dt;
+    if (this.terrainRedrawElapsed >= TERRAIN_REDRAW_SECONDS) {
+      this.drawTerrain(this.terrainRedrawElapsed);
+      this.terrainRedrawElapsed = 0;
+    }
 
     // once the field has rolled out, let the start marker recede up the road (slide
     // left + fade) rather than sitting there for the field to ride back across

@@ -3,6 +3,7 @@ import { DYNASTY_SAVE_SCHEMA_VERSION } from '../data/tuning.ts';
 import type { Rider, StatKey, WorldState } from '../data/types.ts';
 import { DEV_STATS } from '../sim/development.ts';
 import type { SeasonState } from '../sim/season.ts';
+import { objectiveForGeneratedTeam, objectiveForSeason, type SeasonObjective } from '../sim/objectives.ts';
 import type { DynastyState, EventSettlementSummary } from './dynasty.ts';
 
 /**
@@ -51,6 +52,7 @@ interface SavedDynasty {
   lastTeamRank: Record<string, number>;
   lastSettlement?: EventSettlementSummary | null;
   seasonDev?: Record<string, Partial<Record<StatKey, number>>>; // season-to-date development (optional for pre-ext saves)
+  objective?: SeasonObjective;
   world?: WorldState;
   meta?: SlotMeta;
 }
@@ -95,6 +97,34 @@ function readRaw(key: string): SavedDynasty | null {
   } catch {
     return null;
   }
+}
+
+function migrateWorld(world: WorldState | undefined): boolean {
+  if (!world) return false;
+  let changed = false;
+  if (!Array.isArray(world.eventFields)) {
+    world.eventFields = [];
+    changed = true;
+  }
+  if (!Array.isArray(world.directorPlans)) {
+    world.directorPlans = [];
+    changed = true;
+  }
+  if (!Array.isArray(world.history.stageWinners)) {
+    world.history.stageWinners = [];
+    changed = true;
+  }
+  for (const state of Object.values(world.teamSeasons)) {
+    if (state.wins === undefined) {
+      state.wins = 0;
+      changed = true;
+    }
+    if (state.bestPrestigeResult === undefined) {
+      state.bestPrestigeResult = 0;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 /** Bring prospects generated before the Phase 8 playtest rebalance onto the new ranges. */
@@ -162,6 +192,7 @@ export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
       lastTeamRank: dynasty.lastTeamRank,
       lastSettlement: dynasty.lastSettlement,
       seasonDev: dynasty.seasonDev,
+      objective: dynasty.objective,
       world: dynasty.world,
       meta: {
         seasonNumber: dynasty.seasonNumber,
@@ -180,16 +211,19 @@ export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
 export function loadDynastyFromSlot(slot: number): DynastyState | null {
   const s = readRaw(slotKey(slot));
   if (!s) return null;
-  if (migrateProspectBalance(s)) {
+  const migrated = migrateProspectBalance(s);
+  const worldMigrated = migrateWorld(s.world);
+  if (migrated || worldMigrated) {
     try {
       localStorage.setItem(slotKey(slot), JSON.stringify(s));
     } catch {
       // play with the migrated in-memory save if storage is unavailable
     }
   }
+  const playerTeamId = s.playerTeamId ?? PLAYER_TEAM.id;
   return {
     seasonNumber: s.seasonNumber ?? 1,
-    playerTeamId: s.playerTeamId ?? PLAYER_TEAM.id,
+    playerTeamId,
     roster: s.roster,
     budgets: s.budgets ?? {},
     season: unpackSeason(s.season),
@@ -197,6 +231,9 @@ export function loadDynastyFromSlot(slot: number): DynastyState | null {
     lastTraining: null, // recomputed each event; camps are not persisted
     lastSettlement: s.lastSettlement ?? null,
     seasonDev: s.seasonDev ?? {},
+    objective: s.objective ?? (s.world
+      ? objectiveForGeneratedTeam(s.world, s.roster, playerTeamId)
+      : objectiveForSeason(s.seasonNumber ?? 1)),
     world: s.world,
   };
 }

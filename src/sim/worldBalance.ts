@@ -3,6 +3,8 @@ import {
   WORLD_JERSEY_CONTRAST_MIN,
   WORLD_PROPOSAL_MAX_RATING,
   WORLD_PROPOSAL_RATING_SPREAD,
+  WORLD_PRO_MAX_RATING,
+  WORLD_PRO_MAX_STAT,
   WORLD_PRO_TEAM_COUNT,
   WORLD_ROSTER_SIZE,
   WORLD_SQUAD_PROPOSAL_COUNT,
@@ -63,8 +65,13 @@ export function validateWorld(draft: GeneratedWorldDraft): WorldValidationResult
   validateDivisionColors(proTeams, errors);
 
   for (const team of world.teams.filter((entry) => !entry.isPlayer)) {
-    const rosterSize = riders.filter((rider) => rider.teamId === team.id).length;
+    const roster = riders.filter((rider) => rider.teamId === team.id);
+    const rosterSize = roster.length;
     if (rosterSize !== WORLD_ROSTER_SIZE) errors.push(`${team.id} has ${rosterSize} riders`);
+    if (world.teamSeasons[team.id].division === 'pro') {
+      if (roster.some((rider) => riderRating(rider) > WORLD_PRO_MAX_RATING)) errors.push(`${team.id} has a World Tour-level rider`);
+      if (roster.some((rider) => Math.max(...Object.values(rider.stats)) > WORLD_PRO_MAX_STAT)) errors.push(`${team.id} exceeds the Pro stat ceiling`);
+    }
   }
   const knownTeamIds = new Set(world.teams.map((team) => team.id));
   for (const rider of riders) {

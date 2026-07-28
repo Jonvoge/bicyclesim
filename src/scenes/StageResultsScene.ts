@@ -122,7 +122,7 @@ export class StageResultsScene extends Phaser.Scene {
       fontStyle: 'bold',
       color: settlement ? '#f5c518' : COLORS.accentText,
     }).setOrigin(0.5));
-    objects.push(this.add.text(width / 2, cy - panelH / 2 + 43, 'fatigue gained · saved vs Race · next stage', {
+    objects.push(this.add.text(width / 2, cy - panelH / 2 + 43, 'fatigue gained', {
       fontFamily: FONT,
       fontSize: '10px',
       color: COLORS.textMuted,
@@ -132,11 +132,10 @@ export class StageResultsScene extends Phaser.Scene {
       const rider = this.byId.get(row.riderId);
       const y = cy - panelH / 2 + 69 + index * 25;
       objects.push(this.add.text(32, y, rider?.name ?? row.riderId, { fontFamily: FONT, fontSize: '12px', color: COLORS.text }).setOrigin(0, 0.5));
-      const next = row.nextStage === null ? 'DNF' : row.nextStage.toFixed(1);
-      objects.push(this.add.text(width - 32, y, `+${row.gained.toFixed(1)} · saved ${row.savedVsRace.toFixed(1)} · ${next}`, {
+      objects.push(this.add.text(width - 32, y, `+${row.gained.toFixed(1)}`, {
         fontFamily: FONT,
-        fontSize: '11px',
-        color: row.savedVsRace > 0 ? COLORS.accentText : COLORS.textMuted,
+        fontSize: '13px',
+        color: COLORS.accentText,
       }).setOrigin(1, 0.5));
     });
 

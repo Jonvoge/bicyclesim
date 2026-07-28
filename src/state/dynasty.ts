@@ -4,8 +4,18 @@ import { RACES_BY_ID, SEASON_CALENDAR } from '../data/races.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
 import { teamColor, type TeamColor } from '../data/teamColors.ts';
 import { TEAMS, PLAYER_TEAM } from '../data/teams.ts';
-import type { GeneratedWorldDraft, Race, Stage, TeamIdentity, WorldState } from '../data/types.ts';
+import type { DivisionId, GeneratedWorldDraft, PromotionRecord, Race, Stage, TeamIdentity, WorldState } from '../data/types.ts';
 import { defaultTeamTacticsFor } from '../sim/raceSetup.ts';
+import { directorPlanFor, prepareDirectorPlans } from '../sim/director.ts';
+import {
+  applyDivisionMovement,
+  calendarForTeam,
+  prepareCompetitionSeason,
+  rankDivision,
+  recordDivisionEvent,
+  resetDivisionCompetition,
+  simulateBackgroundCompetition,
+} from '../sim/competition.ts';
 import { baseScore } from '../sim/stageSim.ts';
 import type { TeamTactics } from '../sim/tactics.ts';
 import {
@@ -34,9 +44,15 @@ import {
   wageBill,
   type ActionCheck,
 } from '../sim/management.ts';
-import { objectiveForSeason, objectiveStatus } from '../sim/objectives.ts';
+import {
+  objectiveForGeneratedTeam,
+  objectiveForSeason,
+  objectiveStatus,
+  type SeasonObjective,
+} from '../sim/objectives.ts';
 import { riderRating, riderSalary, signingFeeFor } from '../sim/rating.ts';
 import { Rng } from '../sim/rng.ts';
+import { createRiderNameRegistry } from '../sim/riderNames.ts';
 import {
   createSeason,
   finishEvent,
@@ -72,6 +88,7 @@ export interface DynastyState {
   lastTraining: TrainingBlockSummary | null; // the most recent auto-training camp (for the UI); null between camps
   lastSettlement: EventSettlementSummary | null; // consequences of the most recently completed event
   seasonDev: Record<string, Partial<Record<StatKey, number>>>; // player riderId → stat points gained SO FAR this season (reset at rollover)
+  objective: SeasonObjective;
   world?: WorldState; // generated-world identity/division/history; absent on legacy authored saves
 }
 
@@ -115,10 +132,11 @@ export function createDynasty(playerTeamId: string = PLAYER_TEAM.id): DynastySta
   const roster = ALL_RIDERS.map(cloneRider);
   // pad every team to a rotatable depth with generated domestiques (Phase 8 pick-5)
   const gen = new Rng(0x5a1ad);
+  const usedNames = createRiderNameRegistry(roster.map((rider) => rider.name));
   for (const team of TEAMS) {
     let count = roster.filter((r) => r.teamId === team.id).length;
     for (let i = 0; count < TARGET_SQUAD_SIZE; i++, count++) {
-      roster.push(generateDomestique(`${team.id}-dom${i}`, team.id, gen));
+      roster.push(generateDomestique(`${team.id}-dom${i}`, team.id, gen, usedNames));
     }
   }
   for (const r of roster) {
@@ -144,6 +162,7 @@ export function createDynasty(playerTeamId: string = PLAYER_TEAM.id): DynastySta
     lastTraining: null,
     lastSettlement: null,
     seasonDev: {},
+    objective: objectiveForSeason(1),
   };
 }
 
@@ -162,25 +181,43 @@ export function createGeneratedDynasty(draft: GeneratedWorldDraft): DynastyState
     ...draft.world,
     teams: draft.world.teams.map((team) => ({ ...team })),
     teamSeasons: Object.fromEntries(Object.entries(draft.world.teamSeasons).map(([id, season]) => [id, { ...season }])),
+    eventFields: draft.world.eventFields.map((field) => ({
+      ...field,
+      teamIds: [...field.teamIds],
+      wildcards: field.wildcards.map((invite) => ({ ...invite })),
+    })),
+    directorPlans: draft.world.directorPlans.map((plan) => ({
+      ...plan,
+      targets: plan.targets.map((target) => ({ ...target })),
+    })),
     history: {
       seasons: [...draft.world.history.seasons],
       raceWinners: [...draft.world.history.raceWinners],
+      stageWinners: [...draft.world.history.stageWinners],
       promotions: [...draft.world.history.promotions],
       teamChampions: [...draft.world.history.teamChampions],
     },
   };
+  prepareCompetitionSeason(world, 1);
+  prepareDirectorPlans(world, 1, roster);
+  const objective = objectiveForGeneratedTeam(world, roster, playerTeam.id);
   return {
     seasonNumber: 1,
     playerTeamId: playerTeam.id,
     roster,
     budgets: {},
-    season: createSeason(SEASON_CALENDAR),
+    season: createSeason(calendarForTeam(world, playerTeam.id, 1)),
     lastTeamRank: {},
     lastTraining: null,
     lastSettlement: null,
     seasonDev: {},
+    objective,
     world,
   };
+}
+
+export function dynastyObjective(dynasty: DynastyState): SeasonObjective {
+  return dynasty.objective ?? objectiveForSeason(dynasty.seasonNumber);
 }
 
 // --- accessors (always read team membership through these) --------------------
@@ -368,11 +405,19 @@ export function finishSeasonEvent(dynasty: DynastyState, tour: TourState): Event
   const teamPointsBefore = teamRowsBefore.find((row) => row.id === playerId)?.points ?? 0;
   const teamRankBefore = teamRowsBefore.findIndex((row) => row.id === playerId);
   const fatigueBefore = new Map(dynasty.season.fatigue);
-  const objective = objectiveForSeason(dynasty.seasonNumber);
+  const objective = dynastyObjective(dynasty);
   const objectiveBefore = objectiveStatus(objective, dynasty.season, (id) => teamOf(dynasty, id) === playerId);
   const hadPlayerWin = dynasty.season.results.some((entry) => teamOf(dynasty, entry.winnerId) === playerId);
   const result = finishEvent(dynasty.season, tour, dynasty.roster);
   const race = RACES_BY_ID.get(result.raceId)!;
+  if (dynasty.world) {
+    const pointGains = new Map<string, number>();
+    for (const [riderId, points] of dynasty.season.points) {
+      const gained = points - (riderPointsBefore.get(riderId) ?? 0);
+      if (gained > 0) pointGains.set(riderId, gained);
+    }
+    recordDivisionEvent(dynasty.world, dynasty.seasonNumber, race, result, pointGains, dynasty.roster, tour);
+  }
   const prize = eventPrizeByTeam(result.classification, race.prestige, (id) => teamOf(dynasty, id));
   for (const [teamId, cash] of prize) setTeamBudget(dynasty, teamId, teamBudget(dynasty, teamId) + cash);
   dynasty.lastTraining = campEventIndices(dynasty.season.calendar.length).includes(dynasty.season.eventIndex)
@@ -442,6 +487,9 @@ export interface RolloverSummary {
   objectiveText: string; // the season's board goal
   objectiveMet: boolean; // did the player hit it?
   objectiveReward: number; // cash bonus paid if met (0 otherwise)
+  movement?: PromotionRecord;
+  previousDivision?: DivisionId;
+  currentDivision?: DivisionId;
 }
 
 /** Put a free agent onto a team (internal auto-fill; no fee, a fresh contract). */
@@ -467,25 +515,53 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   const numTeams = teams.length;
   const playerId = dynasty.playerTeamId;
   const finishedSeason = dynasty.seasonNumber;
+  const previousDivision = dynasty.world?.teamSeasons[playerId].division;
   const rng = new Rng((0x5ea5000 ^ finishedSeason) >>> 0);
+
+  if (dynasty.world) {
+    simulateBackgroundCompetition(
+      dynasty.world,
+      finishedSeason,
+      dynasty.roster,
+      new Set(dynasty.season.results.map((result) => result.raceId)),
+    );
+  }
 
   // rank teams by the season just finished (unlisted teams share the last place)
   const standings = teamStandings(dynasty.season, (id) => teamOf(dynasty, id));
   const rank: Record<string, number> = {};
-  standings.forEach((row, i) => (rank[row.id] = i + 1));
+  if (dynasty.world) {
+    for (const division of ['world', 'pro'] as const) {
+      rankDivision(dynasty.world, division, finishedSeason).forEach((row, index) => (rank[row.teamId] = index + 1));
+    }
+  } else {
+    standings.forEach((row, i) => (rank[row.id] = i + 1));
+  }
   for (const t of teams) if (rank[t.id] === undefined) rank[t.id] = numTeams;
 
   // settle finances for every team (on the squad that raced this season)
+  const sponsorByTeam = new Map<string, number>();
+  const previousMovement = dynasty.world?.history.promotions.find((record) => record.season === finishedSeason - 1);
   for (const t of teams) {
-    const income = sponsorIncome(dynasty.lastTeamRank[t.id], numTeams);
+    const division = dynasty.world?.teamSeasons[t.id].division;
+    const divisionTeamCount = division
+      ? dynasty.world!.teams.filter((team) => dynasty.world!.teamSeasons[team.id].division === division).length
+      : numTeams;
+    const transition = previousMovement?.promotedTeamIds.includes(t.id)
+      ? 'promoted'
+      : previousMovement?.relegatedTeamIds.includes(t.id)
+        ? 'relegated'
+        : undefined;
+    const income = sponsorIncome(dynasty.lastTeamRank[t.id], divisionTeamCount, division, transition);
+    sponsorByTeam.set(t.id, income);
     setTeamBudget(dynasty, t.id, Math.round(teamBudget(dynasty, t.id) + income - wageBill(dynasty.roster, t.id)));
   }
-  const playerSponsor = sponsorIncome(dynasty.lastTeamRank[playerId], numTeams);
+  const playerSponsor = sponsorByTeam.get(playerId)!;
   const playerWages = wageBill(dynasty.roster, playerId);
 
   // season objective (Part E): pay the sponsor's board-goal bonus if the player hit
   // it (checked on the season's squad, before the winter roster changes)
-  const objective = objectiveForSeason(finishedSeason);
+  const objective = dynastyObjective(dynasty);
   const objStatus = objectiveStatus(objective, dynasty.season, (id) => teamOf(dynasty, id) === playerId);
   const objectiveReward = objStatus.met ? objective.reward : 0;
   if (objectiveReward > 0) setTeamBudget(dynasty, playerId, teamBudget(dynasty, playerId) + objectiveReward);
@@ -517,8 +593,15 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   }
 
   // --- new blood: young prospects into the free-agent pool ---
-  for (let i = 0; i < NEW_RIDERS_PER_SEASON; i++) {
-    dynasty.roster.push(generateProspect(`fa-gen-${finishedSeason}-${i}`, rng));
+  const rosterDeficit = teams.reduce(
+    (total, team) => total + Math.max(0, MIN_SQUAD_SIZE - squadSize(dynasty.roster, team.id)),
+    0,
+  );
+  const availableFreeAgents = dynasty.roster.filter((rider) => rider.teamId === null).length;
+  const newRiderCount = Math.max(NEW_RIDERS_PER_SEASON, rosterDeficit - availableFreeAgents + NEW_RIDERS_PER_SEASON);
+  const usedNames = createRiderNameRegistry(dynasty.roster.map((rider) => rider.name));
+  for (let i = 0; i < newRiderCount; i++) {
+    dynasty.roster.push(generateProspect(`fa-gen-${finishedSeason}-${i}`, rng, usedNames));
   }
 
   // auto-fill any squad left below the minimum by retirements. Rivals grab the
@@ -552,13 +635,28 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   const carried = new Map<string, number>();
   for (const [id, fat] of dynasty.season.fatigue) if (live.has(id)) carried.set(id, fat * OFFSEASON_RECOVERY_RATE);
 
+  let movement: PromotionRecord | undefined;
+  if (dynasty.world) {
+    movement = applyDivisionMovement(dynasty.world, finishedSeason);
+    for (const team of dynasty.world.teams) dynasty.world.teamSeasons[team.id].lastRank = rank[team.id];
+    resetDivisionCompetition(dynasty.world);
+  }
   dynasty.lastTeamRank = rank;
   dynasty.seasonNumber += 1;
-  dynasty.season = createSeason(SEASON_CALENDAR);
+  if (dynasty.world) {
+    prepareCompetitionSeason(dynasty.world, dynasty.seasonNumber);
+    prepareDirectorPlans(dynasty.world, dynasty.seasonNumber, dynasty.roster);
+  }
+  dynasty.season = createSeason(
+    dynasty.world ? calendarForTeam(dynasty.world, dynasty.playerTeamId, dynasty.seasonNumber) : SEASON_CALENDAR,
+  );
   dynasty.season.fatigue = carried;
   dynasty.lastTraining = null;
   dynasty.lastSettlement = null;
   dynasty.seasonDev = {}; // the new season's development starts from zero
+  dynasty.objective = dynasty.world
+    ? objectiveForGeneratedTeam(dynasty.world, dynasty.roster, dynasty.playerTeamId)
+    : objectiveForSeason(dynasty.seasonNumber);
 
   return {
     seasonNumber: finishedSeason,
@@ -569,11 +667,14 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
     expiring,
     retired,
     retiredAll,
-    emerged: NEW_RIDERS_PER_SEASON,
+    emerged: newRiderCount,
     autoSigned,
     objectiveText: objective.text,
     objectiveMet: objStatus.met,
     objectiveReward,
+    movement,
+    previousDivision,
+    currentDivision: dynasty.world?.teamSeasons[playerId].division,
   };
 }
 
@@ -591,9 +692,35 @@ export function displaySalary(rider: Rider): number {
 export function buildTacticsMapDyn(dynasty: DynastyState, stage: Stage, player: TeamTactics): Map<string, TeamTactics> {
   const map = new Map<string, TeamTactics>();
   map.set(player.teamId, player);
+  const raceId = dynasty.season.calendar[dynasty.season.eventIndex];
   for (const team of dynastyTeams(dynasty)) {
     if (team.id === player.teamId) continue;
-    map.set(team.id, defaultTeamTacticsFor(team.id, teamRiders(dynasty, team.id), stage));
+    const riders = teamRiders(dynasty, team.id);
+    const tactics = defaultTeamTacticsFor(team.id, riders, stage);
+    const plan = dynasty.world ? directorPlanFor(dynasty.world, team.id, dynasty.seasonNumber) : undefined;
+    const target = plan?.targets.find((entry) => entry.raceId === raceId);
+    if (target) {
+      for (const riderId of Object.keys(tactics.roles)) {
+        if (tactics.roles[riderId] === 'leader') tactics.roles[riderId] = 'domestique';
+      }
+      tactics.roles[target.leaderId] = 'leader';
+      const support = riders
+        .filter((rider) => rider.id !== target.leaderId)
+        .sort((left, right) => baseScore(right, stage) - baseScore(left, stage));
+      if (plan?.tacticalPreference === 'sprint-control') {
+        const sprinter = support.sort((left, right) => right.stats.sprint - left.stats.sprint)[0];
+        if (sprinter) tactics.roles[sprinter.id] = 'sprinter';
+      } else if (plan?.tacticalPreference === 'break-hunting') {
+        if (support[0]) tactics.roles[support[0].id] = 'free';
+      } else if (plan?.tacticalPreference === 'classics-aggression') {
+        support.slice(0, 2).forEach((rider) => (tactics.roles[rider.id] = 'free'));
+      }
+    } else if (plan && dynasty.world) {
+      const calendar = calendarForTeam(dynasty.world, team.id, dynasty.seasonNumber);
+      const nextRaceId = calendar[calendar.indexOf(raceId) + 1];
+      if (plan.targets.some((entry) => entry.raceId === nextRaceId)) tactics.effort = 'conserve';
+    }
+    map.set(team.id, tactics);
   }
   return map;
 }
@@ -611,9 +738,15 @@ export function pickRaceSquad(
   seasonFatigue: Map<string, number>,
   isTour: boolean,
   n: number = RACE_SQUAD_SIZE,
+  scoreAdjustment: (rider: Rider) => number = () => 0,
 ): string[] {
   return riders
-    .map((r) => ({ id: r.id, score: (isTour ? riderRating(r) : baseScore(r, stage)) - (seasonFatigue.get(r.id) ?? 0) * SQUAD_SELECTION_FATIGUE_WEIGHT }))
+    .map((r) => ({
+      id: r.id,
+      score: (isTour ? riderRating(r) : baseScore(r, stage))
+        - (seasonFatigue.get(r.id) ?? 0) * SQUAD_SELECTION_FATIGUE_WEIGHT
+        + scoreAdjustment(r),
+    }))
     .sort((a, b) => b.score - a.score)
     .slice(0, n)
     .map((s) => s.id);
@@ -628,16 +761,30 @@ export function pickRaceSquad(
 export function startSeasonEvent(dynasty: DynastyState, race: Race): TourState {
   const tour = createTour(race);
   tour.condition = new Map();
-  for (const r of racingRoster(dynasty)) {
-    tour.fatigue.set(r.id, dynasty.season.fatigue.get(r.id) ?? 0);
-    // seed each rider's season Condition for this event from their focus plan
-    tour.condition.set(r.id, conditionForEvent(r.focusPlanId, dynasty.season.eventIndex, dynasty.season.calendar.length));
-  }
   const stage = STAGES_BY_ID.get(race.stageIds[0])!;
   const isTour = race.stageIds.length > 1;
   const starters = new Set<string>();
-  for (const team of dynastyTeams(dynasty)) {
-    for (const id of pickRaceSquad(teamRiders(dynasty, team.id), stage, dynasty.season.fatigue, isTour)) starters.add(id);
+  const field = dynasty.world?.eventFields.find(
+    (entry) => entry.season === dynasty.seasonNumber && entry.raceId === race.id,
+  );
+  const enteredTeamIds = new Set(field?.teamIds ?? dynastyTeams(dynasty).map((team) => team.id));
+  for (const team of dynastyTeams(dynasty).filter((entry) => enteredTeamIds.has(entry.id))) {
+    const plan = dynasty.world && team.id !== dynasty.playerTeamId
+      ? directorPlanFor(dynasty.world, team.id, dynasty.seasonNumber)
+      : undefined;
+    const calendar = dynasty.world ? calendarForTeam(dynasty.world, team.id, dynasty.seasonNumber) : dynasty.season.calendar;
+    const nextRaceId = calendar[calendar.indexOf(race.id) + 1];
+    const target = plan?.targets.find((entry) => entry.raceId === race.id);
+    const nextTarget = plan?.targets.find((entry) => entry.raceId === nextRaceId);
+    const adjustment = (rider: Rider): number => target?.leaderId === rider.id ? 100 : nextTarget?.leaderId === rider.id ? -100 : 0;
+    for (const id of pickRaceSquad(teamRiders(dynasty, team.id), stage, dynasty.season.fatigue, isTour, RACE_SQUAD_SIZE, adjustment)) {
+      starters.add(id);
+    }
+  }
+  for (const riderId of starters) {
+    const rider = dynasty.roster.find((entry) => entry.id === riderId)!;
+    tour.fatigue.set(rider.id, dynasty.season.fatigue.get(rider.id) ?? 0);
+    tour.condition.set(rider.id, conditionForEvent(rider.focusPlanId, dynasty.season.eventIndex, dynasty.season.calendar.length));
   }
   tour.starters = starters;
   return tour;

@@ -1,13 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
 import { OBJECTIVE_WINS_TARGET } from '../data/tuning.ts';
-import { objectiveForSeason, objectiveStatus } from './objectives.ts';
+import { objectiveForGeneratedTeam, objectiveForSeason, objectiveStatus } from './objectives.ts';
+import { generateWorldDraft } from './worldGeneration.ts';
 import { createSeason } from './season.ts';
 
 function seasonWith(results: { raceId: string; winnerId: string }[]) {
   const s = createSeason(['r-sanreno']);
   s.results = results.map((r) => ({ raceId: r.raceId, winnerId: r.winnerId, classification: [] }));
   return s;
+}
+
+function classifiedSeason(position: number) {
+  const season = createSeason(['r-strada']);
+  season.results = [{
+    raceId: 'r-strada',
+    winnerId: position === 1 ? 'me' : 'rival-1',
+    classification: Array.from({ length: 12 }, (_, index) => ({
+      riderId: index + 1 === position ? 'me' : `rival-${index + 1}`,
+      totalTimeSec: index,
+      gapSec: index,
+      stagesFinished: 1,
+    })),
+  }];
+  return season;
 }
 
 describe('season objectives', () => {
@@ -41,5 +57,20 @@ describe('season objectives', () => {
     // one more player win tips it over
     const more = seasonWith([...results, { raceId: 'r-strada', winnerId: 'me' }]);
     expect(objectiveStatus(obj, more, mine).met).toBe(true);
+  });
+
+  it('gives generated teams goals appropriate to division strength', () => {
+    const draft = generateWorldDraft({ seed: 700 });
+    const proTeams = draft.world.teams.filter((team) => draft.world.teamSeasons[team.id].division === 'pro');
+    const goals = proTeams.map((team) => objectiveForGeneratedTeam(draft.world, draft.riders, team.id));
+    expect(goals.some((goal) => goal.kind === 'top10s')).toBe(true);
+    expect(goals.some((goal) => goal.kind === 'podiums')).toBe(true);
+    expect(goals.every((goal) => goal.kind !== 'monument' && goal.kind !== 'wins')).toBe(true);
+  });
+
+  it('counts one best team result per event for top-10 and podium goals', () => {
+    expect(objectiveStatus({ kind: 'top10s', text: '', target: 1, reward: 0 }, classifiedSeason(8), (id) => id === 'me').met).toBe(true);
+    expect(objectiveStatus({ kind: 'podiums', text: '', target: 1, reward: 0 }, classifiedSeason(4), (id) => id === 'me').met).toBe(false);
+    expect(objectiveStatus({ kind: 'podiums', text: '', target: 1, reward: 0 }, classifiedSeason(2), (id) => id === 'me').met).toBe(true);
   });
 });

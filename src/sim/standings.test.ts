@@ -24,7 +24,14 @@ const STAGES: Stage[] = [
   { id: 's3', name: 'Stage 3', type: 'summitFinish', lengthKm: 210 },
 ];
 const STAGES_BY_ID = new Map(STAGES.map((s) => [s.id, s]));
-const RACE: Race = { id: 'tour', name: 'Test Tour', type: 'shortTour', stageIds: ['s1', 's2', 's3'], prestige: 100 };
+const RACE: Race = {
+  id: 'tour',
+  name: 'Test Tour',
+  type: 'shortTour',
+  stageIds: ['s1', 's2', 's3'],
+  prestige: 100,
+  eligibility: { division: 'world', fieldSize: 8, divisionPointsScale: 1 },
+};
 
 function tacticsFor(stage: Stage): Map<string, TeamTactics> {
   const map = new Map<string, TeamTactics>();

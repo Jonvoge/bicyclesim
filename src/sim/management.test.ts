@@ -52,6 +52,14 @@ describe('sponsor income', () => {
     expect(first).toBeGreaterThan(sponsorIncome(8, 8));
     expect(first).toBeLessThan(sponsorIncome(1, 8));
   });
+
+  it('scales Pro Tour sponsors and provides bounded movement support', () => {
+    const world = sponsorIncome(5, 10, 'world');
+    const pro = sponsorIncome(5, 10, 'pro');
+    expect(pro).toBeLessThan(world);
+    expect(sponsorIncome(5, 10, 'world', 'promoted')).toBeGreaterThan(world);
+    expect(sponsorIncome(5, 10, 'pro', 'relegated')).toBeGreaterThan(pro);
+  });
 });
 
 describe('event prize money', () => {

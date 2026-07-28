@@ -51,6 +51,33 @@ export const STAGES: Stage[] = [
   { id: 'vi-3', name: 'Iberia · Stage 3', type: 'summitFinish', lengthKm: 166 },
   { id: 'vi-4', name: 'Iberia · Stage 4', type: 'mountain', lengthKm: 188 },
   { id: 'vi-5', name: 'Iberia · Stage 5', type: 'summitFinish', lengthKm: 159 },
+
+  // --- Pro Tour: a separate regional calendar with shorter, varied routes ---
+  { id: 'pro-coast', name: 'Coastal Wind Race', type: 'flat', lengthKm: 174 },
+  { id: 'pro-quarry', name: 'Old Quarry Classic', type: 'cobbled', lengthKm: 181 },
+  { id: 'pro-orchard', name: 'Orchard Hills', type: 'hilly', lengthKm: 169 },
+  { id: 'pro-lakes', name: 'Lake District Trophy', type: 'hilly', lengthKm: 192 },
+  { id: 'pro-ridge', name: 'High Ridge Challenge', type: 'mountain', lengthKm: 176 },
+  { id: 'pro-port', name: 'Port City Sprint', type: 'flat', lengthKm: 188 },
+  { id: 'pro-stones', name: 'Northern Stones', type: 'cobbled', lengthKm: 196 },
+  { id: 'pro-vineyard', name: 'Vineyard Wall', type: 'summitFinish', lengthKm: 164 },
+  { id: 'pro-forest', name: 'Forest Circuit', type: 'hilly', lengthKm: 183 },
+  { id: 'pro-harbor', name: 'Harbor Finale', type: 'flat', lengthKm: 201 },
+
+  { id: 'pt-valley-1', name: 'Valley Tour · Stage 1', type: 'flat', lengthKm: 158 },
+  { id: 'pt-valley-2', name: 'Valley Tour · Stage 2', type: 'hilly', lengthKm: 172 },
+  { id: 'pt-valley-3', name: 'Valley Tour · Stage 3', type: 'mountain', lengthKm: 166 },
+  { id: 'pt-valley-4', name: 'Valley Tour · Stage 4', type: 'summitFinish', lengthKm: 148 },
+
+  { id: 'pt-lowlands-1', name: 'Lowlands Tour · Stage 1', type: 'flat', lengthKm: 181 },
+  { id: 'pt-lowlands-2', name: 'Lowlands Tour · Stage 2', type: 'cobbled', lengthKm: 154 },
+  { id: 'pt-lowlands-3', name: 'Lowlands Tour · Stage 3', type: 'hilly', lengthKm: 177 },
+  { id: 'pt-lowlands-4', name: 'Lowlands Tour · Stage 4', type: 'flat', lengthKm: 169 },
+
+  { id: 'pt-peaks-1', name: 'Three Peaks Tour · Stage 1', type: 'hilly', lengthKm: 163 },
+  { id: 'pt-peaks-2', name: 'Three Peaks Tour · Stage 2', type: 'mountain', lengthKm: 171 },
+  { id: 'pt-peaks-3', name: 'Three Peaks Tour · Stage 3', type: 'descentFinish', lengthKm: 184 },
+  { id: 'pt-peaks-4', name: 'Three Peaks Tour · Stage 4', type: 'summitFinish', lengthKm: 152 },
 ];
 
 export const STAGES_BY_ID: Map<string, Stage> = new Map(STAGES.map((s) => [s.id, s]));

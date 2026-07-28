@@ -48,6 +48,10 @@ export const MONUMENT_PRESTIGE = 90; // a race this prestigious or above counts 
 export const OBJECTIVE_WINS_TARGET = 3; // "win N races this season"
 export const OBJECTIVE_WINS_REWARD = 300; // cash bonus for the wins goal
 export const OBJECTIVE_MONUMENT_REWARD = 400; // cash bonus for the Monument goal
+export const OBJECTIVE_TOP_TEN_TARGET = 3;
+export const OBJECTIVE_TOP_TEN_REWARD = 180;
+export const OBJECTIVE_PODIUM_TARGET = 2;
+export const OBJECTIVE_PODIUM_REWARD = 240;
 
 // --- Fatigue & recovery (SPEC §5.1, §5.8) ---
 export const FATIGUE_WEIGHT = 1.15; // per-point penalty of currentFatigue on perfScore
@@ -367,8 +371,8 @@ export const GAP_COMPRESSION_BY_TYPE: Record<string, number> = {
 };
 
 // --- Generated world foundation (Dynasty expansion §5) ----------------------
-export const WORLD_SCHEMA_VERSION = 2;
-export const DYNASTY_SAVE_SCHEMA_VERSION = 2;
+export const WORLD_SCHEMA_VERSION = 3;
+export const DYNASTY_SAVE_SCHEMA_VERSION = 3;
 export const WORLD_TOP_TEAM_COUNT = 10;
 export const WORLD_PRO_TEAM_COUNT = 12; // includes the founded player team
 export const WORLD_ROSTER_SIZE = 8;
@@ -381,7 +385,7 @@ export const WORLD_PRO_TEAM_BUDGET = 1800;
 export const WORLD_PLAYER_STARTING_BUDGET = 1200;
 export const WORLD_TOP_REPUTATION = 70;
 export const WORLD_PRO_REPUTATION = 30;
-export const WORLD_PROPOSAL_MAX_RATING = 82;
+export const WORLD_PROPOSAL_MAX_RATING = 80;
 export const WORLD_PROPOSAL_RATING_SPREAD = 20;
 export const WORLD_TEAM_COLOR_MIN_DISTANCE = 24;
 export const WORLD_JERSEY_CONTRAST_MIN = 120;
@@ -392,12 +396,14 @@ export const WORLD_RIDER_PROFILE_RANGE = 45;
 export const WORLD_RIDER_STAT_NOISE = 3.5;
 export const WORLD_TOP_QUALITY_MIN = 0.84;
 export const WORLD_TOP_QUALITY_MAX = 0.98;
-export const WORLD_PRO_QUALITY_MIN = 0.69;
-export const WORLD_PRO_QUALITY_MAX = 0.82;
-export const WORLD_FREE_QUALITY_MIN = 0.64;
-export const WORLD_FREE_QUALITY_MAX = 0.8;
-export const WORLD_PROPOSAL_QUALITY_MIN = 0.7;
-export const WORLD_PROPOSAL_QUALITY_MAX = 0.82;
+export const WORLD_PRO_QUALITY_MIN = 0.6;
+export const WORLD_PRO_QUALITY_MAX = 0.74;
+export const WORLD_FREE_QUALITY_MIN = 0.58;
+export const WORLD_FREE_QUALITY_MAX = 0.73;
+export const WORLD_PROPOSAL_QUALITY_MIN = 0.57;
+export const WORLD_PROPOSAL_QUALITY_MAX = 0.71;
+export const WORLD_PRO_MAX_STAT = 88;
+export const WORLD_PRO_MAX_RATING = 80;
 export const WORLD_DEVELOPMENT_CURRENT_PENALTY = 0.06;
 export const WORLD_RIDER_AGE_MIN = 19;
 export const WORLD_RIDER_AGE_MAX = 34;
@@ -408,3 +414,17 @@ export const WORLD_CONSISTENCY_RANGE = 28;
 export const WORLD_STAMINA_BASE = 54;
 export const WORLD_STAMINA_QUALITY_RANGE = 26;
 export const WORLD_STAMINA_ENDURANCE_RANGE = 8;
+
+// --- Two-division competition structure (Dynasty expansion §6) -------------
+export const WORLD_RACE_FIELD_SIZE = 12;
+export const PRO_RACE_FIELD_SIZE = 12;
+export const WORLD_WILDCARD_SLOTS = 2;
+export const DIVISION_MOVEMENT_COUNT = 2;
+export const BACKGROUND_TEAM_SCORE_NOISE = 10;
+export const WILDCARD_DIVISION_POINTS_SCALE = 0;
+export const WILDCARD_MIN_REPUTATION = 36;
+export const WILDCARD_WIN_REPUTATION_GAIN = 3;
+export const WILDCARD_PODIUM_REPUTATION_GAIN = 1;
+export const PRO_SPONSOR_SCALE = 0.65;
+export const PROMOTION_SUPPORT_PAYMENT = 300;
+export const RELEGATION_PARACHUTE_PAYMENT = 150;

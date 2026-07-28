@@ -75,7 +75,7 @@ describe('focus plan curves', () => {
   });
 
   it('normalizes every plan to the same discrete-calendar performance budget', () => {
-    for (const calendarLength of [12, 17]) {
+    for (const calendarLength of [13, 17]) {
       const averageModifiers = FOCUS_PLANS.map(
         (plan) => (2 * averageCalendarCondition(plan.id, calendarLength) - 1) * CONDITION_PERF_MAX,
       );

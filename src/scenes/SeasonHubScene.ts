@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
-import { objectiveForSeason, objectiveStatus } from '../sim/objectives.ts';
+import { objectiveStatus } from '../sim/objectives.ts';
+import { divisionStatus } from '../sim/competition.ts';
 import { isSeasonComplete, riderStandings, teamStandings } from '../sim/season.ts';
 import {
   playerBudget,
+  dynastyObjective,
   dynastyTeamName,
   playerWageBill,
   rosterById,
@@ -70,6 +72,17 @@ export class SeasonHubScene extends Phaser.Scene {
       fontStyle: 'bold',
       color: COLORS.text,
     });
+    if (this.dynasty.world) {
+      const status = divisionStatus(this.dynasty.world, this.dynasty.playerTeamId, this.dynasty.seasonNumber);
+      const divisionName = status.division === 'world' ? 'WORLD TOUR' : 'PRO TOUR';
+      const lineLabel = status.division === 'pro' ? 'TO PROMOTION' : 'TO SAFETY';
+      this.add.text(64, 67, `${divisionName}  #${status.rank}/${status.teamCount}  ·  ${status.points} PTS  ·  ${status.pointsToLine} ${lineLabel}`, {
+        fontFamily: FONT,
+        fontSize: '9px',
+        fontStyle: 'bold',
+        color: status.pointsToLine === 0 ? COLORS.accentText : COLORS.textMuted,
+      });
+    }
 
     this.add.text(18, 87, `FUNDS  ${playerBudget(this.dynasty).toLocaleString()}`, {
       fontFamily: FONT,
@@ -102,13 +115,16 @@ export class SeasonHubScene extends Phaser.Scene {
     const y = 159;
     const gap = (right - left) / (season.calendar.length - 1);
     this.add.rectangle(width / 2, y, right - left, 3, COLORS.stroke, 0.45);
-    season.calendar.forEach((_, index) => {
+    season.calendar.forEach((raceId, index) => {
       const x = left + index * gap;
       const completed = index < season.results.length;
       const active = !done && index === season.eventIndex;
       const fill = completed || active ? COLORS.buttonSelected : COLORS.panel;
+      const wildcard = this.dynasty.world?.eventFields
+        .find((field) => field.season === this.dynasty.seasonNumber && field.raceId === raceId)
+        ?.wildcards.some((invite) => invite.teamId === this.dynasty.playerTeamId);
       this.add.circle(x, y, active ? 7 : 5, fill, 1)
-        .setStrokeStyle(active ? 3 : 1.5, active ? COLORS.buttonSelected : COLORS.stroke);
+        .setStrokeStyle(active ? 3 : 1.5, active ? COLORS.buttonSelected : wildcard ? COLORS.gold : COLORS.stroke);
     });
   }
 
@@ -117,6 +133,10 @@ export class SeasonHubScene extends Phaser.Scene {
     const race = RACES_BY_ID.get(season.calendar[season.eventIndex])!;
     const stage = STAGES_BY_ID.get(race.stageIds[0])!;
     const isTour = race.stageIds.length > 1;
+    const eventField = this.dynasty.world?.eventFields.find(
+      (field) => field.season === this.dynasty.seasonNumber && field.raceId === race.id,
+    );
+    const wildcard = eventField?.wildcards.find((invite) => invite.teamId === this.dynasty.playerTeamId);
 
     this.add.rectangle(width / 2, 304, width - 32, 248, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
     this.add.rectangle(70, 198, 92, 26, COLORS.buttonSelected, 1);
@@ -134,9 +154,10 @@ export class SeasonHubScene extends Phaser.Scene {
       color: COLORS.text,
     });
     const raceKind = isTour ? `${race.stageIds.length} STAGES` : 'ONE-DAY CLASSIC';
-    this.add.text(29, 260, `${raceKind}  ·  ${stage.lengthKm} KM  ·  PRESTIGE ${race.prestige}`, {
+    const fieldLabel = eventField ? `  ·  ${eventField.teamIds.length} TEAMS${wildcard ? '  ·  WILDCARD' : ''}` : '';
+    this.add.text(29, 260, `${raceKind}  ·  ${stage.lengthKm} KM  ·  PRESTIGE ${race.prestige}${fieldLabel}`, {
       fontFamily: FONT,
-      fontSize: '10px',
+      fontSize: fieldLabel ? '9px' : '10px',
       fontStyle: 'bold',
       color: COLORS.textMuted,
     });
@@ -159,7 +180,7 @@ export class SeasonHubScene extends Phaser.Scene {
 
   private buildObjective(width: number): void {
     const season = this.dynasty.season;
-    const objective = objectiveForSeason(this.dynasty.seasonNumber);
+    const objective = dynastyObjective(this.dynasty);
     const status = objectiveStatus(objective, season, (id) => teamOf(this.dynasty, id) === this.dynasty.playerTeamId);
     const progress = Math.min(1, status.target === 0 ? 1 : status.current / status.target);
 
@@ -213,7 +234,9 @@ export class SeasonHubScene extends Phaser.Scene {
     const riderRows = riderStandings(season);
     const teamRows = teamStandings(season, (id) => teamOf(this.dynasty, id));
     const leader = rosterById(this.dynasty).get(riderRows[0]?.id);
-    const teamRank = teamRows.findIndex((row) => row.id === this.dynasty.playerTeamId) + 1;
+    const teamRank = this.dynasty.world
+      ? divisionStatus(this.dynasty.world, this.dynasty.playerTeamId, this.dynasty.seasonNumber).rank
+      : teamRows.findIndex((row) => row.id === this.dynasty.playerTeamId) + 1;
     this.buildPulseCard(18, 575, 171, teamRank > 0 ? `#${teamRank}` : '—', 'Your team', 'TEAM RANK');
     this.buildPulseCard(199, 575, 173, leader ? '#1' : '—', leader?.name ?? 'No leader yet', 'SEASON LEADER');
 
@@ -254,7 +277,9 @@ export class SeasonHubScene extends Phaser.Scene {
     const standings = riderStandings(this.dynasty.season);
     const champion = rosterById(this.dynasty).get(standings[0]?.id);
     const teamRows = teamStandings(this.dynasty.season, (id) => teamOf(this.dynasty, id));
-    const teamRank = teamRows.findIndex((row) => row.id === this.dynasty.playerTeamId) + 1;
+    const teamRank = this.dynasty.world
+      ? divisionStatus(this.dynasty.world, this.dynasty.playerTeamId, this.dynasty.seasonNumber).rank
+      : teamRows.findIndex((row) => row.id === this.dynasty.playerTeamId) + 1;
 
     this.add.rectangle(width / 2, 330, width - 32, 270, COLORS.panel, 1).setStrokeStyle(3, COLORS.gold);
     this.add.circle(width / 2, 238, 42, COLORS.buttonSelected, 1).setStrokeStyle(4, COLORS.gold);
@@ -281,9 +306,16 @@ export class SeasonHubScene extends Phaser.Scene {
       fontStyle: 'bold',
       color: COLORS.textMuted,
     });
-    makeButton(this, 70, 735, 'Standings', () => this.scene.start('Standings', { dynasty: this.dynasty }), { width: 104, height: 52, fontSize: 12 });
-    makeButton(this, width / 2, 735, 'Peloton', () => this.scene.start('Riders', { dynasty: this.dynasty }), { width: 104, height: 52, fontSize: 12 });
-    makeButton(this, width - 70, 735, 'Team HQ', () => this.scene.start('Team', { dynasty: this.dynasty }), { width: 104, height: 52, fontSize: 12, fill: COLORS.buttonSelected });
+    if (this.dynasty.world) {
+      makeButton(this, 51, 735, 'Tables', () => this.scene.start('Standings', { dynasty: this.dynasty }), { width: 78, height: 52, fontSize: 10 });
+      makeButton(this, 147, 735, 'History', () => this.scene.start('WorldHistory', { dynasty: this.dynasty }), { width: 78, height: 52, fontSize: 10 });
+      makeButton(this, 243, 735, 'Peloton', () => this.scene.start('Riders', { dynasty: this.dynasty }), { width: 78, height: 52, fontSize: 10 });
+      makeButton(this, 339, 735, 'Team HQ', () => this.scene.start('Team', { dynasty: this.dynasty }), { width: 78, height: 52, fontSize: 10, fill: COLORS.buttonSelected });
+    } else {
+      makeButton(this, 70, 735, 'Standings', () => this.scene.start('Standings', { dynasty: this.dynasty }), { width: 104, height: 52, fontSize: 12 });
+      makeButton(this, width / 2, 735, 'Peloton', () => this.scene.start('Riders', { dynasty: this.dynasty }), { width: 104, height: 52, fontSize: 12 });
+      makeButton(this, width - 70, 735, 'Team HQ', () => this.scene.start('Team', { dynasty: this.dynasty }), { width: 104, height: 52, fontSize: 12, fill: COLORS.buttonSelected });
+    }
     this.add.text(width / 2, 799, 'Plan peaks · develop riders · chase the season', {
       fontFamily: FONT,
       fontSize: '10px',

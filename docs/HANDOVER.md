@@ -4,23 +4,30 @@
 > Source of truth for scope is `docs/cycling-sim-SPEC.md` + `docs/cycling-sim-BUILD-PLAN.md` —
 > **the spec wins**; keep both updated when you change scope (we have been).
 > The approved Dynasty expansion is `docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`; its sections
-> 1-3 are committed. Its section 12 is the single loose-ideas backlog.
+> 1-3 are implemented. Its section 12 is the single loose-ideas backlog.
 
-## Next expansion (Sections 1-2 implemented; Section 2 playtest gate pending)
+## Dynasty expansion (Sections 1-3 implemented; Section 3 product gate pending)
 
 The next committed work is specified in `docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`. It supersedes
 the old "nothing left but tuning" status below for **future Dynasty scope**, while this file remains
 the handover for the currently implemented core.
 
-The committed expansion has three ordered sections. Sections 1 and 2 are implemented; do not begin
-Section 3 until the user has judged several generated seeds at the Section 2 playtest gate:
+The committed expansion's three ordered sections are implemented:
 
 1. **Implemented:** correct known race-balance issues (especially Conserve and the all-Free
   narrative exploit), length-sensitive endurance, calendar-normalized Focus, and consequence
   feedback/settlement summaries.
 2. **Implemented:** replace fixed Dynasty starts with founded player teams in seeded generated
   worlds. The remaining gate is whether all three offers feel fair, distinct and interesting.
-3. Add separate Pro/World divisions, calendars, promotion/relegation, wildcards, and world history.
+3. **Implemented:** separate Pro/World divisions and calendars, promotion/relegation, wildcards,
+  persisted world history, Rival Director plans, division-aware economy/objectives, and long-run
+  health reporting.
+
+The current gate is human play through at least one promotion and one World Tour season. Desktop
+race rendering now caps at 60 Hz and decorative terrain redraws at 30 Hz; confirm the reported PC
+lag is resolved on the user's actual high-refresh machine. Existing saves intentionally retain
+their existing rider stats and names; only newly generated worlds and future prospects use the new
+quality and identity rules.
 
 A deeper management/economy phase is deliberately deferred. Do not add facilities, staff trees,
 rider promises, or detailed transfer negotiations until sections 1-3 are built and the documented
@@ -138,6 +145,7 @@ npm test        # vitest, 88 tests   (CI runs it)
 npm run sim     # headless harness (tsx): stage orders, win-freq, role effect, tour GC + conserve,
                 #   and a full-season section (winners, rider + team standings)
 npm run world-report  # 1,000 generated seeds: retries, distributions, invalid-world count
+npm run competition-report # 1,000 generated Dynasties x 10 seasons; progression/division health
 ```
 
 - **Deploy** is automatic: `.github/workflows/deploy.yml` builds+tests then publishes to GitHub

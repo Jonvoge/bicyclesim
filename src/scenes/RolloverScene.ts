@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { rosterById, playerBudget, rolloverSeason, type DynastyState } from '../state/dynasty.ts';
+import { dynastyTeamName, rosterById, playerBudget, rolloverSeason, type DynastyState } from '../state/dynasty.ts';
 import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
@@ -20,8 +20,23 @@ export class RolloverScene extends Phaser.Scene {
     saveDynasty(dynasty);
     const { width } = this.scale;
 
-    this.add.text(width / 2, 80, `Season ${summary.seasonNumber} complete`, { fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
-    this.add.text(width / 2, 112, `You finished ${ordinal(summary.teamRank)} of the season`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(width / 2, 58, `Season ${summary.seasonNumber} complete`, { fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
+    this.add.text(width / 2, 88, `You finished ${ordinal(summary.teamRank)} in your division`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
+    if (summary.movement) {
+      const promoted = summary.movement.promotedTeamIds.includes(dynasty.playerTeamId);
+      const relegated = summary.movement.relegatedTeamIds.includes(dynasty.playerTeamId);
+      const movementText = promoted
+        ? 'PROMOTED TO WORLD TOUR'
+        : relegated
+          ? 'RELEGATED TO PRO TOUR'
+          : `REMAINING IN ${summary.currentDivision === 'world' ? 'WORLD TOUR' : 'PRO TOUR'}`;
+      this.add.text(width / 2, 112, movementText, {
+        fontFamily: FONT,
+        fontSize: '12px',
+        fontStyle: 'bold',
+        color: promoted ? COLORS.accentText : relegated ? '#e28f3b' : COLORS.textMuted,
+      }).setOrigin(0.5);
+    }
 
     // finances settlement panel
     this.add.rectangle(width / 2, 200, width - 40, 132, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
@@ -43,9 +58,29 @@ export class RolloverScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    if (summary.movement && dynasty.world) {
+      const promoted = summary.movement.promotedTeamIds.map((teamId) => dynastyTeamName(dynasty, teamId)).join(', ');
+      const relegated = summary.movement.relegatedTeamIds.map((teamId) => dynastyTeamName(dynasty, teamId)).join(', ');
+      this.add.text(width / 2, 348, `UP  ${promoted}   ·   DOWN  ${relegated}`, {
+        fontFamily: FONT,
+        fontSize: '9px',
+        color: COLORS.text,
+        align: 'center',
+        wordWrap: { width: width - 44 },
+      }).setOrigin(0.5);
+      const champions = dynasty.world.history.teamChampions.filter((entry) => entry.season === summary.seasonNumber);
+      this.add.text(width / 2, 370, champions.map((entry) => `${entry.division === 'world' ? 'World' : 'Pro'} champion: ${dynastyTeamName(dynasty, entry.teamId)}`).join('   ·   '), {
+        fontFamily: FONT,
+        fontSize: '9px',
+        color: COLORS.textMuted,
+        align: 'center',
+        wordWrap: { width: width - 44 },
+      }).setOrigin(0.5);
+    }
+
     // squad & peloton changes over the winter (Phase 6)
     const byId = rosterById(dynasty);
-    let y = 350;
+    let y = summary.movement ? 398 : 350;
     if (summary.retired.length > 0) {
       this.add.text(width / 2, y, '🚴 RETIRED FROM YOUR SQUAD', { fontFamily: FONT, fontSize: '12px', color: '#e28f3b' }).setOrigin(0.5);
       y += 22;

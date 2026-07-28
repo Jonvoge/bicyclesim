@@ -92,7 +92,14 @@ export class StageProfileView {
    */
   setMarkers(fracs: number[]): void {
     while (this.markers.length < fracs.length) {
-      const m = this.scene.add.circle(this.xs[0], this.ys[0], 4, COLORS.gold, 1).setStrokeStyle(1.5, 0x1a1a2e);
+      const index = this.markers.length;
+      const m = this.scene.add.circle(
+        this.xs[0],
+        this.ys[0],
+        index === 0 ? 5 : 3.5,
+        index === 0 ? COLORS.gold : 0xffffff,
+        index === 0 ? 1 : 0.7,
+      ).setStrokeStyle(1.5, 0x1a1a2e);
       this.markers.push(m);
     }
     this.markers.forEach((m, i) => {
@@ -103,8 +110,6 @@ export class StageProfileView {
       const x = this.xAt(fracs[i]);
       m.setVisible(true);
       m.setPosition(x, this.yAt(x));
-      m.setRadius(i === 0 ? 5 : 3.5);
-      m.setFillStyle(i === 0 ? COLORS.gold : 0xffffff, i === 0 ? 1 : 0.7);
     });
   }
 }

@@ -88,6 +88,8 @@ function teamSeasonState(team: TeamIdentity, teamIndex: number): TeamSeasonState
   return {
     division,
     rankingPoints: 0,
+    wins: 0,
+    bestPrestigeResult: 0,
     reputation: division === 'world' ? WORLD_TOP_REPUTATION : WORLD_PRO_REPUTATION,
     budget: team.isPlayer
       ? WORLD_PLAYER_STARTING_BUDGET
@@ -182,7 +184,9 @@ export function generateWorldDraft(options: WorldGenerationOptions): GeneratedWo
     seed,
     teams,
     teamSeasons,
-    history: { seasons: [], raceWinners: [], promotions: [], teamChampions: [] },
+    eventFields: [],
+    directorPlans: [],
+    history: { seasons: [], raceWinners: [], stageWinners: [], promotions: [], teamChampions: [] },
   };
   return { world, riders, proposals, diagnostics: { proposalAttempts } };
 }

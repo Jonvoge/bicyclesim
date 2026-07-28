@@ -1118,7 +1118,7 @@ Record at least these questions during the gate:
 - Does at least one prospect, veteran, or generated rival feel memorable?
 - Is potential uncertain but still useful for making a decision?
 
-### PR 3A - Division model and calendars
+### PR 3A - Division model and calendars - Implemented
 
 - Division eligibility and team standings.
 - Pro Tour race/stage content.
@@ -1126,7 +1126,7 @@ Record at least these questions during the gate:
 - Calendar-aware Season Focus.
 - Headless season simulation.
 
-### PR 3B - Promotion, relegation, wildcards, and history
+### PR 3B - Promotion, relegation, wildcards, and history - Implemented
 
 - Rollover movement and tiebreaks.
 - Lightweight reputation and wildcard policy.
@@ -1134,7 +1134,7 @@ Record at least these questions during the gate:
 - History/milestone persistence.
 - AI effort policy.
 
-### PR 3C - Division UI and long-run balance
+### PR 3C - Division UI and long-run balance - Implemented
 
 - Season Hub, standings, directory, history, and rollover presentation.
 - Promotion/relegation lines and wildcard explanations.
@@ -1144,6 +1144,12 @@ Record at least these questions during the gate:
 
 **Section 3 product gate:** play through at least one promotion and one top-division season before
 deciding whether optional section 4 is needed.
+
+Automated validation at implementation close (1,000 generated Dynasties x 10 seasons): first-season
+promotion 13.4%, median first promotion season 3, unpromoted after ten seasons 5.2%, and newly
+promoted one-season survival 38.2%. The report uses one affordable three-rating-point roster upgrade
+per offseason from season two onward as its explicit competent-player policy. Across 1,000 generated
+worlds there were zero invalid worlds; Pro riders averaged 66.3 overall versus 76.0 in World.
 
 Record at least these questions during the gate:
 

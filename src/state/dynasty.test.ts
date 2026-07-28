@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { STAGES_BY_ID } from '../data/stages.ts';
+import { PRO_CALENDAR, WORLD_CALENDAR } from '../data/races.ts';
 import { TEAMS, PLAYER_TEAM } from '../data/teams.ts';
 import { MAX_SQUAD_SIZE, MIN_SQUAD_SIZE, RACE_SQUAD_SIZE, SIGNING_FEE_MULT, TARGET_SQUAD_SIZE } from '../data/tuning.ts';
 import { Rng } from '../sim/rng.ts';
@@ -68,6 +69,55 @@ describe('dynasty setup', () => {
     expect(racingRoster(dynasty)).toHaveLength(22 * 8);
     expect(playerBudget(dynasty)).toBe(dynasty.world?.teamSeasons[dynasty.playerTeamId].budget);
     expect(dynasty.budgets).toEqual({});
+    expect(dynasty.world?.teamSeasons[dynasty.playerTeamId].division).toBe('pro');
+    expect(dynasty.season.calendar).toEqual(PRO_CALENDAR);
+    expect(dynasty.world?.eventFields).toHaveLength(30);
+  });
+
+  it('uses the stored generated-world field and moves divisions at rollover', () => {
+    const draft = generateWorldDraft({ seed: 2029 });
+    const dynasty = createGeneratedDynasty(acceptSquadProposal(draft, draft.proposals[0].id));
+    const race = currentRace(dynasty.season)!;
+    const field = dynasty.world!.eventFields.find((entry) => entry.season === 1 && entry.raceId === race.id)!;
+    const tour = startSeasonEvent(dynasty, race);
+    expect(tour.starters).toHaveLength(field.teamIds.length * RACE_SQUAD_SIZE);
+    expect(new Set([...tour.starters!].map((riderId) => dynasty.roster.find((rider) => rider.id === riderId)!.teamId))).toEqual(
+      new Set(field.teamIds),
+    );
+
+    rolloverSeason(dynasty);
+    expect(dynasty.world!.history.raceWinners).toHaveLength(30);
+    expect(dynasty.world!.history.promotions).toHaveLength(1);
+    expect(dynasty.world!.history.teamChampions).toHaveLength(2);
+    const division = dynasty.world!.teamSeasons[dynasty.playerTeamId].division;
+    expect(dynasty.season.calendar).toEqual(division === 'world' ? WORLD_CALENDAR : PRO_CALENDAR);
+  });
+
+  it('tapers and protects a Rival Director target leader', () => {
+    const draft = generateWorldDraft({ seed: 2030 });
+    const dynasty = createGeneratedDynasty(acceptSquadProposal(draft, draft.proposals[0].id));
+    const plan = dynasty.world!.directorPlans.find((entry) =>
+      entry.teamId !== dynasty.playerTeamId
+      && dynasty.world!.teamSeasons[entry.teamId].division === 'pro'
+      && entry.targets.some((target) => PRO_CALENDAR.indexOf(target.raceId) > 0),
+    )!;
+    const target = plan.targets.find((entry) => PRO_CALENDAR.indexOf(entry.raceId) > 0)!;
+    const targetIndex = PRO_CALENDAR.indexOf(target.raceId);
+
+    dynasty.season.eventIndex = targetIndex - 1;
+    const taperTour = startSeasonEvent(dynasty, currentRace(dynasty.season)!);
+    expect(taperTour.starters?.has(target.leaderId)).toBe(false);
+
+    dynasty.season.eventIndex = targetIndex;
+    const targetTour = startSeasonEvent(dynasty, currentRace(dynasty.season)!);
+    expect(targetTour.starters?.has(target.leaderId)).toBe(true);
+  });
+
+  it('keeps every generated team above the legal roster minimum', () => {
+    const draft = generateWorldDraft({ seed: 2031 });
+    const dynasty = createGeneratedDynasty(acceptSquadProposal(draft, draft.proposals[0].id));
+    for (let season = 0; season < 10; season++) rolloverSeason(dynasty);
+    expect(dynastyTeams(dynasty).every((team) => teamRiders(dynasty, team.id).length >= MIN_SQUAD_SIZE)).toBe(true);
   });
 });
 
@@ -249,6 +299,7 @@ describe('development across the rollover (Phase 6)', () => {
     for (let s = 0; s < 12; s++) rolloverSeason(d);
     // pool cull + retirements keep it from ballooning despite 7 new riders/season
     expect(d.roster.length).toBeLessThan(start + 30);
+    expect(new Set(d.roster.map((rider) => rider.name)).size).toBe(d.roster.length);
   });
 
   it('rollover is deterministic', () => {

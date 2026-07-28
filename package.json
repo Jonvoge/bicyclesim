@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "sim": "tsx src/sim/harness.ts",
-    "world-report": "tsx scripts/worldGenerationReport.ts"
+    "world-report": "tsx scripts/worldGenerationReport.ts",
+    "competition-report": "tsx scripts/competitionReport.ts"
   },
   "dependencies": {
     "phaser": "^3.88.0"

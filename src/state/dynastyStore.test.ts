@@ -80,6 +80,24 @@ describe('save slots', () => {
     expect(slotInfos()[1].teamName).toBe(dynasty.world!.teams.find((team) => team.isPlayer)!.name);
   });
 
+  it('migrates generated worlds created before competition fields', () => {
+    const draft = generateWorldDraft({ seed: 310520 });
+    const dynasty = createGeneratedDynasty(acceptSquadProposal(draft, draft.proposals[0].id));
+    saveDynastyToSlot(0, dynasty);
+    const key = 'bicyclesim.dynasty.v1.slot0';
+    const oldSave = JSON.parse(localStorage.getItem(key)!);
+    delete oldSave.world.eventFields;
+    for (const state of Object.values(oldSave.world.teamSeasons) as Record<string, unknown>[]) {
+      delete state.wins;
+      delete state.bestPrestigeResult;
+    }
+    localStorage.setItem(key, JSON.stringify(oldSave));
+
+    const loaded = loadDynastyFromSlot(0)!;
+    expect(loaded.world?.eventFields).toEqual([]);
+    expect(Object.values(loaded.world!.teamSeasons).every((state) => state.wins === 0 && state.bestPrestigeResult === 0)).toBe(true);
+  });
+
   it('round-trips the latest structured event settlement', () => {
     const d = createDynasty();
     d.lastSettlement = {

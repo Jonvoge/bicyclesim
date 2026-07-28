@@ -70,9 +70,38 @@ export interface TeamIdentity {
 export interface TeamSeasonState {
   division: DivisionId;
   rankingPoints: number;
+  wins: number;
+  bestPrestigeResult: number;
   reputation: number;
   budget: number;
   lastRank?: number;
+}
+
+export interface WildcardInvitation {
+  teamId: string;
+  reason: string;
+}
+
+export interface EventField {
+  season: number;
+  raceId: string;
+  teamIds: string[];
+  wildcards: WildcardInvitation[];
+}
+
+export type DirectorTacticalPreference = 'sprint-control' | 'break-hunting' | 'classics-aggression' | 'gc-protection';
+
+export interface DirectorTarget {
+  raceId: string;
+  leaderId: string;
+  reason: string;
+}
+
+export interface RivalDirectorPlan {
+  season: number;
+  teamId: string;
+  targets: DirectorTarget[];
+  tacticalPreference: DirectorTacticalPreference;
 }
 
 export interface RaceWinnerRecord {
@@ -80,6 +109,10 @@ export interface RaceWinnerRecord {
   raceId: string;
   riderId: string;
   teamId: string;
+}
+
+export interface StageWinnerRecord extends RaceWinnerRecord {
+  stageId: string;
 }
 
 export interface PromotionRecord {
@@ -103,6 +136,7 @@ export interface SeasonHistory {
 export interface WorldHistory {
   seasons: SeasonHistory[];
   raceWinners: RaceWinnerRecord[];
+  stageWinners: StageWinnerRecord[];
   promotions: PromotionRecord[];
   teamChampions: TeamChampionRecord[];
 }
@@ -113,6 +147,8 @@ export interface WorldState {
   rngState?: number;
   teams: TeamIdentity[];
   teamSeasons: Record<string, TeamSeasonState>;
+  eventFields: EventField[];
+  directorPlans: RivalDirectorPlan[];
   history: WorldHistory;
 }
 
@@ -155,12 +191,20 @@ export interface Stage {
 
 export type RaceType = 'oneDay' | 'shortTour' | 'grandTour';
 
+export interface RaceEligibility {
+  division: DivisionId;
+  fieldSize: number;
+  wildcardSlots?: number;
+  divisionPointsScale: number;
+}
+
 export interface Race {
   id: string;
   name: string; // proxy name
   type: RaceType;
   stageIds: string[]; // oneDay = 1 stage; shortTour = 4–5; grandTour = 8–10
   prestige: number; // points/reward weighting (Phase 4)
+  eligibility: RaceEligibility;
 }
 
 export interface StageResultEntry {

@@ -1,4 +1,3 @@
-import { FIRST_NAMES, LAST_NAMES, NATIONALITIES } from '../data/names.ts';
 import {
   CEILING_HEADROOM_MAX,
   CEILING_TALENT_MAX,
@@ -30,6 +29,7 @@ import {
 } from '../data/tuning.ts';
 import type { BaseStatKey, Rider, StatKey } from '../data/types.ts';
 import { Rng } from './rng.ts';
+import { generateRiderIdentity } from './riderNames.ts';
 
 /**
  * Rider development & dynasty (SPEC §7, Phase 6). Pure and headless — no Phaser.
@@ -177,11 +177,17 @@ const ARCHETYPES: { sig: BaseStatKey; also?: BaseStatKey }[] = [
  * signature stat, modest everywhere else), a plausible age, and seeded hidden
  * potential. Deterministic given the id + rng.
  */
-export function generateProspect(id: string, rng: Rng): Rider {
-  const name = `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`;
-  const nationality = rng.pick(NATIONALITIES);
+export function generateProspect(id: string, rng: Rng, usedNames: Set<string> = new Set()): Rider {
   const age = PROSPECT_AGE_MIN + rng.int(PROSPECT_AGE_MAX - PROSPECT_AGE_MIN + 1);
   const arch = rng.pick(ARCHETYPES);
+  const namingArchetype = arch.sig === 'climbing'
+    ? 'pureClimber'
+    : arch.sig === 'sprint'
+      ? 'sprinter'
+      : arch.sig === 'puncheur'
+        ? 'puncheur'
+        : 'rouleur';
+  const identity = generateRiderIdentity(rng, namingArchetype, usedNames);
 
   const base = (): number => Math.round(PROSPECT_BASE_MIN + rng.next() * (PROSPECT_BASE_MAX - PROSPECT_BASE_MIN));
   const sig = (): number => Math.round(PROSPECT_SIGNATURE_MIN + rng.next() * (PROSPECT_SIGNATURE_MAX - PROSPECT_SIGNATURE_MIN));
@@ -197,7 +203,7 @@ export function generateProspect(id: string, rng: Rng): Rider {
   stats[arch.sig] = sig();
   if (arch.also) stats[arch.also] = Math.max(stats[arch.also], base() + 8);
 
-  const rider: Rider = { id, name, nationality, age, teamId: null, stats, currentFatigue: 0 };
+  const rider: Rider = { id, name: identity.name, nationality: identity.nationality, age, teamId: null, stats, currentFatigue: 0 };
   seedDevelopment(rider);
   return rider;
 }
@@ -207,11 +213,17 @@ export function generateProspect(id: string, rng: Rng): Rider {
  * pick-5). A journeyman: an archetype at modest, workmanlike numbers (below the
  * authored stars), a settled age, seeded so a new game is reproducible.
  */
-export function generateDomestique(id: string, teamId: string, rng: Rng): Rider {
-  const name = `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`;
-  const nationality = rng.pick(NATIONALITIES);
+export function generateDomestique(id: string, teamId: string, rng: Rng, usedNames: Set<string> = new Set()): Rider {
   const age = 24 + rng.int(8); // 24–31
   const arch = rng.pick(ARCHETYPES);
+  const namingArchetype = arch.sig === 'climbing'
+    ? 'pureClimber'
+    : arch.sig === 'sprint'
+      ? 'leadout'
+      : arch.sig === 'puncheur'
+        ? 'breakaway'
+        : 'domestique';
+  const identity = generateRiderIdentity(rng, namingArchetype, usedNames);
   const base = (): number => Math.round(46 + rng.next() * 18); // 46–64
   const stats: Record<StatKey, number> = {
     climbing: base(),
@@ -225,7 +237,7 @@ export function generateDomestique(id: string, teamId: string, rng: Rng): Rider 
   stats[arch.sig] = Math.round(60 + rng.next() * 12); // 60–72 signature
   if (arch.also) stats[arch.also] = Math.max(stats[arch.also], base() + 6);
 
-  const rider: Rider = { id, name, nationality, age, teamId, stats, currentFatigue: 0 };
+  const rider: Rider = { id, name: identity.name, nationality: identity.nationality, age, teamId, stats, currentFatigue: 0 };
   seedDevelopment(rider);
   return rider;
 }

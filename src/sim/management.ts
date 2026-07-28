@@ -2,11 +2,14 @@ import {
   MAX_SQUAD_SIZE,
   MIN_SQUAD_SIZE,
   PRIZE_PER_POINT,
+  PRO_SPONSOR_SCALE,
+  PROMOTION_SUPPORT_PAYMENT,
+  RELEGATION_PARACHUTE_PAYMENT,
   SPONSOR_BASE,
   SPONSOR_RANK_BONUS,
   SEASON_EVENT_POINTS,
 } from '../data/tuning.ts';
-import type { Rider } from '../data/types.ts';
+import type { DivisionId, Rider } from '../data/types.ts';
 import { riderSalary } from './rating.ts';
 
 /**
@@ -41,9 +44,20 @@ export function squadSize(roster: Rider[], teamId: string): number {
  * → bigger cheque). `rankLastSeason` is 1-based; undefined (the opening season)
  * is treated as a mid-table finish so nobody is punished for having no history.
  */
-export function sponsorIncome(rankLastSeason: number | undefined, numTeams: number): number {
+export function sponsorIncome(
+  rankLastSeason: number | undefined,
+  numTeams: number,
+  division: DivisionId = 'world',
+  transition?: 'promoted' | 'relegated',
+): number {
   const rank = rankLastSeason ?? (numTeams + 1) / 2;
-  return Math.round(SPONSOR_BASE + (numTeams - rank) * SPONSOR_RANK_BONUS);
+  const scale = division === 'pro' ? PRO_SPONSOR_SCALE : 1;
+  const support = transition === 'promoted'
+    ? PROMOTION_SUPPORT_PAYMENT
+    : transition === 'relegated'
+      ? RELEGATION_PARACHUTE_PAYMENT
+      : 0;
+  return Math.round((SPONSOR_BASE + (numTeams - rank) * SPONSOR_RANK_BONUS) * scale + support);
 }
 
 /**
