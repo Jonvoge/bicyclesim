@@ -15,12 +15,14 @@ import { TrainingScene } from './scenes/TrainingScene.ts';
 import { FocusPlanScene } from './scenes/FocusPlanScene.ts';
 import { RolloverScene } from './scenes/RolloverScene.ts';
 import { RenderCompareScene } from './scenes/RenderCompareScene.ts';
-import { TeamSelectScene } from './scenes/TeamSelectScene.ts';
+import { TeamFoundingScene } from './scenes/TeamFoundingScene.ts';
+import { SquadProposalScene } from './scenes/SquadProposalScene.ts';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game',
   backgroundColor: '#151719',
+  dom: { createContainer: true },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -28,7 +30,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 390,
     height: 844,
   },
-  scene: [BootScene, MainMenuScene, TeamSelectScene, SeasonHubScene, StandingsScene, RidersScene, ArchiveScene, TeamScene, TransfersScene, TrainingScene, FocusPlanScene, RolloverScene, RenderCompareScene, QuickRaceScene, PreRaceScene, RaceScene, StageResultsScene],
+  scene: [BootScene, MainMenuScene, TeamFoundingScene, SquadProposalScene, SeasonHubScene, StandingsScene, RidersScene, ArchiveScene, TeamScene, TransfersScene, TrainingScene, FocusPlanScene, RolloverScene, RenderCompareScene, QuickRaceScene, PreRaceScene, RaceScene, StageResultsScene],
 };
 
 const game = new Phaser.Game(config);

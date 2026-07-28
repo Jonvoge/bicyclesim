@@ -12,8 +12,8 @@
 Phases 0-8 below document the completed core build. The next ordered roadmap is
 `docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`:
 
-1. Race balance foundation.
-2. Generated world and found-a-team Dynasty foundation.
+1. **Implemented:** race balance foundation.
+2. **Implemented; playtest gate pending:** generated world and found-a-team Dynasty foundation.
 3. Two-division competition structure with promotion/relegation.
 
 Those three sections are committed. Its section 4 (deeper management pressure) is an explicit

@@ -6,19 +6,20 @@
 > The approved Dynasty expansion is `docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`; its sections
 > 1-3 are committed. Its section 12 is the single loose-ideas backlog.
 
-## Next expansion (Section 1 implemented; playtest gate pending)
+## Next expansion (Sections 1-2 implemented; Section 2 playtest gate pending)
 
 The next committed work is specified in `docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`. It supersedes
 the old "nothing left but tuning" status below for **future Dynasty scope**, while this file remains
 the handover for the currently implemented core.
 
-The committed expansion has three ordered sections. Section 1 is implemented in the current
-worktree and must pass its phone playtest gate before Section 2 begins:
+The committed expansion has three ordered sections. Sections 1 and 2 are implemented; do not begin
+Section 3 until the user has judged several generated seeds at the Section 2 playtest gate:
 
 1. **Implemented:** correct known race-balance issues (especially Conserve and the all-Free
   narrative exploit), length-sensitive endurance, calendar-normalized Focus, and consequence
   feedback/settlement summaries.
-2. Replace fixed Dynasty starts with founded player teams in seeded generated worlds.
+2. **Implemented:** replace fixed Dynasty starts with founded player teams in seeded generated
+  worlds. The remaining gate is whether all three offers feel fair, distinct and interesting.
 3. Add separate Pro/World divisions, calendars, promotion/relegation, wildcards, and world history.
 
 A deeper management/economy phase is deliberately deferred. Do not add facilities, staff trees,
@@ -30,6 +31,10 @@ decision gate has been reviewed with the user.
 - **The core build (Phases 0–8) is COMPLETE and merged to `main`.** The game is a multi-season
   cycling **dynasty** — set tactics, watch stages, run the budget, sign/train/scout riders, carry a
   team across the years, with multiple save slots.
+- **Generated Dynasty foundation is implemented on the expansion branches:** a new save founds a
+  named/colored team, generates a deterministic 22-team/212-rider world, presents three constrained
+  eight-rider offers, and persists the accepted world. Quick Race remains authored/static. Existing
+  saves load as legacy authored worlds rather than being destructively migrated.
 - **Now in a post-playtest iteration loop** (the user is playing on a phone and sending notes; each
   fix is its own small PR on branch `claude/continue-build-0zwcbc`). Landed so far: race-feel balance
   (mountains select, breaks stick, fatigue bites), race-view visuals (compact peloton, everyone moves,
@@ -132,6 +137,7 @@ npm run build   # tsc && vite build  (must pass; CI runs it)
 npm test        # vitest, 88 tests   (CI runs it)
 npm run sim     # headless harness (tsx): stage orders, win-freq, role effect, tour GC + conserve,
                 #   and a full-season section (winners, rider + team standings)
+npm run world-report  # 1,000 generated seeds: retries, distributions, invalid-world count
 ```
 
 - **Deploy** is automatic: `.github/workflows/deploy.yml` builds+tests then publishes to GitHub
@@ -159,7 +165,7 @@ No persistent browser dep. To view/record the running app:
 ## Architecture
 
 - **`src/sim`** — pure, headless, **NO Phaser** (keep it that way; it's the testable core):
-  - `rng.ts` (seedable mulberry32 + Box–Muller), `form.ts`, `stageWeights` consumer `stageSim.ts`
+  - `rng.ts` (seedable mulberry32 + Box–Muller + stable derived streams), `form.ts`, `stageWeights` consumer `stageSim.ts`
     (`scoreRiders` → `perfToResult`; split so narrative events slot between).
   - `tactics.ts` — `ROLES` registry; `TeamTactics = { teamId, roles, effort? }`; `tacticsEffect`
     (role × effort → perfMod / sigma / fatigueMult).
@@ -182,7 +188,11 @@ No persistent browser dep. To view/record the running app:
     camp: a small ceiling-bounded step toward potential, weighted by age · potential · type — the growth
     engine the dynasty fires ~4×/season), `shouldRetire`, `generateProspect` (new blood), and
     `scoutReport` (fuzzy potential = the scouting gamble). Consumed by `rolloverSeason` + `finishSeasonEvent`.
-- **`src/data`** — `types.ts`, **`tuning.ts` (EVERY magic number, `UPPER_SNAKE`)**, `riders.ts`
+  - `riderGeneration.ts`, `teamGeneration.ts`, `worldGeneration.ts`, `worldBalance.ts` — pure,
+    deterministic generated identities/rosters/proposals plus invariant diagnostics. The 1,000-seed
+    report currently records zero invalid worlds and 181 rejected attempts for 3,000 accepted offers.
+- **`src/data`** — `types.ts`, **`tuning.ts` (EVERY magic number, `UPPER_SNAKE`)**, `countries.ts`,
+  `teamNames.ts`, `worldTemplates.ts`, `riders.ts`
   (8 teams / 45 riders), `freeAgents.ts` (the unsigned market + `ALL_RIDERS_BY_ID` for immutable-fact
   lookups), `names.ts` (proxy name pools for generated prospects), `teams.ts`, `stages.ts`, `races.ts`
   (classics + 2 tours + `SEASON_CALENDAR`), `stageWeights.ts`, `teamColors.ts`.
@@ -197,9 +207,11 @@ No persistent browser dep. To view/record the running app:
   `rolloverSeason` (Phase 6: also ages the peloton, retires, injects scouted youth); plus `buildTacticsMapDyn`. `dynastyStore.ts` (Phase 8) persists it to
   localStorage across **3 save slots** (`slotInfos` / `saveDynastyToSlot` / `loadDynastyFromSlot` +
   a persisted active slot behind the slot-less `saveDynasty`/`loadDynasty` the scenes call; legacy
-  single-save auto-migrates). Supersedes the season-only `seasonStore.ts` (now unused).
+  single-save auto-migrates). Generated saves additionally persist authoritative `WorldState`;
+  budget/name/color accessors resolve either generated or legacy ownership. Supersedes the
+  season-only `seasonStore.ts` (now unused).
 - **`src/scenes`** — **MainMenu** (save-slot picker: continue / new / delete per slot; + Quick Race,
-  Renderers) → **TeamSelect** (new dynasty → choose which of the 8 teams to run) → **SeasonHub** (calendar,
+  Renderers) → **TeamFounding** (identity/philosophy/seed) → **SquadProposal** (three fair offers) → **SeasonHub** (calendar,
   finances strip, season lead, **Team HQ** door, ride-next; world-layer nav; drives the rollover when
   the season is done) → **PreRace** (season events: **pick exactly 5** to start + a role each — enforced;
   between tour stages the 5 are locked; carried fatigue shown;

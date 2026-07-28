@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
-import { teamColor } from '../data/teamColors.ts';
-import { TEAMS, TEAMS_BY_ID } from '../data/teams.ts';
 import { MAX_SQUAD_SIZE } from '../data/tuning.ts';
 import { scoutReport } from '../sim/development.ts';
 import { salaryOf, sponsorIncome } from '../sim/management.ts';
 import { riderRating, riderType, statLine } from '../sim/rating.ts';
 import {
   playerBudget,
+  dynastyTeamColor,
+  dynastyTeamName,
+  dynastyTeams,
   playerRiders,
   playerWageBill,
   releaseRider,
@@ -36,11 +37,11 @@ export class TeamScene extends Phaser.Scene {
 
     makeButton(this, 40, 30, '‹', () => this.scene.start('SeasonHub', { dynasty: this.dynasty }), { width: 40, height: 34, fontSize: 20 });
     this.add.text(width / 2, 24, 'Team HQ', { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
-    this.add.text(width / 2, 47, TEAMS_BY_ID.get(this.dynasty.playerTeamId)?.name ?? "", { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(width / 2, 47, dynastyTeamName(this.dynasty, this.dynasty.playerTeamId), { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
 
     // finances panel
     const squad = playerRiders(this.dynasty);
-    const sponsor = sponsorIncome(this.dynasty.lastTeamRank[this.dynasty.playerTeamId], TEAMS.length);
+    const sponsor = sponsorIncome(this.dynasty.lastTeamRank[this.dynasty.playerTeamId], dynastyTeams(this.dynasty).length);
     this.add.rectangle(width / 2, 96, width - 24, 64, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
     this.stat(24, 82, 'BUDGET', `${playerBudget(this.dynasty).toLocaleString()}`, COLORS.accentText);
     this.stat(24, 112, 'WAGE BILL', `${playerWageBill(this.dynasty).toLocaleString()}/yr`, COLORS.text);
@@ -64,7 +65,7 @@ export class TeamScene extends Phaser.Scene {
       .sort((a, b) => riderRating(b) - riderRating(a))
       .forEach((r, i) => {
         const y = top + i * rowH;
-        const col = teamColor(r.teamId);
+        const col = dynastyTeamColor(this.dynasty, r.teamId);
         this.add.rectangle(width / 2, y + 26, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
         this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1);
         this.add.text(42, y + 12, r.name, { fontFamily: FONT, fontSize: '15px', color: COLORS.text }).setOrigin(0, 0.5);

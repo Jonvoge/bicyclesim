@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
 import { STAGES_BY_ID } from '../data/stages.ts';
-import { TEAMS_BY_ID } from '../data/teams.ts';
 import { objectiveForSeason, objectiveStatus } from '../sim/objectives.ts';
 import { isSeasonComplete, riderStandings, teamStandings } from '../sim/season.ts';
 import {
   playerBudget,
+  dynastyTeamName,
   playerWageBill,
   rosterById,
   teamOf,
@@ -47,7 +47,7 @@ export class SeasonHubScene extends Phaser.Scene {
   }
 
   private buildHeader(width: number, done: boolean): void {
-    const teamName = TEAMS_BY_ID.get(this.dynasty.playerTeamId)?.name ?? 'Your team';
+    const teamName = dynastyTeamName(this.dynasty, this.dynasty.playerTeamId);
 
     this.add.rectangle(width / 2, 58, width, 116, COLORS.panel, 1);
     this.add.rectangle(width / 2, 115, width, 2, COLORS.buttonSelected, 1);

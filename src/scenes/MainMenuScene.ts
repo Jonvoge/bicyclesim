@@ -51,9 +51,9 @@ export class MainMenuScene extends Phaser.Scene {
     this.add.text(30, y - 18, `Slot ${info.slot + 1}`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0, 0.5);
 
     if (info.occupied) {
-      this.add.text(30, y + 4, `Season ${info.seasonNumber}`, { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: COLORS.accentText }).setOrigin(0, 0.5);
+      this.add.text(30, y + 4, info.teamName ?? `Season ${info.seasonNumber}`, { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: COLORS.accentText }).setOrigin(0, 0.5);
       const races = info.totalRaces ? ` · ${info.racesDone}/${info.totalRaces} races` : '';
-      this.add.text(30, y + 24, `Continue${races} · ${relTime(info.savedAt)}`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0, 0.5);
+      this.add.text(30, y + 24, `Season ${info.seasonNumber}${races} · ${relTime(info.savedAt)}`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0, 0.5);
       // delete (×) — its own hit area, above the panel
       makeButton(this, width - 44, y, '×', () => this.confirmDelete(info.slot), { width: 34, height: 34, fontSize: 20 });
     } else {
@@ -64,8 +64,7 @@ export class MainMenuScene extends Phaser.Scene {
 
   private open(info: SlotInfo): void {
     if (!info.occupied) {
-      // new dynasty → choose your team first (it creates the dynasty in this slot)
-      this.scene.start('TeamSelect', { slot: info.slot });
+      this.scene.start('TeamFounding', { slot: info.slot });
       return;
     }
     setActiveSlot(info.slot);

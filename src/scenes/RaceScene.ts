@@ -7,7 +7,7 @@ import type { Rider, Stage, StageResultEntry } from '../data/types.ts';
 import { Rng } from '../sim/rng.ts';
 import { buildTacticsMap } from '../sim/raceSetup.ts';
 import { ridersForStage, type TourState } from '../sim/standings.ts';
-import { buildTacticsMapDyn, racingRoster, rosterById, type DynastyState } from '../state/dynasty.ts';
+import { buildTacticsMapDyn, dynastyTeamColor, racingRoster, rosterById, type DynastyState } from '../state/dynasty.ts';
 import {
   buildRaceStory,
   interpGap,
@@ -291,7 +291,7 @@ export class RaceScene extends Phaser.Scene {
 
     order.forEach((entry, rank) => {
       const rider = this.byId.get(entry.riderId)!;
-      const col = teamColor(rider.teamId);
+      const col = this.dynasty ? dynastyTeamColor(this.dynasty, rider.teamId) : teamColor(rider.teamId);
       const isPlayer = rider.teamId === this.playerTeamId;
       const story = this.story.stories.get(entry.riderId)!;
       const glyph = renderer.draw(this, this.raceLeftX, (this.roadTop + this.roadBottom) / 2, {
@@ -627,7 +627,7 @@ export class RaceScene extends Phaser.Scene {
   private revealRow(rank: number): void {
     const entry = this.story.result.order[rank];
     const rider = this.byId.get(entry.riderId)!;
-    const col = teamColor(rider.teamId);
+    const col = this.dynasty ? dynastyTeamColor(this.dynasty, rider.teamId) : teamColor(rider.teamId);
     const y = this.lbTop + rank * this.rowH;
     const isWinner = rank === 0 && !entry.dnf;
     const actor = this.actors.find((x) => x.entry.riderId === entry.riderId)!;

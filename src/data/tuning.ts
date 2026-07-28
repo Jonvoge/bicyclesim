@@ -368,6 +368,7 @@ export const GAP_COMPRESSION_BY_TYPE: Record<string, number> = {
 
 // --- Generated world foundation (Dynasty expansion §5) ----------------------
 export const WORLD_SCHEMA_VERSION = 2;
+export const DYNASTY_SAVE_SCHEMA_VERSION = 2;
 export const WORLD_TOP_TEAM_COUNT = 10;
 export const WORLD_PRO_TEAM_COUNT = 12; // includes the founded player team
 export const WORLD_ROSTER_SIZE = 8;

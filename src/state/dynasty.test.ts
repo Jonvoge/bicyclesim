@@ -7,11 +7,14 @@ import { Rng } from '../sim/rng.ts';
 import { buildRaceStory } from '../sim/raceNarrative.ts';
 import { defaultTeamTacticsFor } from '../sim/raceSetup.ts';
 import { riderRating, salaryFor } from '../sim/rating.ts';
+import { acceptSquadProposal, generateWorldDraft } from '../sim/worldGeneration.ts';
 import { currentRace, startEvent } from '../sim/season.ts';
 import { isTourComplete, recordStageResult, ridersForStage } from '../sim/standings.ts';
 import {
   campEventIndices,
   createDynasty,
+  createGeneratedDynasty,
+  dynastyTeams,
   finishSeasonEvent,
   freeAgents,
   pickRaceSquad,
@@ -52,6 +55,19 @@ describe('dynasty setup', () => {
     }
     for (const r of freeAgents(d)) expect(r.contractSeasonsLeft).toBeUndefined();
     expect(playerBudget(d)).toBeGreaterThan(0);
+  });
+
+  it('creates a generated dynasty from an accepted founding squad', () => {
+    const draft = generateWorldDraft({ seed: 2028 });
+    const accepted = acceptSquadProposal(draft, draft.proposals[0].id);
+    const dynasty = createGeneratedDynasty(accepted);
+
+    expect(dynasty.world?.seed).toBe(2028);
+    expect(dynastyTeams(dynasty)).toHaveLength(22);
+    expect(playerRiders(dynasty)).toHaveLength(8);
+    expect(racingRoster(dynasty)).toHaveLength(22 * 8);
+    expect(playerBudget(dynasty)).toBe(dynasty.world?.teamSeasons[dynasty.playerTeamId].budget);
+    expect(dynasty.budgets).toEqual({});
   });
 });
 

@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
 import { conditionForEvent, FOCUS_PLANS, FOCUS_PLANS_BY_ID, DEFAULT_FOCUS_PLAN_ID } from '../data/focusPlans.ts';
 import { SEASON_CALENDAR } from '../data/races.ts';
-import { teamColor } from '../data/teamColors.ts';
 import { riderType } from '../sim/rating.ts';
-import { playerRiders, setFocusPlan, type DynastyState } from '../state/dynasty.ts';
+import { dynastyTeamColor, playerRiders, setFocusPlan, type DynastyState } from '../state/dynasty.ts';
 import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
 import { ScrollView } from '../ui/scrollView.ts';
@@ -60,7 +59,7 @@ export class FocusPlanScene extends Phaser.Scene {
       const y = top + i * rowH;
       const planId = r.focusPlanId ?? DEFAULT_FOCUS_PLAN_ID;
       const plan = FOCUS_PLANS_BY_ID.get(planId) ?? FOCUS_PLANS_BY_ID.get(DEFAULT_FOCUS_PLAN_ID)!;
-      const col = teamColor(r.teamId);
+      const col = dynastyTeamColor(this.dynasty, r.teamId);
 
       scroll.add(this.add.rectangle(width / 2, y + 34, width - 24, rowH - 8, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke));
       scroll.add(this.add.rectangle(28, y + 12, 9, 9, col.jersey, 1));

@@ -7,7 +7,7 @@ import { PEAK_CELEBRATE_CONDITION } from '../data/tuning.ts';
 import type { Rider, Stage, StageResult } from '../data/types.ts';
 import { computeGc, isTourComplete, recordStageResult, type GcRow, type StageFatigueSummary, type TourState } from '../sim/standings.ts';
 import { ROLES_BY_ID, roleOf, type TeamTactics } from '../sim/tactics.ts';
-import { finishSeasonEvent, rosterById, type DynastyState, type EventSettlementSummary } from '../state/dynasty.ts';
+import { dynastyTeamColor, dynastyTeamName, finishSeasonEvent, rosterById, type DynastyState, type EventSettlementSummary } from '../state/dynasty.ts';
 import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
 import { ScrollView } from '../ui/scrollView.ts';
@@ -40,6 +40,7 @@ const STAT_LABELS: Record<string, string> = {
 
 export class StageResultsScene extends Phaser.Scene {
   private byId!: Map<string, Rider>;
+  private dynasty?: DynastyState;
   private playerTeamId!: string;
   private pendingCamp?: DynastyState;
   private peakWin = false; // a player rider won this event while peaked (Season Focus ext, Part E)
@@ -51,6 +52,7 @@ export class StageResultsScene extends Phaser.Scene {
   create(data: ResultsData): void {
     const { width } = this.scale;
     const { tour, stage, result, dynasty } = data;
+    this.dynasty = dynasty;
     const isTour = tour.stageIds.length > 1;
     this.byId = dynasty ? rosterById(dynasty) : RIDERS_BY_ID;
     this.playerTeamId = dynasty?.playerTeamId ?? PLAYER_TEAM.id;
@@ -218,7 +220,7 @@ export class StageResultsScene extends Phaser.Scene {
   private buildOneDay(width: number, stage: Stage, result: StageResult): void {
     const order = result.order;
     const winner = this.byId.get(order[0].riderId)!;
-    const winnerCol = teamColor(winner.teamId);
+    const winnerCol = this.dynasty ? dynastyTeamColor(this.dynasty, winner.teamId) : teamColor(winner.teamId);
     const winnerTime = order[0].timeSec;
 
     this.add.text(width / 2, 34, stage.name, { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
@@ -237,7 +239,7 @@ export class StageResultsScene extends Phaser.Scene {
     const scroll = new ScrollView(this, 168, 792, top + order.length * rowH);
     order.forEach((e, i) => {
       const rider = this.byId.get(e.riderId)!;
-      const col = teamColor(rider.teamId);
+      const col = this.dynasty ? dynastyTeamColor(this.dynasty, rider.teamId) : teamColor(rider.teamId);
       const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + i * rowH;
       const prev = i > 0 ? order[i - 1] : null;
@@ -247,7 +249,7 @@ export class StageResultsScene extends Phaser.Scene {
       scroll.add(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       scroll.add(this.add.rectangle(46, y, 9, 9, col.jersey, 1));
       scroll.add(this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', color: isPlayer ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5));
-      scroll.add(this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5));
+      scroll.add(this.add.text(width - 78, y, this.teamName(rider.teamId!), { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       const gapLabel = e.dnf ? 'DNF' : i === 0 ? '—' : sameGroup ? 's.t.' : `+${this.fmtGap(e.timeSec - winnerTime)}`;
       scroll.add(this.add.text(width - 20, y, gapLabel, { fontFamily: FONT, fontSize: '13px', color: e.dnf ? '#e23b3b' : COLORS.textMuted }).setOrigin(1, 0.5));
     });
@@ -276,7 +278,7 @@ export class StageResultsScene extends Phaser.Scene {
     for (let i = 0; i < rows; i++) {
       const e = result.order[i];
       const rider = this.byId.get(e.riderId)!;
-      const col = teamColor(rider.teamId);
+      const col = this.dynasty ? dynastyTeamColor(this.dynasty, rider.teamId) : teamColor(rider.teamId);
       const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + 6 + i * rowH;
       const prev = i > 0 ? result.order[i - 1] : null;
@@ -302,7 +304,7 @@ export class StageResultsScene extends Phaser.Scene {
     for (let i = 0; i < gc.length; i++) {
       const row = gc[i];
       const rider = this.byId.get(row.riderId)!;
-      const col = teamColor(rider.teamId);
+      const col = this.dynasty ? dynastyTeamColor(this.dynasty, rider.teamId) : teamColor(rider.teamId);
       const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + 8 + i * rowH;
       if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12));
@@ -320,7 +322,7 @@ export class StageResultsScene extends Phaser.Scene {
   // --- tour finish: the overall winner + full final GC ------------------------
   private buildFinalGc(width: number, gc: GcRow[]): void {
     const champ = this.byId.get(gc[0].riderId)!;
-    const champCol = teamColor(champ.teamId);
+    const champCol = this.dynasty ? dynastyTeamColor(this.dynasty, champ.teamId) : teamColor(champ.teamId);
     const isPlayerChamp = champ.teamId === this.playerTeamId;
 
     this.add.rectangle(width / 2, 100, width - 30, 56, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
@@ -335,7 +337,7 @@ export class StageResultsScene extends Phaser.Scene {
     for (let i = 0; i < gc.length; i++) {
       const row = gc[i];
       const rider = this.byId.get(row.riderId)!;
-      const col = teamColor(rider.teamId);
+      const col = this.dynasty ? dynastyTeamColor(this.dynasty, rider.teamId) : teamColor(rider.teamId);
       const isPlayer = rider.teamId === this.playerTeamId;
       const y = top + i * rowH;
       if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12));
@@ -343,7 +345,7 @@ export class StageResultsScene extends Phaser.Scene {
       scroll.add(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       scroll.add(this.add.rectangle(46, y, 9, 9, col.jersey, 1));
       scroll.add(this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 || isPlayer ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5));
-      scroll.add(this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5));
+      scroll.add(this.add.text(width - 78, y, this.teamName(rider.teamId!), { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       const label = i === 0 ? this.fmtTime(row.totalTimeSec) : `+${this.fmtGap(row.totalTimeSec - leadTime)}`;
       scroll.add(this.add.text(width - 20, y, label, { fontFamily: FONT, fontSize: '13px', color: i === 0 ? '#f5c518' : COLORS.textMuted }).setOrigin(1, 0.5));
     }
@@ -352,6 +354,10 @@ export class StageResultsScene extends Phaser.Scene {
   private roleLetter(x: number, y: number, role: ReturnType<typeof roleOf>): Phaser.GameObjects.Text {
     const def = ROLES_BY_ID.get(role)!;
     return this.add.text(x, y, def.short, { fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: `#${def.color.toString(16).padStart(6, '0')}` }).setOrigin(0, 0.5);
+  }
+
+  private teamName(teamId: string): string {
+    return this.dynasty ? dynastyTeamName(this.dynasty, teamId) : TEAMS_BY_ID.get(teamId)?.name ?? teamId;
   }
 
   private fmtTime(sec: number): string {

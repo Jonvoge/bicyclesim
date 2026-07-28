@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { createDynasty } from './dynasty.ts';
+import { acceptSquadProposal, generateWorldDraft } from '../sim/worldGeneration.ts';
+import { createDynasty, createGeneratedDynasty } from './dynasty.ts';
 import {
   clearSlot,
   getActiveSlot,
@@ -63,6 +64,20 @@ describe('save slots', () => {
     const pogar = loaded.roster.find((r) => r.id === 'gr-pogar')!;
     expect(pogar.peakAge).toBeDefined();
     expect(pogar.ceiling).toBeDefined();
+  });
+
+  it('round-trips a generated world without regenerating it', () => {
+    const draft = generateWorldDraft({ seed: 310519 });
+    const dynasty = createGeneratedDynasty(acceptSquadProposal(draft, draft.proposals[2].id));
+    dynasty.world!.teamSeasons[dynasty.playerTeamId].budget += 77;
+    saveDynastyToSlot(1, dynasty);
+
+    const loaded = loadDynastyFromSlot(1)!;
+    expect(loaded.world).toEqual(dynasty.world);
+    expect(loaded.roster).toEqual(dynasty.roster);
+    expect(loaded.world?.seed).toBe(310519);
+    expect(loaded.world?.teamSeasons[loaded.playerTeamId].budget).toBe(dynasty.world!.teamSeasons[dynasty.playerTeamId].budget);
+    expect(slotInfos()[1].teamName).toBe(dynasty.world!.teams.find((team) => team.isPlayer)!.name);
   });
 
   it('round-trips the latest structured event settlement', () => {

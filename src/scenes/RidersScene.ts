@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
-import { teamColor } from '../data/teamColors.ts';
 import type { BaseStatKey } from '../data/types.ts';
 import { riderRating } from '../sim/rating.ts';
 import { riderStandings } from '../sim/season.ts';
-import { racingRoster, type DynastyState } from '../state/dynasty.ts';
+import { dynastyTeamColor, racingRoster, type DynastyState } from '../state/dynasty.ts';
 import { makeButton } from '../ui/button.ts';
 import { ScrollView } from '../ui/scrollView.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
@@ -76,7 +75,7 @@ export class RidersScene extends Phaser.Scene {
       const y = top + idx * rowH + 12;
       const isPlayer = rider.teamId === data.dynasty.playerTeamId;
       if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 20, rowH - 4, COLORS.buttonSelected, 0.1));
-      const col = teamColor(rider.teamId);
+      const col = dynastyTeamColor(data.dynasty, rider.teamId);
       scroll.add(this.add.rectangle(26, y, 10, 10, col.jersey, 1));
       scroll.add(this.add.text(40, y - 6, rider.name, { fontFamily: FONT, fontSize: '13px', color: isPlayer ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5));
       const pts = points.get(rider.id) ?? 0;

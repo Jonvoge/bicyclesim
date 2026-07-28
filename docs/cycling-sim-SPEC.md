@@ -365,6 +365,16 @@ tunable); the narrative only ever nudges outcomes within bounded, tunable limits
   player highlights, point/rank movement, prize and budget, objective movement, fatigue/recovery,
   training and milestones. Stage banking likewise returns gain, Race-counterfactual saving and
   next-stage fatigue for every starter.
+- New Dynasties found a custom lower-division team (name, abbreviation, region, jersey,
+  philosophy and shareable seed) and choose one of three constrained eight-rider proposals.
+- The generated launch world contains 10 World teams and 12 Pro teams including the player,
+  with stable seed-derived team/rider IDs, coherent archetype rosters and persisted identities,
+  divisions, budgets, riders and history. Quick Race remains on the authored roster.
+- Generated content is authoritative after creation rather than regenerated from future tuning.
+  Existing authored saves remain playable in legacy mode; they are not silently reinterpreted as
+  generated worlds.
+- World identity, naming, palette, proposal and roster streams are deterministic and isolated.
+  `npm run world-report` samples 1,000 seeds and fails on any invalid world.
 
 ---
 

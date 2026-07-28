@@ -1,5 +1,6 @@
-import { PLAYER_TEAM } from '../data/teams.ts';
-import type { Rider, StatKey } from '../data/types.ts';
+import { PLAYER_TEAM, TEAMS_BY_ID } from '../data/teams.ts';
+import { DYNASTY_SAVE_SCHEMA_VERSION } from '../data/tuning.ts';
+import type { Rider, StatKey, WorldState } from '../data/types.ts';
 import { DEV_STATS } from '../sim/development.ts';
 import type { SeasonState } from '../sim/season.ts';
 import type { DynastyState, EventSettlementSummary } from './dynasty.ts';
@@ -36,9 +37,11 @@ interface SlotMeta {
   seasonNumber: number;
   racesDone: number; // events completed in the current season
   savedAt: number; // epoch ms
+  teamName?: string;
 }
 
 interface SavedDynasty {
+  schemaVersion?: number;
   balanceVersion?: number;
   seasonNumber: number;
   playerTeamId?: string; // optional for pre-team-select saves (default below)
@@ -48,6 +51,7 @@ interface SavedDynasty {
   lastTeamRank: Record<string, number>;
   lastSettlement?: EventSettlementSummary | null;
   seasonDev?: Record<string, Partial<Record<StatKey, number>>>; // season-to-date development (optional for pre-ext saves)
+  world?: WorldState;
   meta?: SlotMeta;
 }
 
@@ -58,6 +62,7 @@ export interface SlotInfo {
   racesDone?: number;
   totalRaces?: number;
   savedAt?: number;
+  teamName?: string;
 }
 
 function packSeason(s: SeasonState): SavedSeason {
@@ -147,6 +152,7 @@ export function setActiveSlot(slot: number): void {
 export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
   try {
     const saved: SavedDynasty = {
+      schemaVersion: DYNASTY_SAVE_SCHEMA_VERSION,
       balanceVersion: PROSPECT_BALANCE_VERSION,
       seasonNumber: dynasty.seasonNumber,
       playerTeamId: dynasty.playerTeamId,
@@ -156,10 +162,13 @@ export function saveDynastyToSlot(slot: number, dynasty: DynastyState): void {
       lastTeamRank: dynasty.lastTeamRank,
       lastSettlement: dynasty.lastSettlement,
       seasonDev: dynasty.seasonDev,
+      world: dynasty.world,
       meta: {
         seasonNumber: dynasty.seasonNumber,
         racesDone: dynasty.season.results.length,
         savedAt: Date.now(),
+        teamName: dynasty.world?.teams.find((team) => team.id === dynasty.playerTeamId)?.name
+          ?? TEAMS_BY_ID.get(dynasty.playerTeamId)?.name,
       },
     };
     localStorage.setItem(slotKey(slot), JSON.stringify(saved));
@@ -188,6 +197,7 @@ export function loadDynastyFromSlot(slot: number): DynastyState | null {
     lastTraining: null, // recomputed each event; camps are not persisted
     lastSettlement: s.lastSettlement ?? null,
     seasonDev: s.seasonDev ?? {},
+    world: s.world,
   };
 }
 
@@ -216,6 +226,9 @@ export function slotInfos(): SlotInfo[] {
       racesDone: s.meta?.racesDone ?? s.season.results?.length ?? 0,
       totalRaces: s.season.calendar?.length ?? 0,
       savedAt: s.meta?.savedAt,
+      teamName: s.meta?.teamName
+        ?? s.world?.teams.find((team) => team.id === s.playerTeamId)?.name
+        ?? TEAMS_BY_ID.get(s.playerTeamId ?? PLAYER_TEAM.id)?.name,
     });
   }
   return infos;

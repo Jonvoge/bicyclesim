@@ -1,8 +1,7 @@
 import Phaser from 'phaser';
-import { teamColor } from '../data/teamColors.ts';
 import { scoutReport } from '../sim/development.ts';
 import { riderRating, riderType } from '../sim/rating.ts';
-import { playerRiders, seasonDevStatCount, seasonDevTopStat, seasonDevTotal, type DynastyState } from '../state/dynasty.ts';
+import { dynastyTeamColor, playerRiders, seasonDevStatCount, seasonDevTopStat, seasonDevTotal, type DynastyState } from '../state/dynasty.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
@@ -57,7 +56,7 @@ export class TrainingScene extends Phaser.Scene {
     const rowH = 64;
     squad.forEach((r, i) => {
       const y = top + i * rowH;
-      const col = teamColor(r.teamId);
+      const col = dynastyTeamColor(this.dynasty, r.teamId);
       const sc = scoutReport(r);
       const now = riderRating(r);
       const gain = gainById.get(r.id) ?? 0;

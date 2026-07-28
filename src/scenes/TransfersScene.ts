@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import { teamColor } from '../data/teamColors.ts';
 import { MAX_SQUAD_SIZE } from '../data/tuning.ts';
 import { scoutReport } from '../sim/development.ts';
 import { salaryOf } from '../sim/management.ts';
 import { riderRating, riderType, signingFeeFor, statLine } from '../sim/rating.ts';
 import {
   freeAgents,
+  dynastyTeamColor,
   playerBudget,
   playerRiders,
   signRider,
@@ -59,7 +59,7 @@ export class TransfersScene extends Phaser.Scene {
     const scroll = new ScrollView(this, 110, this.scale.height - 8, top + all.length * rowH, width);
     all.forEach((r, i) => {
       const y = top + i * rowH;
-      const col = teamColor(r.teamId);
+      const col = dynastyTeamColor(this.dynasty, r.teamId);
       const sc = scoutReport(r);
       const stars = '★'.repeat(sc.stars) + '·'.repeat(5 - sc.stars);
       const young = !sc.certain;

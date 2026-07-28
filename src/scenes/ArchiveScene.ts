@@ -1,8 +1,6 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
-import { teamColor } from '../data/teamColors.ts';
-import { TEAMS_BY_ID } from '../data/teams.ts';
-import { rosterById, type DynastyState } from '../state/dynasty.ts';
+import { dynastyTeamColor, dynastyTeamName, rosterById, type DynastyState } from '../state/dynasty.ts';
 import { makeButton } from '../ui/button.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
@@ -36,7 +34,7 @@ export class ArchiveScene extends Phaser.Scene {
     const rowH = 28;
     result.classification.slice(0, 24).forEach((row, i) => {
       const rider = byId.get(row.riderId)!;
-      const col = teamColor(rider.teamId);
+      const col = dynastyTeamColor(data.dynasty, rider.teamId);
       const isPlayer = rider.teamId === data.dynasty.playerTeamId;
       const y = top + i * rowH + 12;
       if (isPlayer) this.add.rectangle(width / 2, y, width - 20, rowH - 4, COLORS.buttonSelected, 0.12);
@@ -44,7 +42,7 @@ export class ArchiveScene extends Phaser.Scene {
       this.add.text(32, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5);
       this.add.rectangle(44, y, 9, 9, col.jersey, 1);
       this.add.text(58, y, rider.name, { fontFamily: FONT, fontSize: '14px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 || isPlayer ? '#f2c94c' : COLORS.text }).setOrigin(0, 0.5);
-      this.add.text(width - 82, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5);
+      this.add.text(width - 82, y, dynastyTeamName(data.dynasty, rider.teamId!), { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5);
       const gap = i === 0 ? this.fmtTime(row.totalTimeSec) : `+${this.fmtGap(row.totalTimeSec - leadTime)}`;
       this.add.text(width - 22, y, gap, { fontFamily: FONT, fontSize: '12px', color: i === 0 ? '#f2c94c' : COLORS.textMuted }).setOrigin(1, 0.5);
     });
