@@ -128,7 +128,7 @@ export class StageResultsScene extends Phaser.Scene {
       const stat = p.topStat ? STAT_LABELS[p.topStat] ?? p.topStat : 'form';
       objs.push(this.add.text(40, y, rider?.name ?? p.id, { fontFamily: FONT, fontSize: '14px', color: COLORS.text }).setOrigin(0, 0.5));
       objs.push(this.add.text(width - 128, y, stat, { fontFamily: FONT, fontSize: '11px', color: '#8fb4c8' }).setOrigin(1, 0.5));
-      const gain = this.add.text(width - 40, y, `+${p.gain.toFixed(1)}`, { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(1, 0.5);
+      const gain = this.add.text(width - 40, y, `+${p.gain.toFixed(1)}`, { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: COLORS.accentText }).setOrigin(1, 0.5);
       objs.push(gain);
       // a little float-up on the gain number
       this.tweens.add({ targets: gain, y: y - 4, duration: 500, delay: 120 * i, yoyo: true, ease: 'Quad.out' });
@@ -175,7 +175,7 @@ export class StageResultsScene extends Phaser.Scene {
       if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.buttonSelected, 0.12));
       scroll.add(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       scroll.add(this.add.rectangle(46, y, 9, 9, col.jersey, 1));
-      scroll.add(this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5));
+      scroll.add(this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', color: isPlayer ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5));
       scroll.add(this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       const gapLabel = e.dnf ? 'DNF' : i === 0 ? '—' : sameGroup ? 's.t.' : `+${this.fmtGap(e.timeSec - winnerTime)}`;
       scroll.add(this.add.text(width - 20, y, gapLabel, { fontFamily: FONT, fontSize: '13px', color: e.dnf ? '#e23b3b' : COLORS.textMuted }).setOrigin(1, 0.5));
@@ -212,7 +212,7 @@ export class StageResultsScene extends Phaser.Scene {
       const same = prev && !e.dnf && !prev.dnf && Math.abs(e.timeSec - prev.timeSec) < 0.01;
       this.add.text(30, y, `${i + 1}`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(1, 0.5);
       this.add.rectangle(42, y, 8, 8, col.jersey, 1);
-      const name = this.add.text(54, y, rider.name, { fontFamily: FONT, fontSize: '13px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
+      const name = this.add.text(54, y, rider.name, { fontFamily: FONT, fontSize: '13px', color: isPlayer ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5);
       if (isPlayer) this.roleLetter(54 + name.width + 5, y, roleOf(playerTactics, e.riderId));
       const label = e.dnf ? 'DNF' : i === 0 ? '—' : same ? 's.t.' : `+${this.fmtGap(e.timeSec - winnerTime)}`;
       this.add.text(width - 24, y, label, { fontFamily: FONT, fontSize: '12px', color: e.dnf ? '#e23b3b' : COLORS.textMuted }).setOrigin(1, 0.5);
@@ -238,7 +238,7 @@ export class StageResultsScene extends Phaser.Scene {
       if (i === 0) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.gold, 0.1));
       scroll.add(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       scroll.add(this.add.rectangle(46, y, 9, 9, col.jersey, 1));
-      const name = this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '13px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 ? '#f5c518' : isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
+      const name = this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '13px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 || isPlayer ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5);
       scroll.add(name);
       if (isPlayer) scroll.add(this.roleLetter(60 + name.width + 5, y, roleOf(playerTactics, row.riderId)));
       const label = i === 0 ? this.fmtTime(row.totalTimeSec) : `+${this.fmtGap(row.totalTimeSec - leadTime)}`;
@@ -255,7 +255,7 @@ export class StageResultsScene extends Phaser.Scene {
     this.add.rectangle(width / 2, 100, width - 30, 56, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
     this.add.text(width / 2, 84, this.peakWin ? '🟡 OVERALL WINNER · 🌟 NAILED THE PEAK' : '🟡 OVERALL WINNER', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0.5);
     this.add.rectangle(width / 2 - 96, 108, 13, 13, champCol.jersey, 1).setOrigin(0.5);
-    this.add.text(width / 2 - 82, 108, champ.name, { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: isPlayerChamp ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
+    this.add.text(width / 2 - 82, 108, champ.name, { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: isPlayerChamp ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5);
 
     const top = 168;
     const rowH = 26;
@@ -271,7 +271,7 @@ export class StageResultsScene extends Phaser.Scene {
       if (i === 0) scroll.add(this.add.rectangle(width / 2, y, width - 24, rowH - 3, COLORS.gold, 0.1));
       scroll.add(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       scroll.add(this.add.rectangle(46, y, 9, 9, col.jersey, 1));
-      scroll.add(this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 ? '#f5c518' : isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5));
+      scroll.add(this.add.text(60, y, rider.name, { fontFamily: FONT, fontSize: '14px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 || isPlayer ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5));
       scroll.add(this.add.text(width - 78, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       const label = i === 0 ? this.fmtTime(row.totalTimeSec) : `+${this.fmtGap(row.totalTimeSec - leadTime)}`;
       scroll.add(this.add.text(width - 20, y, label, { fontFamily: FONT, fontSize: '13px', color: i === 0 ? '#f5c518' : COLORS.textMuted }).setOrigin(1, 0.5));

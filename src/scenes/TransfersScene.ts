@@ -40,7 +40,7 @@ export class TransfersScene extends Phaser.Scene {
 
     // budget strip
     this.add.rectangle(width / 2, 76, width - 24, 24, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
-    this.add.text(20, 76, `💰 ${playerBudget(this.dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0, 0.5);
+    this.add.text(20, 76, `💰 ${playerBudget(this.dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: COLORS.accentText }).setOrigin(0, 0.5);
     this.add.text(width - 20, 76, `squad ${playerRiders(this.dynasty).length}/${MAX_SQUAD_SIZE}`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(1, 0.5);
 
     if (this.note) this.add.text(width / 2, 100, this.note, { fontFamily: FONT, fontSize: '11px', color: '#e28f3b' }).setOrigin(0.5);

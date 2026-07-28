@@ -66,7 +66,7 @@ export class StandingsScene extends Phaser.Scene {
       this.listItems.push(this.add.text(34, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5));
       const col = teamColor(row.teamId);
       this.listItems.push(this.add.rectangle(48, y, 10, 10, col.jersey, 1));
-      this.listItems.push(this.add.text(64, y, row.name, { fontFamily: FONT, fontSize: this.mode === 'riders' ? '14px' : '16px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 ? '#f5c518' : isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5));
+      this.listItems.push(this.add.text(64, y, row.name, { fontFamily: FONT, fontSize: this.mode === 'riders' ? '14px' : '16px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 || isPlayer ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5));
       this.listItems.push(this.add.text(width - 24, y, `${row.points}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5));
     });
   }

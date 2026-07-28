@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { RACES_BY_ID } from '../data/races.ts';
-import { teamColor } from '../data/teamColors.ts';
+import { STAGES_BY_ID } from '../data/stages.ts';
+import { TEAMS_BY_ID } from '../data/teams.ts';
 import { objectiveForSeason, objectiveStatus } from '../sim/objectives.ts';
-import { isSeasonComplete, riderStandings } from '../sim/season.ts';
+import { isSeasonComplete, riderStandings, teamStandings } from '../sim/season.ts';
 import {
   playerBudget,
   playerWageBill,
@@ -12,15 +13,12 @@ import {
 } from '../state/dynasty.ts';
 import { saveDynasty } from '../state/dynastyStore.ts';
 import { makeButton } from '../ui/button.ts';
-import { ScrollView } from '../ui/scrollView.ts';
+import { StageProfileView } from '../ui/stageProfile.ts';
 import { COLORS, FONT } from '../ui/theme.ts';
 
-/**
- * Season hub (Phase 4 + 5): the calendar with results so far, the team's finances
- * at a glance, world-layer navigation, the door to Team HQ (squad, transfers,
- * development), and the button to ride the next race. A finished season crowns its
- * champion and rolls the dynasty into the next year.
- */
+const ACCENT_TEXT = '#f2c94c';
+
+/** Mobile-first season dashboard: anticipation now, context at a glance, history on demand. */
 export class SeasonHubScene extends Phaser.Scene {
   private dynasty!: DynastyState;
 
@@ -30,98 +28,266 @@ export class SeasonHubScene extends Phaser.Scene {
 
   create(data: { dynasty: DynastyState }): void {
     this.dynasty = data.dynasty;
-    saveDynasty(this.dynasty); // persist progress on every return to the hub
+    saveDynasty(this.dynasty);
+
     const { width } = this.scale;
-    const season = this.dynasty.season;
-    const done = isSeasonComplete(season);
+    const done = isSeasonComplete(this.dynasty.season);
+    this.buildHeader(width, done);
+    this.buildSeasonTracker(width, done);
 
-    makeButton(this, 40, 30, '‹', () => this.scene.start('MainMenu'), { width: 40, height: 34, fontSize: 20 });
-    this.add.text(width / 2, 24, `Season ${this.dynasty.seasonNumber}`, { fontFamily: FONT, fontSize: '23px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
-    const contested = season.results.length;
-    this.add
-      .text(width / 2, 47, done ? 'Season complete' : `Race ${contested + 1} of ${season.calendar.length}`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted })
-      .setOrigin(0.5);
-
-    // navigation: world layer + team HQ
-    makeButton(this, width / 2 - 108, 76, 'Standings', () => this.scene.start('Standings', { dynasty: this.dynasty }), { width: 108, height: 30, fontSize: 12 });
-    makeButton(this, width / 2, 76, 'Peloton', () => this.scene.start('Riders', { dynasty: this.dynasty }), { width: 108, height: 30, fontSize: 12 });
-    makeButton(this, width / 2 + 108, 76, 'Team HQ', () => this.scene.start('Team', { dynasty: this.dynasty }), { width: 108, height: 30, fontSize: 12, fill: COLORS.buttonSelected });
-
-    // finances strip
-    this.add.rectangle(width / 2, 108, width - 24, 26, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
-    this.add.text(20, 108, `💰 ${playerBudget(this.dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0, 0.5);
-    this.add.text(width - 20, 108, `wages ${playerWageBill(this.dynasty).toLocaleString()}/yr`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(1, 0.5);
-
-    // season objective — the sponsor's board goal (Season Focus ext, Part E)
-    const objective = objectiveForSeason(this.dynasty.seasonNumber);
-    const status = objectiveStatus(objective, season, (id) => teamOf(this.dynasty, id) === this.dynasty.playerTeamId);
-    this.add.rectangle(width / 2, 140, width - 24, 26, COLORS.panel, 1).setStrokeStyle(1, status.met ? COLORS.gold : COLORS.stroke);
-    this.add.text(20, 140, `🎯 ${objective.text}`, { fontFamily: FONT, fontSize: '11px', color: status.met ? '#f5c518' : COLORS.text }).setOrigin(0, 0.5);
-    this.add
-      .text(width - 20, 140, status.met ? `DONE ✓  +${objective.reward}` : `${status.current}/${status.target}`, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: status.met ? '#18b39a' : COLORS.textMuted })
-      .setOrigin(1, 0.5);
-
-    this.buildCalendar(width, done);
-
-    if (!done) {
-      const race = RACES_BY_ID.get(season.calendar[season.eventIndex])!;
-      makeButton(this, width / 2, 806, `Ride: ${race.name} →`, () => this.scene.start('PreRace', { dynasty: this.dynasty }), {
-        width: 320,
-        height: 50,
-        fontSize: 18,
-        fill: COLORS.buttonSelected,
-      });
+    if (done) {
+      this.buildSeasonComplete(width);
     } else {
-      this.buildChampion(width);
-      makeButton(this, width / 2, 806, 'End season →', () => this.scene.start('Rollover', { dynasty: this.dynasty }), { width: 300, height: 48, fontSize: 18, fill: COLORS.buttonSelected });
+      this.buildNextRace(width);
+      this.buildObjective(width);
+      this.buildSeasonPulse(width);
     }
+
+    this.buildNavigation(width);
   }
 
-  private buildCalendar(width: number, done: boolean): void {
+  private buildHeader(width: number, done: boolean): void {
+    const teamName = TEAMS_BY_ID.get(this.dynasty.playerTeamId)?.name ?? 'Your team';
+
+    this.add.rectangle(width / 2, 58, width, 116, COLORS.panel, 1);
+    this.add.rectangle(width / 2, 115, width, 2, COLORS.buttonSelected, 1);
+
+    makeButton(this, 34, 32, '‹', () => this.scene.start('MainMenu'), {
+      width: 40,
+      height: 36,
+      fontSize: 22,
+      fill: COLORS.buttonSelected,
+    });
+    this.add.text(64, 22, `SEASON ${this.dynasty.seasonNumber}`, {
+      fontFamily: FONT,
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: COLORS.textMuted,
+    });
+    this.add.text(64, 42, teamName, {
+      fontFamily: FONT,
+      fontSize: '20px',
+      fontStyle: 'bold',
+      color: COLORS.text,
+    });
+
+    this.add.text(18, 87, `FUNDS  ${playerBudget(this.dynasty).toLocaleString()}`, {
+      fontFamily: FONT,
+      fontSize: '13px',
+      fontStyle: 'bold',
+      color: COLORS.text,
+    });
+    this.add.text(width - 18, 87, done ? 'SEASON COMPLETE' : `WAGES  ${playerWageBill(this.dynasty).toLocaleString()}/YR`, {
+      fontFamily: FONT,
+      fontSize: '10px',
+      color: COLORS.textMuted,
+    }).setOrigin(1, 0);
+  }
+
+  private buildSeasonTracker(width: number, done: boolean): void {
     const season = this.dynasty.season;
-    const top = 168;
-    const rowH = 44;
-    const scroll = new ScrollView(this, 160, 774, top + season.calendar.length * rowH, width);
-    season.calendar.forEach((raceId, i) => {
-      const race = RACES_BY_ID.get(raceId)!;
-      const y = top + i * rowH + 18;
-      const isNext = !done && i === season.eventIndex;
-      const isDone = i < season.results.length;
+    const current = Math.min(season.eventIndex, season.calendar.length - 1);
+    const windowName = current < 9 ? 'SPRING CLASSICS' : current < 13 ? 'SUMMER TOURS' : 'AUTUMN FINALE';
+    const label = done ? 'CAMPAIGN COMPLETE' : `${windowName}  ·  ${current + 1}/${season.calendar.length}`;
 
-      const bg = this.add.rectangle(width / 2, y, width - 24, rowH - 6, isNext ? COLORS.panelAlt : COLORS.panel, 1).setStrokeStyle(isNext ? 2 : 1, isNext ? COLORS.buttonSelected : COLORS.stroke);
-      if (isDone) {
-        bg.setInteractive({ useHandCursor: true }).on('pointerup', () => this.scene.start('Archive', { dynasty: this.dynasty, index: i }));
-      }
-      scroll.add(bg);
+    this.add.text(18, 130, label, {
+      fontFamily: FONT,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: COLORS.textMuted,
+    });
 
-      const stages = race.stageIds.length;
-      const kind = stages === 1 ? 'one-day' : `${stages} stages`;
-      scroll.add(this.add.text(24, y - 8, race.name, { fontFamily: FONT, fontSize: '14px', color: isDone ? COLORS.textMuted : COLORS.text }).setOrigin(0, 0.5));
-      scroll.add(this.add.text(24, y + 10, `${kind} · prestige ${race.prestige}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5));
-
-      if (isDone) {
-        const winner = rosterById(this.dynasty).get(season.results[i].winnerId);
-        if (winner) {
-          const col = teamColor(winner.teamId);
-          scroll.add(this.add.rectangle(width - 150, y, 8, 8, col.jersey, 1));
-          const isPlayer = winner.teamId === this.dynasty.playerTeamId;
-          scroll.add(this.add.text(width - 140, y, winner.name, { fontFamily: FONT, fontSize: '12px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5));
-        }
-      } else if (isNext) {
-        scroll.add(this.add.text(width - 24, y, '▶ NEXT', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(1, 0.5));
-      } else {
-        scroll.add(this.add.text(width - 24, y, 'upcoming', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(1, 0.5));
-      }
+    const left = 20;
+    const right = width - 20;
+    const y = 159;
+    const gap = (right - left) / (season.calendar.length - 1);
+    this.add.rectangle(width / 2, y, right - left, 3, COLORS.stroke, 0.45);
+    season.calendar.forEach((_, index) => {
+      const x = left + index * gap;
+      const completed = index < season.results.length;
+      const active = !done && index === season.eventIndex;
+      const fill = completed || active ? COLORS.buttonSelected : COLORS.panel;
+      this.add.circle(x, y, active ? 7 : 5, fill, 1)
+        .setStrokeStyle(active ? 3 : 1.5, active ? COLORS.buttonSelected : COLORS.stroke);
     });
   }
 
-  private buildChampion(width: number): void {
-    const champ = riderStandings(this.dynasty.season)[0];
-    if (!champ) return;
-    const r = rosterById(this.dynasty).get(champ.id)!;
-    const isPlayer = r.teamId === this.dynasty.playerTeamId;
-    this.add.rectangle(width / 2, 748, width - 30, 40, COLORS.panel, 1).setStrokeStyle(2, COLORS.gold);
-    this.add.text(width / 2, 736, '🏆 SEASON CHAMPION', { fontFamily: FONT, fontSize: '12px', color: '#f5c518' }).setOrigin(0.5);
-    this.add.text(width / 2, 756, `${r.name} · ${champ.points} pts`, { fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0.5);
+  private buildNextRace(width: number): void {
+    const season = this.dynasty.season;
+    const race = RACES_BY_ID.get(season.calendar[season.eventIndex])!;
+    const stage = STAGES_BY_ID.get(race.stageIds[0])!;
+    const isTour = race.stageIds.length > 1;
+
+    this.add.rectangle(width / 2, 304, width - 32, 248, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
+    this.add.rectangle(70, 198, 92, 26, COLORS.buttonSelected, 1);
+    this.add.text(70, 198, 'NEXT UP', {
+      fontFamily: FONT,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: COLORS.textDark,
+    }).setOrigin(0.5);
+
+    this.add.text(28, 228, race.name, {
+      fontFamily: FONT,
+      fontSize: race.name.length > 20 ? '22px' : '26px',
+      fontStyle: 'bold',
+      color: COLORS.text,
+    });
+    const raceKind = isTour ? `${race.stageIds.length} STAGES` : 'ONE-DAY CLASSIC';
+    this.add.text(29, 260, `${raceKind}  ·  ${stage.lengthKm} KM  ·  PRESTIGE ${race.prestige}`, {
+      fontFamily: FONT,
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: COLORS.textMuted,
+    });
+
+    new StageProfileView(this, 29, 284, width - 58, 76, stage.type);
+    this.add.text(36, 294, stage.type.replace(/([A-Z])/g, ' $1').toUpperCase(), {
+      fontFamily: FONT,
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: COLORS.textMuted,
+    });
+
+    makeButton(this, width / 2, 398, `RIDE ${race.name.toUpperCase()}  ›`, () => this.scene.start('PreRace', { dynasty: this.dynasty }), {
+      width: width - 58,
+      height: 48,
+      fontSize: race.name.length > 20 ? 13 : 15,
+      fill: COLORS.buttonSelected,
+    });
+  }
+
+  private buildObjective(width: number): void {
+    const season = this.dynasty.season;
+    const objective = objectiveForSeason(this.dynasty.seasonNumber);
+    const status = objectiveStatus(objective, season, (id) => teamOf(this.dynasty, id) === this.dynasty.playerTeamId);
+    const progress = Math.min(1, status.target === 0 ? 1 : status.current / status.target);
+
+    this.add.rectangle(width / 2, 491, width - 32, 86, status.met ? COLORS.panelAlt : COLORS.panel, 1)
+      .setStrokeStyle(1, status.met ? COLORS.gold : COLORS.stroke);
+    this.add.text(28, 459, status.met ? 'SPONSOR GOAL COMPLETE!' : 'SPONSOR CHALLENGE', {
+      fontFamily: FONT,
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: ACCENT_TEXT,
+    });
+    this.add.text(28, 478, objective.text, {
+      fontFamily: FONT,
+      fontSize: '14px',
+      fontStyle: 'bold',
+      color: COLORS.text,
+    });
+    this.add.text(width - 28, 478, status.met ? `+${objective.reward}` : `${status.current}/${status.target}`, {
+      fontFamily: FONT,
+      fontSize: '15px',
+      fontStyle: 'bold',
+      color: ACCENT_TEXT,
+    }).setOrigin(1, 0);
+
+    const barX = 28;
+    const barY = 518;
+    const barWidth = width - 56;
+    this.add.rectangle(barX, barY, barWidth, 9, COLORS.panelAlt, 1).setOrigin(0, 0.5);
+    if (progress > 0) {
+      this.add.rectangle(barX, barY, barWidth * progress, 9, status.met ? COLORS.gold : COLORS.positive, 1).setOrigin(0, 0.5);
+    }
+  }
+
+  private buildSeasonPulse(width: number): void {
+    const season = this.dynasty.season;
+    this.add.text(18, 551, season.results.length === 0 ? 'ON DECK' : 'SEASON PULSE', {
+      fontFamily: FONT,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: COLORS.textMuted,
+    });
+
+    if (season.results.length === 0) {
+      season.calendar.slice(season.eventIndex + 1, season.eventIndex + 3).forEach((raceId, index) => {
+        const race = RACES_BY_ID.get(raceId)!;
+        this.buildPulseCard(18 + index * 181, 575, index === 0 ? 171 : 173, `${index + 2}`, race.name, 'UPCOMING');
+      });
+      return;
+    }
+
+    const riderRows = riderStandings(season);
+    const teamRows = teamStandings(season, (id) => teamOf(this.dynasty, id));
+    const leader = rosterById(this.dynasty).get(riderRows[0]?.id);
+    const teamRank = teamRows.findIndex((row) => row.id === this.dynasty.playerTeamId) + 1;
+    this.buildPulseCard(18, 575, 171, teamRank > 0 ? `#${teamRank}` : '—', 'Your team', 'TEAM RANK');
+    this.buildPulseCard(199, 575, 173, leader ? '#1' : '—', leader?.name ?? 'No leader yet', 'SEASON LEADER');
+
+    const latestIndex = season.results.length - 1;
+    const latestRace = RACES_BY_ID.get(season.results[latestIndex].raceId)!;
+    const latestWinner = rosterById(this.dynasty).get(season.results[latestIndex].winnerId);
+    const recent = this.add.text(width / 2, 653, `Latest: ${latestRace.name}  ·  ${latestWinner?.name ?? 'No finisher'}  ›`, {
+      fontFamily: FONT,
+      fontSize: '11px',
+      color: COLORS.textMuted,
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    recent.on('pointerup', () => this.scene.start('Archive', { dynasty: this.dynasty, index: latestIndex }));
+  }
+
+  private buildPulseCard(x: number, y: number, cardWidth: number, value: string, label: string, eyebrow: string): void {
+    this.add.rectangle(x, y, cardWidth, 66, COLORS.panel, 1).setOrigin(0, 0).setStrokeStyle(1.5, COLORS.stroke);
+    this.add.text(x + 12, y + 9, eyebrow, {
+      fontFamily: FONT,
+      fontSize: '9px',
+      fontStyle: 'bold',
+      color: COLORS.textMuted,
+    });
+    this.add.text(x + 12, y + 27, value, {
+      fontFamily: FONT,
+      fontSize: '18px',
+      fontStyle: 'bold',
+      color: ACCENT_TEXT,
+    });
+    this.add.text(x + 49, y + 31, label, {
+      fontFamily: FONT,
+      fontSize: label.length > 18 ? '10px' : '11px',
+      fontStyle: 'bold',
+      color: COLORS.text,
+    });
+  }
+
+  private buildSeasonComplete(width: number): void {
+    const standings = riderStandings(this.dynasty.season);
+    const champion = rosterById(this.dynasty).get(standings[0]?.id);
+    const teamRows = teamStandings(this.dynasty.season, (id) => teamOf(this.dynasty, id));
+    const teamRank = teamRows.findIndex((row) => row.id === this.dynasty.playerTeamId) + 1;
+
+    this.add.rectangle(width / 2, 330, width - 32, 270, COLORS.panel, 1).setStrokeStyle(3, COLORS.gold);
+    this.add.circle(width / 2, 238, 42, COLORS.buttonSelected, 1).setStrokeStyle(4, COLORS.gold);
+    this.add.text(width / 2, 238, '★', { fontFamily: FONT, fontSize: '36px', color: COLORS.textDark }).setOrigin(0.5);
+    this.add.text(width / 2, 294, 'SEASON CHAMPION', { fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: ACCENT_TEXT }).setOrigin(0.5);
+    this.add.text(width / 2, 323, champion?.name ?? 'No champion', { fontFamily: FONT, fontSize: '25px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
+    this.add.text(width / 2, 352, `${standings[0]?.points ?? 0} points`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
+
+    this.buildPulseCard(32, 386, 154, `#${Math.max(1, teamRank)}`, 'Your team', 'FINAL RANK');
+    this.buildPulseCard(204, 386, 154, `${this.dynasty.season.results.length}`, 'races', 'CAMPAIGN');
+    makeButton(this, width / 2, 512, 'END SEASON  ›', () => this.scene.start('Rollover', { dynasty: this.dynasty }), {
+      width: width - 64,
+      height: 50,
+      fontSize: 17,
+      fill: COLORS.buttonSelected,
+    });
+  }
+
+  private buildNavigation(width: number): void {
+    this.add.rectangle(width / 2, 757, width, 174, COLORS.panel, 1);
+    this.add.text(18, 686, 'EXPLORE', {
+      fontFamily: FONT,
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: COLORS.textMuted,
+    });
+    makeButton(this, 70, 735, 'Standings', () => this.scene.start('Standings', { dynasty: this.dynasty }), { width: 104, height: 52, fontSize: 12 });
+    makeButton(this, width / 2, 735, 'Peloton', () => this.scene.start('Riders', { dynasty: this.dynasty }), { width: 104, height: 52, fontSize: 12 });
+    makeButton(this, width - 70, 735, 'Team HQ', () => this.scene.start('Team', { dynasty: this.dynasty }), { width: 104, height: 52, fontSize: 12, fill: COLORS.buttonSelected });
+    this.add.text(width / 2, 799, 'Plan peaks · develop riders · chase the season', {
+      fontFamily: FONT,
+      fontSize: '10px',
+      color: COLORS.textMuted,
+    }).setOrigin(0.5);
   }
 }

@@ -42,7 +42,7 @@ export class TeamScene extends Phaser.Scene {
     const squad = playerRiders(this.dynasty);
     const sponsor = sponsorIncome(this.dynasty.lastTeamRank[this.dynasty.playerTeamId], TEAMS.length);
     this.add.rectangle(width / 2, 96, width - 24, 64, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
-    this.stat(24, 82, 'BUDGET', `${playerBudget(this.dynasty).toLocaleString()}`, '#18b39a');
+    this.stat(24, 82, 'BUDGET', `${playerBudget(this.dynasty).toLocaleString()}`, COLORS.accentText);
     this.stat(24, 112, 'WAGE BILL', `${playerWageBill(this.dynasty).toLocaleString()}/yr`, COLORS.text);
     this.stat(width - 24, 82, 'NEXT SPONSOR', `~${sponsor.toLocaleString()}`, COLORS.text, true);
     this.stat(width - 24, 112, 'SQUAD', `${squad.length}/${MAX_SQUAD_SIZE}`, COLORS.text, true);

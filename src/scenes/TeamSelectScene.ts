@@ -45,7 +45,7 @@ export class TeamSelectScene extends Phaser.Scene {
       if (star) {
         this.add.text(48, y + 46, `★ ${star.name} · rating ${riderRating(star)}`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0, 0.5);
       }
-      this.add.text(width - 30, y + 34, 'Pick →', { fontFamily: FONT, fontSize: '13px', color: '#18b39a' }).setOrigin(1, 0.5);
+      this.add.text(width - 30, y + 34, 'Pick →', { fontFamily: FONT, fontSize: '13px', color: COLORS.accentText }).setOrigin(1, 0.5);
     });
   }
 

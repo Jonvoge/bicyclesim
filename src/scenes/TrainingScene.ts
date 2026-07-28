@@ -45,7 +45,7 @@ export class TrainingScene extends Phaser.Scene {
     this.add.rectangle(width / 2, 78, width - 24, 26, COLORS.panel, 1).setStrokeStyle(1, last && last.improvedCount > 0 ? COLORS.gold : COLORS.stroke);
     if (last && last.improvedCount > 0) {
       this.add.text(20, 78, `🏕️ Last camp (after race ${last.afterEvent})`, { fontFamily: FONT, fontSize: '11px', color: '#f5c518' }).setOrigin(0, 0.5);
-      this.add.text(width - 20, 78, `${last.improvedCount} sharpened · +${last.totalGain.toFixed(1)} pts`, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(1, 0.5);
+      this.add.text(width - 20, 78, `${last.improvedCount} sharpened · +${last.totalGain.toFixed(1)} pts`, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: COLORS.accentText }).setOrigin(1, 0.5);
     } else {
       this.add.text(width / 2, 78, 'No camp yet this season — the next one comes mid-calendar', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0.5);
     }
@@ -80,13 +80,13 @@ export class TrainingScene extends Phaser.Scene {
       this.add.text(42, y + 48, devText, {
         fontFamily: FONT,
         fontSize: '10px',
-        color: seasonGain > 0 ? '#18b39a' : COLORS.textMuted,
+        color: seasonGain > 0 ? COLORS.accentText : COLORS.textMuted,
         wordWrap: { width: width - 62, useAdvancedWrap: true },
       }).setOrigin(0, 0.5);
 
       // right: this camp's gain on top of the potential stars
       if (gain > 0) {
-        this.add.text(width - 20, y + 12, `+${gain.toFixed(1)}`, { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(1, 0.5);
+        this.add.text(width - 20, y + 12, `+${gain.toFixed(1)}`, { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: COLORS.accentText }).setOrigin(1, 0.5);
       }
     });
 

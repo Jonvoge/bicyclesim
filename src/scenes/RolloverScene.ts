@@ -26,12 +26,12 @@ export class RolloverScene extends Phaser.Scene {
     // finances settlement panel
     this.add.rectangle(width / 2, 200, width - 40, 132, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
     this.add.text(width / 2, 152, 'END-OF-SEASON ACCOUNTS', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
-    this.line(width, 182, 'Sponsor cheque', `+${summary.sponsor.toLocaleString()}`, '#18b39a');
+    this.line(width, 182, 'Sponsor cheque', `+${summary.sponsor.toLocaleString()}`, COLORS.accentText);
     this.line(width, 208, 'Wage bill', `−${summary.wages.toLocaleString()}`, '#e28f3b');
     this.add.rectangle(width / 2, 228, width - 60, 1, COLORS.stroke, 1);
-    this.line(width, 246, 'Net', `${summary.net >= 0 ? '+' : '−'}${Math.abs(summary.net).toLocaleString()}`, summary.net >= 0 ? '#18b39a' : '#e23b3b');
+    this.line(width, 246, 'Net', `${summary.net >= 0 ? '+' : '−'}${Math.abs(summary.net).toLocaleString()}`, summary.net >= 0 ? COLORS.accentText : '#e23b3b');
 
-    this.add.text(width / 2, 298, `New budget: ${playerBudget(dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0.5);
+    this.add.text(width / 2, 298, `New budget: ${playerBudget(dynasty).toLocaleString()}`, { fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: COLORS.accentText }).setOrigin(0.5);
 
     // season objective result (Season Focus ext, Part E)
     this.add
@@ -39,7 +39,7 @@ export class RolloverScene extends Phaser.Scene {
         fontFamily: FONT,
         fontSize: '12px',
         fontStyle: 'bold',
-        color: summary.objectiveMet ? '#18b39a' : COLORS.textMuted,
+        color: summary.objectiveMet ? COLORS.accentText : COLORS.textMuted,
       })
       .setOrigin(0.5);
 
@@ -59,7 +59,7 @@ export class RolloverScene extends Phaser.Scene {
       this.add.text(width / 2, y, 'ACADEMY CALL-UPS (filled a gap)', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
       y += 22;
       for (const id of summary.autoSigned) {
-        this.add.text(width / 2, y, byId.get(id)?.name ?? id, { fontFamily: FONT, fontSize: '13px', color: '#18b39a' }).setOrigin(0.5);
+        this.add.text(width / 2, y, byId.get(id)?.name ?? id, { fontFamily: FONT, fontSize: '13px', color: COLORS.accentText }).setOrigin(0.5);
         y += 20;
       }
       y += 10;

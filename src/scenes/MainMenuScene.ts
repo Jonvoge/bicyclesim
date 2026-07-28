@@ -44,14 +44,14 @@ export class MainMenuScene extends Phaser.Scene {
       .rectangle(width / 2, y, width - 30, 72, info.occupied ? COLORS.panelAlt : COLORS.panel, 1)
       .setStrokeStyle(info.occupied ? 2 : 1, info.occupied ? COLORS.buttonSelected : COLORS.stroke)
       .setInteractive({ useHandCursor: true });
-    panel.on('pointerover', () => panel.setFillStyle(info.occupied ? 0x33335a : COLORS.panelAlt));
+    panel.on('pointerover', () => panel.setFillStyle(COLORS.panelAlt));
     panel.on('pointerout', () => panel.setFillStyle(info.occupied ? COLORS.panelAlt : COLORS.panel));
     panel.on('pointerup', () => this.open(info));
 
     this.add.text(30, y - 18, `Slot ${info.slot + 1}`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0, 0.5);
 
     if (info.occupied) {
-      this.add.text(30, y + 4, `Season ${info.seasonNumber}`, { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#18b39a' }).setOrigin(0, 0.5);
+      this.add.text(30, y + 4, `Season ${info.seasonNumber}`, { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: COLORS.accentText }).setOrigin(0, 0.5);
       const races = info.totalRaces ? ` · ${info.racesDone}/${info.totalRaces} races` : '';
       this.add.text(30, y + 24, `Continue${races} · ${relTime(info.savedAt)}`, { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted }).setOrigin(0, 0.5);
       // delete (×) — its own hit area, above the panel

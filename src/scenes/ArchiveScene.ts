@@ -26,9 +26,14 @@ export class ArchiveScene extends Phaser.Scene {
     this.add.text(width / 2, 28, race.name, { fontFamily: FONT, fontSize: '21px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
     this.add.text(width / 2, 52, `${isTour ? `${race.stageIds.length}-stage tour` : 'one-day'} · final ${isTour ? 'GC' : 'result'}`, { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
 
+    const previous = makeButton(this, width / 2 - 58, 82, '‹ Previous', () => this.scene.restart({ dynasty: data.dynasty, index: data.index - 1 }), { width: 104, height: 28, fontSize: 11 });
+    previous.setEnabled(data.index > 0);
+    const next = makeButton(this, width / 2 + 58, 82, 'Next ›', () => this.scene.restart({ dynasty: data.dynasty, index: data.index + 1 }), { width: 104, height: 28, fontSize: 11 });
+    next.setEnabled(data.index < data.dynasty.season.results.length - 1);
+
     const leadTime = result.classification[0]?.totalTimeSec ?? 0;
-    const top = 84;
-    const rowH = 30;
+    const top = 108;
+    const rowH = 28;
     result.classification.slice(0, 24).forEach((row, i) => {
       const rider = byId.get(row.riderId)!;
       const col = teamColor(rider.teamId);
@@ -38,10 +43,10 @@ export class ArchiveScene extends Phaser.Scene {
       if (i === 0) this.add.rectangle(width / 2, y, width - 20, rowH - 4, COLORS.gold, 0.1);
       this.add.text(32, y, `${i + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5);
       this.add.rectangle(44, y, 9, 9, col.jersey, 1);
-      this.add.text(58, y, rider.name, { fontFamily: FONT, fontSize: '14px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 ? '#f5c518' : isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5);
+      this.add.text(58, y, rider.name, { fontFamily: FONT, fontSize: '14px', fontStyle: i === 0 ? 'bold' : 'normal', color: i === 0 || isPlayer ? '#f2c94c' : COLORS.text }).setOrigin(0, 0.5);
       this.add.text(width - 82, y, TEAMS_BY_ID.get(rider.teamId!)!.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(1, 0.5);
       const gap = i === 0 ? this.fmtTime(row.totalTimeSec) : `+${this.fmtGap(row.totalTimeSec - leadTime)}`;
-      this.add.text(width - 22, y, gap, { fontFamily: FONT, fontSize: '12px', color: i === 0 ? '#f5c518' : COLORS.textMuted }).setOrigin(1, 0.5);
+      this.add.text(width - 22, y, gap, { fontFamily: FONT, fontSize: '12px', color: i === 0 ? '#f2c94c' : COLORS.textMuted }).setOrigin(1, 0.5);
     });
   }
 

@@ -69,7 +69,7 @@ export class RenderCompareScene extends Phaser.Scene {
 
   private colHeader(x: number, label: string, isDefault: boolean): void {
     this.add.text(x, 92, label, { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
-    if (isDefault) this.add.text(x, 110, 'DEFAULT', { fontFamily: FONT, fontSize: '9px', color: '#18b39a' }).setOrigin(0.5);
+    if (isDefault) this.add.text(x, 110, 'DEFAULT', { fontFamily: FONT, fontSize: '9px', color: COLORS.accentText }).setOrigin(0.5);
   }
 
   private big(renderer: RiderRenderer, x: number, y: number, visual: { jerseyColor: number; accentColor: number; emphasised?: boolean }): void {

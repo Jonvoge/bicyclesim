@@ -78,7 +78,7 @@ export class RidersScene extends Phaser.Scene {
       if (isPlayer) scroll.add(this.add.rectangle(width / 2, y, width - 20, rowH - 4, COLORS.buttonSelected, 0.1));
       const col = teamColor(rider.teamId);
       scroll.add(this.add.rectangle(26, y, 10, 10, col.jersey, 1));
-      scroll.add(this.add.text(40, y - 6, rider.name, { fontFamily: FONT, fontSize: '13px', color: isPlayer ? '#18b39a' : COLORS.text }).setOrigin(0, 0.5));
+      scroll.add(this.add.text(40, y - 6, rider.name, { fontFamily: FONT, fontSize: '13px', color: isPlayer ? COLORS.accentText : COLORS.text }).setOrigin(0, 0.5));
       const pts = points.get(rider.id) ?? 0;
       scroll.add(this.add.text(40, y + 9, `age ${rider.age}${pts > 0 ? ` · ${pts} pts` : ''}`, { fontFamily: FONT, fontSize: '9px', color: COLORS.textMuted }).setOrigin(0, 0.5));
 

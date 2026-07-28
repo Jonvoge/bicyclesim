@@ -7,6 +7,18 @@
 > Guiding rule: **build the thinnest thing that proves the fun, then stop and check.** Resist
 > adding anything not listed for the current phase. Simplicity beats completeness.
 
+## Post-core expansion
+
+Phases 0-8 below document the completed core build. The next ordered roadmap is
+`docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`:
+
+1. Race balance foundation.
+2. Generated world and found-a-team Dynasty foundation.
+3. Two-division competition structure with promotion/relegation.
+
+Those three sections are committed. Its section 4 (deeper management pressure) is an explicit
+decision gate and is not approved scope.
+
 ---
 
 ## Phase 0 — Scaffold

@@ -147,7 +147,7 @@ export class PreRaceScene extends Phaser.Scene {
       this.add.text(30, y + 11, `suit ${Math.round(baseScore(rider, this.stage))}`, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0, 0.5);
       if (this.dynasty) {
         const condition = this.tour.condition?.get(id) ?? 0.5;
-        this.add.text(88, y + 11, `fitness ${Math.round(condition * 100)}%`, { fontFamily: FONT, fontSize: '10px', color: condition >= 0.67 ? '#18b39a' : COLORS.textMuted }).setOrigin(0, 0.5);
+        this.add.text(88, y + 11, `fitness ${Math.round(condition * 100)}%`, { fontFamily: FONT, fontSize: '10px', color: condition >= 0.67 ? COLORS.accentText : COLORS.textMuted }).setOrigin(0, 0.5);
         this.buildFatiguePip(166, y, this.tour.fatigue.get(id) ?? 0);
       }
 
@@ -307,7 +307,7 @@ export class PreRaceScene extends Phaser.Scene {
     if (this.canRest) {
       const n = this.racingCount();
       const ok = n === RACE_SQUAD_SIZE;
-      this.pickText?.setText(`PICK ${RACE_SQUAD_SIZE} · starting ${n}/${RACE_SQUAD_SIZE}  (tap a rider, then a role or Rest)`).setColor(ok ? '#18b39a' : '#e28f3b');
+      this.pickText?.setText(`PICK ${RACE_SQUAD_SIZE} · starting ${n}/${RACE_SQUAD_SIZE}  (tap a rider, then a role or Rest)`).setColor(ok ? COLORS.accentText : '#e28f3b');
       this.startButton?.setEnabled(ok);
     }
   }

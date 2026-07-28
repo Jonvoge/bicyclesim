@@ -3,6 +3,27 @@
 > Snapshot for an agent picking this up. Read `CLAUDE.md` first (non-negotiable rules), then this.
 > Source of truth for scope is `docs/cycling-sim-SPEC.md` + `docs/cycling-sim-BUILD-PLAN.md` —
 > **the spec wins**; keep both updated when you change scope (we have been).
+> The broader post-core product backlog is `docs/NEXT-ITERATIONS.md`; track proposed UI,
+> reward-loop, rival-AI, legacy, and deferred ideas there rather than scattering new wishlists.
+> The approved Dynasty expansion is `docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`; its sections
+> 1-3 are committed and take precedence where future scope overlaps the broader backlog.
+
+## Next expansion (planned, not implemented)
+
+The next committed work is specified in `docs/cycling-sim-DYNASTY-EXPANSION-PLAN.md`. It supersedes
+the old "nothing left but tuning" status below for **future Dynasty scope**, while this file remains
+the handover for the currently implemented core and `docs/NEXT-ITERATIONS.md` remains the broader
+product/UI backlog.
+
+The committed expansion has three ordered sections:
+
+1. Correct known race-balance issues (especially Conserve and the all-Free narrative exploit).
+2. Replace fixed Dynasty starts with founded player teams in seeded generated worlds.
+3. Add separate Pro/World divisions, calendars, promotion/relegation, wildcards, and world history.
+
+A deeper management/economy phase is deliberately deferred. Do not add facilities, staff trees,
+rider promises, or detailed transfer negotiations until sections 1-3 are built and the documented
+decision gate has been reviewed with the user.
 
 ## TL;DR — current state
 

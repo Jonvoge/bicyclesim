@@ -196,7 +196,7 @@ export class RaceScene extends Phaser.Scene {
       const barX = 190;
       const barW = 86;
       const condColor = cond > 0.66 ? 0x18b39a : cond > 0.45 ? 0xe0a23b : 0x8a8ab0;
-      const labelColor = read === 'flying' ? '#18b39a' : read === 'off' ? '#e23b3b' : COLORS.textMuted;
+      const labelColor = read === 'flying' ? COLORS.accentText : read === 'off' ? '#e23b3b' : COLORS.textMuted;
       objs.push(this.add.text(40, y, legReadFace(read), { fontFamily: FONT, fontSize: '18px' }).setOrigin(0, 0.5));
       objs.push(this.add.text(66, y, r.name.split(' ').slice(-1)[0], { fontFamily: FONT, fontSize: '13px', color: COLORS.text }).setOrigin(0, 0.5));
       objs.push(this.add.rectangle(barX, y, barW, 8, COLORS.buttonFill, 1).setOrigin(0, 0.5));
@@ -603,7 +603,7 @@ export class RaceScene extends Phaser.Scene {
       break: '#f5c518',
       crash: '#e23b3b',
       puncture: '#e28f3b',
-      catch: '#18b39a',
+      catch: COLORS.accentText,
       finale: '#f5c518',
       finish: '#f5c518',
       legs: '#5fc9d6',
@@ -638,7 +638,7 @@ export class RaceScene extends Phaser.Scene {
     const sameAsPrev = prev && !entry.dnf && !prev.dnf && Math.abs(entry.timeSec - prev.timeSec) < 0.01;
     const winTag = this.story.breakSurvived && isWinner ? 'WIN (break!)' : 'WIN';
     const right = entry.dnf ? 'DNF' : isWinner ? winTag : sameAsPrev ? 's.t.' : `+${this.fmtGap(entry.timeSec - winnerTime)}`;
-    const nameColor = isWinner ? '#f5c518' : actor.isPlayer ? '#18b39a' : COLORS.text;
+    const nameColor = isWinner || actor.isPlayer ? COLORS.accentText : COLORS.text;
 
     const items: Phaser.GameObjects.GameObject[] = [
       this.add.text(30, y, `${rank + 1}`, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(1, 0.5),

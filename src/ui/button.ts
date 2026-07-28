@@ -20,6 +20,7 @@ export class Button {
   private selected = false;
   private enabled = true;
   private baseFill: number;
+  private baseTextColor: string;
 
   constructor(
     scene: Phaser.Scene,
@@ -31,9 +32,10 @@ export class Button {
   ) {
     const fontSize = opts.fontSize ?? 20;
     this.baseFill = opts.fill ?? COLORS.buttonFill;
+    this.baseTextColor = this.baseFill === COLORS.buttonSelected ? COLORS.textDark : COLORS.textOnAccent;
 
     this.label = scene.add
-      .text(0, 0, text, { fontFamily: FONT, fontSize: `${fontSize}px`, color: COLORS.text })
+      .text(0, 0, text, { fontFamily: FONT, fontSize: `${fontSize}px`, color: this.baseTextColor })
       .setOrigin(0.5);
 
     const w = opts.width ?? this.label.width + 32;
@@ -41,7 +43,7 @@ export class Button {
 
     this.bg = scene.add
       .rectangle(0, 0, w, h, this.baseFill, 1)
-      .setStrokeStyle(2, COLORS.stroke);
+      .setStrokeStyle(1, COLORS.stroke);
 
     this.container = scene.add.container(x, y, [this.bg, this.label]);
 
@@ -77,9 +79,10 @@ export class Button {
       this.label.setColor(COLORS.textDark);
     } else {
       this.bg.setFillStyle(this.baseFill);
-      this.label.setColor(COLORS.text);
+      this.label.setColor(this.baseTextColor);
     }
   }
+
 }
 
 export function makeButton(
