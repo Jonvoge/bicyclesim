@@ -70,7 +70,7 @@ export class RenderCompareScene extends Phaser.Scene {
     ];
     notes.forEach((n, i) => this.add.text(22, notesY + 26 + i * 19, n, { fontFamily: FONT, fontSize: '11px', color: COLORS.text }).setOrigin(0, 0));
 
-    this.add.text(width / 2, notesY + 130, 'Sprite is now the race default; code-drawn remains the fallback.', { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(width / 2, notesY + 130, 'Code-drawn is the race default; sprite remains available internally.', { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0.5);
   }
 
   private colHeader(x: number, label: string, isDefault: boolean): void {

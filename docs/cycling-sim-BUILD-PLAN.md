@@ -298,8 +298,9 @@ experiment is no longer linked from the player-facing main menu.
 a fixed body/bike/spokes/shadow base, a primary-colour jersey and helmet, and an accent-colour frame
 and kit-trim layer. Phaser rasterises the inline data URIs at 2x, then displays the rider at 30x23px
 in races. The native-size comparison and live peloton were checked at the 390x844 target viewport.
-**Default chosen: `RENDER_MODE = 'sprite'`** for the stronger posture and two-colour team identity;
-the crisp code-drawn renderer remains a supported zero-asset fallback behind the same interface.
+The sprite was re-evaluated in the live compact peloton, where the simpler glyph remained clearer.
+**Default chosen: `RENDER_MODE = 'code'`**; the three-layer sprite stays available as an internal
+comparison path behind the same interface.
 
 ---
 

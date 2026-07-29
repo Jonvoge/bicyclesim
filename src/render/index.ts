@@ -8,13 +8,13 @@ import { SpriteRenderer } from './spriteRenderer.ts';
  * drawing goes through `makeRiderRenderer()`, so `RENDER_MODE` (or a per-call
  * override, used by the side-by-side compare scene) is the only switch.
  *
- * **Default: 'sprite'** — the final three-layer cyclist keeps a readable silhouette
- * at race scale while carrying both team colours through the kit and bicycle. The
- * code-drawn implementation remains a lightweight fallback and comparison path.
+ * **Default: 'code'** — the code-drawn cyclist stays clearest in the compact live
+ * peloton. The three-layer sprite implementation remains available as an internal
+ * comparison path without changing the race scene.
  */
 export type RenderMode = 'code' | 'sprite';
 
-export const RENDER_MODE: RenderMode = 'sprite';
+export const RENDER_MODE: RenderMode = 'code';
 
 export function makeRiderRenderer(mode: RenderMode = RENDER_MODE): RiderRenderer {
   return mode === 'sprite' ? new SpriteRenderer() : new CodeDrawnRenderer();

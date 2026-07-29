@@ -56,8 +56,8 @@ decision gate has been reviewed with the user.
   says `tuning.ts` is in a sane range, but "does it *feel* fair and dramatic?" needs real play), plus
   optional content and the deferred extras below. There is no Phase 9 — the SPEC is fully built.
 - **One honest caveat carried forward:** balance started as a **sim pass** and remains under active
-  phone playtesting. The final three-layer SVG cyclist is now the default renderer; code-drawn art
-  remains the supported fallback.
+  phone playtesting. The code-drawn cyclist remains the production default after comparison against
+  the three-layer SVG sprite path.
 - Deployed & playable on a phone: **https://jonvoge.github.io/bicyclesim/** (auto-redeploys on push
   to `main` or the active feature branch — last push wins).
 - **Phone playtesting is active.** Watch, as you play: does the economy bite
@@ -116,7 +116,7 @@ decision gate has been reviewed with the user.
   draws three aligned SVG textures: fixed rider/bike art, primary kit, and accent frame/trim.
   `RenderCompareScene` remains as an unlinked developer diagnostic showing both paths and a native
   race-size strip.
-  **Default `'sprite'`**; code-drawn remains the lightweight fallback.
+  **Default `'code'`**; the sprite remains available as an internal comparison path.
 - **Phase 8 — persistence, balance & polish**: **multiple save slots** (`dynastyStore.ts` → 3 slots +
   a persisted active slot; MainMenu is a slot picker; legacy save auto-migrates), a measured **balance
   pass** (`scripts/balanceReport.ts`: prize/sponsor cut so the economy no longer balloons, prospect
@@ -235,7 +235,7 @@ No persistent browser dep. To view/record the running app:
 - **`src/render`** — `riderRenderer.ts` interface, `codeDrawnRenderer.ts` (Graphics) + `spriteRenderer.ts`
   (texture) + `spriteAssets.ts` (inline SVG → data-URI textures). `index.ts` = `RENDER_MODE` +
   `makeRiderRenderer()` (the one config flag). RaceScene preloads the sprite textures and draws via the
-  factory; `RenderCompareScene` shows both side-by-side and at native scale. Default `'sprite'`.
+  factory; `RenderCompareScene` shows both side-by-side and at native scale. Default `'code'`.
 - **`src/ui`** — `button.ts`, `theme.ts`, `stageProfile.ts` (multi-feature silhouette + live group
   markers), `scrollView.ts` (masked drag/wheel scroll for the ~45-rider lists).
 
