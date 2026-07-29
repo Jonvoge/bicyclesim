@@ -1,13 +1,12 @@
 import Phaser from 'phaser';
 import type { RiderRenderer, RiderVisual } from './riderRenderer.ts';
-import { spriteTexturesReady, TEX_BASE, TEX_JERSEY } from './spriteAssets.ts';
+import { spriteTexturesReady, TEX_ACCENT, TEX_BASE, TEX_JERSEY } from './spriteAssets.ts';
 
 /**
  * SpriteRenderer (SPEC §8, Phase 7) — the sprite path: rider art loaded as a
  * **texture** (see `spriteAssets.ts`) instead of drawn with `Graphics`. The jersey
- * layer is tinted per team, so it still recolours — but note it takes an extra
- * layer to do what the code-drawn path does with one `lineStyle`; that "harder to
- * vary" trade-off is exactly what the experiment is meant to surface.
+ * jersey and accent layers are independently tinted per team, preserving both
+ * identity colours while the bike, rider, spokes, and shadow remain consistent.
  *
  * Requires `preloadSpriteTextures(scene)` to have run in the scene's `preload()`.
  * If the textures aren't ready it degrades to a small dot rather than crashing.
@@ -24,7 +23,8 @@ export class SpriteRenderer implements RiderRenderer {
 
     const base = scene.add.image(0, 0, TEX_BASE).setDisplaySize(DISPLAY_W, DISPLAY_H);
     const jersey = scene.add.image(0, 0, TEX_JERSEY).setDisplaySize(DISPLAY_W, DISPLAY_H).setTint(visual.jerseyColor);
-    const layers: Phaser.GameObjects.GameObject[] = [base, jersey];
+    const accent = scene.add.image(0, 0, TEX_ACCENT).setDisplaySize(DISPLAY_W, DISPLAY_H).setTint(visual.accentColor);
+    const layers: Phaser.GameObjects.GameObject[] = [base, jersey, accent];
 
     const container = scene.add.container(x, y, layers);
     container.setSize(DISPLAY_W, DISPLAY_H);

@@ -4,8 +4,8 @@ import type Phaser from 'phaser';
  * Render abstraction (SPEC §8).
  *
  * All rider drawing goes through this interface so the code-drawn-vs-sprite
- * experiment (Phase 7) stays a config flag, not a rewrite. For now the only
- * implementation is the crude CodeDrawnRenderer.
+ * experiment (Phase 7) stays a config flag, not a rewrite. The final sprite path
+ * is the default; the code-drawn implementation remains a supported fallback.
  */
 
 export interface RiderVisual {

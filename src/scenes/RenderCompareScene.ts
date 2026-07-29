@@ -12,7 +12,7 @@ import { COLORS, FONT } from '../ui/theme.ts';
  * Art experiment (SPEC §8, Phase 7): the same riders drawn **both ways**,
  * side-by-side, so the code-drawn-vs-sprite choice is made by *looking*. The left
  * column is `CodeDrawnRenderer` (Phaser `Graphics`), the right is `SpriteRenderer`
- * (an authored SVG texture, tinted per team). Notes below record the trade-offs;
+ * (three aligned SVG textures, tinted per team). Notes below record the trade-offs;
  * the chosen default lives in `RENDER_MODE` (`src/render/index.ts`).
  */
 export class RenderCompareScene extends Phaser.Scene {
@@ -36,7 +36,7 @@ export class RenderCompareScene extends Phaser.Scene {
     const leftX = width * 0.3;
     const rightX = width * 0.7;
     this.colHeader(leftX, 'Code-drawn', RENDER_MODE === 'code');
-    this.colHeader(rightX, 'Sprite (SVG)', RENDER_MODE === 'sprite');
+    this.colHeader(rightX, 'Final sprite', RENDER_MODE === 'sprite');
 
     // a few teams, the first emphasised like the player's riders in a race
     const sample = TEAMS.slice(0, 6);
@@ -51,20 +51,26 @@ export class RenderCompareScene extends Phaser.Scene {
       this.add.text(width / 2, y + 26, team.name, { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0.5);
     });
 
+    this.add.text(24, 580, 'NATIVE RACE SIZE', { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted });
+    sample.slice(0, 4).forEach((team, index) => {
+      const col = teamColor(team.id);
+      sprite.draw(this, 156 + index * 34, 585, { jerseyColor: col.jersey, accentColor: col.accent });
+    });
+
     // findings
-    const notesY = top + sample.length * rowH + 4;
+    const notesY = top + sample.length * rowH + 58;
     this.add.rectangle(width / 2, notesY + 74, width - 24, 150, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
     this.add.text(20, notesY + 8, 'FINDINGS', { fontFamily: FONT, fontSize: '11px', color: COLORS.textMuted });
     const notes = [
       '• Code-drawn: ~0 KB, recolour with one value, scales crisp.',
-      '• Sprite: authored SVG (~1 KB); recolour needs a tinted layer.',
-      '• Richer detail is easier as a sprite, harder to vary in code.',
+      '• Sprite: primary + accent kit, detailed frame, readable posture.',
+      '• Three aligned SVG layers stay crisp and deterministic.',
       '• Both animate identically (same RiderRenderer) — view unchanged.',
       `• Default: RENDER_MODE = '${RENDER_MODE}'  ·  src/render/index.ts`,
     ];
     notes.forEach((n, i) => this.add.text(22, notesY + 26 + i * 19, n, { fontFamily: FONT, fontSize: '11px', color: COLORS.text }).setOrigin(0, 0));
 
-    this.add.text(width / 2, notesY + 130, 'A richer AI raster atlas can drop in behind the same keys.', { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0.5);
+    this.add.text(width / 2, notesY + 130, 'Sprite is now the race default; code-drawn remains the fallback.', { fontFamily: FONT, fontSize: '10px', color: COLORS.textMuted }).setOrigin(0.5);
   }
 
   private colHeader(x: number, label: string, isDefault: boolean): void {

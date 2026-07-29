@@ -55,12 +55,12 @@ decision gate has been reviewed with the user.
 - **What's left is the human's game to grow:** the big **feel/balance tuning on a phone** (the sim
   says `tuning.ts` is in a sane range, but "does it *feel* fair and dramatic?" needs real play), plus
   optional content and the deferred extras below. There is no Phase 9 — the SPEC is fully built.
-- **Two honest caveats carried forward:** (1) the sprite path is an authored **SVG placeholder**, not
-  the AI raster the SPEC imagined (this env can't gen images) — infra/flag/comparison are real, final
-  art is open; default `RENDER_MODE = 'code'`. (2) Balance is a **sim pass**, not a play-tested one.
+- **One honest caveat carried forward:** balance started as a **sim pass** and remains under active
+  phone playtesting. The final three-layer SVG cyclist is now the default renderer; code-drawn art
+  remains the supported fallback.
 - Deployed & playable on a phone: **https://jonvoge.github.io/bicyclesim/** (auto-redeploys on push
   to `main` or the active feature branch — last push wins).
-- **Nothing has had a full phone playtest since Phase 2.** Watch, as you play: does the economy bite
+- **Phone playtesting is active.** Watch, as you play: does the economy bite
   without punishing? Do careers rise/fade at a satisfying rate? Is scouting a fun gamble? Are the
   races still dramatic? All knobs are in `tuning.ts`.
 
@@ -113,9 +113,10 @@ decision gate has been reviewed with the user.
   rival poaching / contracts genuinely lapsing (they auto-renew).
 - **Phase 7 — art experiment** (SPEC §8): the render abstraction is now a working **config flag**.
   `src/render/index.ts` — `RENDER_MODE` (`'code' | 'sprite'`) + `makeRiderRenderer()`; `SpriteRenderer`
-  draws from a loaded texture (authored **SVG** placeholder, tinted per team — a real AI raster atlas
-  can replace it behind the same keys). `RenderCompareScene` (MainMenu → "Renderers") shows both
-  side-by-side. **Default `'code'`** (tiny footprint, one-value recolour, crisp scaling).
+  draws three aligned SVG textures: fixed rider/bike art, primary kit, and accent frame/trim.
+  `RenderCompareScene` remains as an unlinked developer diagnostic showing both paths and a native
+  race-size strip.
+  **Default `'sprite'`**; code-drawn remains the lightweight fallback.
 - **Phase 8 — persistence, balance & polish**: **multiple save slots** (`dynastyStore.ts` → 3 slots +
   a persisted active slot; MainMenu is a slot picker; legacy save auto-migrates), a measured **balance
   pass** (`scripts/balanceReport.ts`: prize/sponsor cut so the economy no longer balloons, prospect
@@ -127,8 +128,6 @@ decision gate has been reviewed with the user.
 - **Feel/balance tuning on a phone** — the one thing a headless agent can't do. `tuning.ts` is a
   sane-range guess; play a few dynasties and adjust to taste (economy tightness, development/retirement
   pace, race drama). `scripts/balanceReport.ts` is there to re-measure after any change.
-- **Finish the art** if wanted: drop an AI-generated raster atlas behind the `SpriteRenderer` texture
-  keys (`src/render/spriteAssets.ts`) and re-judge `RENDER_MODE` in the compare scene.
 - **Deferred-by-design extras** (add only if they earn their place):
   - Rival **effort** AI (rivals conserving on a tour's non-GC stages — currently they only rest).
   - Rival **poaching** / contracts genuinely lapsing (they auto-renew now — see Phase 6 note).
@@ -236,7 +235,7 @@ No persistent browser dep. To view/record the running app:
 - **`src/render`** — `riderRenderer.ts` interface, `codeDrawnRenderer.ts` (Graphics) + `spriteRenderer.ts`
   (texture) + `spriteAssets.ts` (inline SVG → data-URI textures). `index.ts` = `RENDER_MODE` +
   `makeRiderRenderer()` (the one config flag). RaceScene preloads the sprite textures and draws via the
-  factory; `RenderCompareScene` shows both side-by-side. Default `'code'`.
+  factory; `RenderCompareScene` shows both side-by-side and at native scale. Default `'sprite'`.
 - **`src/ui`** — `button.ts`, `theme.ts`, `stageProfile.ts` (multi-feature silhouette + live group
   markers), `scrollView.ts` (masked drag/wheel scroll for the ~45-rider lists).
 

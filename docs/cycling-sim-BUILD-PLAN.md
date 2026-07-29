@@ -290,18 +290,16 @@ stay deferred; all development numbers in `tuning.ts` are STARTING GUESSES (SPEC
 a new **`SpriteRenderer`** that draws rider art from a loaded **texture**. `src/render/index.ts` holds
 the one switch — **`RENDER_MODE`** (`'code' | 'sprite'`) + `makeRiderRenderer()`; all rider drawing
 goes through it, so the race view is identical either way (verified: flipping the flag renders the
-whole peloton as sprites, same animation). **`RenderCompareScene`** (MainMenu → "Renderers") draws the
-same six teams **side-by-side** in both styles with the trade-offs on screen.
+whole peloton as sprites, same animation). **`RenderCompareScene`** draws the same six teams
+**side-by-side** in both styles and remains registered as a developer diagnostic; the completed art
+experiment is no longer linked from the player-facing main menu.
 
-*Honest note on the sprite art:* the SPEC asks for an **AI-generated raster** set, which this
-environment can't produce. The sprite path is instead implemented with an **authored SVG** cyclist
-(base + a white jersey layer **tinted per team**), loaded as a texture from an inline base64 data-URI
-(`src/render/spriteAssets.ts`) — a genuine loaded-texture sprite, so the comparison, the flag and the
-infrastructure are all real; a richer AI raster atlas can drop straight in behind the same texture
-keys later. **Default chosen: `RENDER_MODE = 'code'`** — ~0 KB of assets, recolours with one value,
-scales crisp, and matches the clean/minimalist look; the sprite path is proven and ready when nicer
-art exists but costs an extra tinted layer to recolour + a texture load. (Placeholder art either way —
-the *decision infrastructure* is what Phase 7 delivers.)
+**Final art pass.** The sprite path uses an authored cyclist split into three aligned SVG textures:
+a fixed body/bike/spokes/shadow base, a primary-colour jersey and helmet, and an accent-colour frame
+and kit-trim layer. Phaser rasterises the inline data URIs at 2x, then displays the rider at 30x23px
+in races. The native-size comparison and live peloton were checked at the 390x844 target viewport.
+**Default chosen: `RENDER_MODE = 'sprite'`** for the stronger posture and two-colour team identity;
+the crisp code-drawn renderer remains a supported zero-asset fallback behind the same interface.
 
 ---
 

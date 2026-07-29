@@ -14,7 +14,7 @@ import { COLORS, FONT } from '../ui/theme.ts';
  * Title screen (Phase 8): a **save-slot picker** so more than one dynasty can be
  * on the go — the "put it down and pick it up" of a keeper. Tap an occupied slot
  * to continue it, an empty slot to start a new dynasty there; × wipes a slot.
- * Quick Race and the renderer test sit below.
+ * Quick Race remains available below the save slots.
  */
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -36,7 +36,6 @@ export class MainMenuScene extends Phaser.Scene {
 
     const y = top + slots.length * rowH + 20;
     makeButton(this, width / 2, y, 'Quick Race', () => this.scene.start('QuickRace'), { width: 300, height: 46, fontSize: 17 });
-    makeButton(this, width / 2, y + 60, 'Renderers (art test)', () => this.scene.start('RenderCompare'), { width: 300, height: 38, fontSize: 14 });
   }
 
   private buildSlot(width: number, y: number, info: SlotInfo): void {
