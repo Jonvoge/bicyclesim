@@ -201,7 +201,7 @@ export function createGeneratedDynasty(draft: GeneratedWorldDraft): DynastyState
   };
   prepareCompetitionSeason(world, 1);
   prepareDirectorPlans(world, 1, roster);
-  const objective = objectiveForGeneratedTeam(world, roster, playerTeam.id);
+  const objective = objectiveForGeneratedTeam(world, roster, playerTeam.id, 1);
   return {
     seasonNumber: 1,
     playerTeamId: playerTeam.id,
@@ -663,7 +663,7 @@ export function rolloverSeason(dynasty: DynastyState): RolloverSummary {
   dynasty.lastSettlement = null;
   dynasty.seasonDev = {}; // the new season's development starts from zero
   dynasty.objective = dynasty.world
-    ? objectiveForGeneratedTeam(dynasty.world, dynasty.roster, dynasty.playerTeamId)
+    ? objectiveForGeneratedTeam(dynasty.world, dynasty.roster, dynasty.playerTeamId, dynasty.seasonNumber)
     : objectiveForSeason(dynasty.seasonNumber);
 
   return {

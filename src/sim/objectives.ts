@@ -57,6 +57,7 @@ export function objectiveForGeneratedTeam(
   world: WorldState,
   riders: readonly Rider[],
   teamId: string,
+  seasonNumber = 1,
 ): SeasonObjective {
   const division = world.teamSeasons[teamId].division;
   const divisionTeams = world.teams
@@ -67,6 +68,14 @@ export function objectiveForGeneratedTeam(
   const competitive = strengthRank > 0 && strengthRank <= Math.ceil(divisionTeams.length / 2);
 
   if (!competitive) {
+    if (seasonNumber % 2 === 0) {
+      return {
+        kind: 'podiums',
+        text: `Earn ${OBJECTIVE_PODIUM_TARGET} race podiums`,
+        target: OBJECTIVE_PODIUM_TARGET,
+        reward: OBJECTIVE_PODIUM_REWARD,
+      };
+    }
     return {
       kind: 'top10s',
       text: `Place top 10 in ${OBJECTIVE_TOP_TEN_TARGET} races`,
@@ -75,12 +84,18 @@ export function objectiveForGeneratedTeam(
     };
   }
   if (division === 'pro') {
+    if (seasonNumber % 2 === 0) {
+      return { kind: 'wins', text: 'Win 2 races this season', target: 2, reward: OBJECTIVE_WINS_REWARD };
+    }
     return {
       kind: 'podiums',
       text: `Earn ${OBJECTIVE_PODIUM_TARGET} race podiums`,
       target: OBJECTIVE_PODIUM_TARGET,
       reward: OBJECTIVE_PODIUM_REWARD,
     };
+  }
+  if (seasonNumber % 2 === 0) {
+    return { kind: 'monument', text: 'Win a Monument this season', target: 1, reward: OBJECTIVE_MONUMENT_REWARD };
   }
   return { kind: 'wins', text: 'Win 2 races this season', target: 2, reward: OBJECTIVE_WINS_REWARD };
 }

@@ -80,6 +80,7 @@ describe('dynasty setup', () => {
     const race = currentRace(dynasty.season)!;
     const field = dynasty.world!.eventFields.find((entry) => entry.season === 1 && entry.raceId === race.id)!;
     const tour = startSeasonEvent(dynasty, race);
+    const firstObjective = dynasty.objective.kind;
     expect(tour.starters).toHaveLength(field.teamIds.length * RACE_SQUAD_SIZE);
     expect(new Set([...tour.starters!].map((riderId) => dynasty.roster.find((rider) => rider.id === riderId)!.teamId))).toEqual(
       new Set(field.teamIds),
@@ -91,6 +92,7 @@ describe('dynasty setup', () => {
     expect(dynasty.world!.history.teamChampions).toHaveLength(2);
     const division = dynasty.world!.teamSeasons[dynasty.playerTeamId].division;
     expect(dynasty.season.calendar).toEqual(division === 'world' ? WORLD_CALENDAR : PRO_CALENDAR);
+    expect(dynasty.objective.kind).not.toBe(firstObjective);
   });
 
   it('tapers and protects a Rival Director target leader', () => {

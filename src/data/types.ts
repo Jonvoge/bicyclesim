@@ -187,6 +187,7 @@ export interface Stage {
   name: string;
   type: StageType;
   lengthKm: number; // drives base time + difficulty
+  elevationProfile?: readonly number[]; // normalized 0..1 samples for the route graphic
 }
 
 export type RaceType = 'oneDay' | 'shortTour' | 'grandTour';

@@ -162,7 +162,7 @@ export class SeasonHubScene extends Phaser.Scene {
       color: COLORS.textMuted,
     });
 
-    new StageProfileView(this, 29, 284, width - 58, 76, stage.type);
+    new StageProfileView(this, 29, 284, width - 58, 76, stage);
     this.add.text(36, 294, stage.type.replace(/([A-Z])/g, ' $1').toUpperCase(), {
       fontFamily: FONT,
       fontSize: '10px',

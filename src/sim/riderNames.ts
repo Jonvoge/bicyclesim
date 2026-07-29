@@ -1,4 +1,4 @@
-import { RIDER_NAME_CULTURES, WORLD_RIDER_CARICATURES } from '../data/names.ts';
+import { PRO_RIDER_CARICATURES, RIDER_NAME_CULTURES, WORLD_RIDER_CARICATURES, type RiderCaricature } from '../data/names.ts';
 import type { RiderArchetype } from '../data/worldTemplates.ts';
 import type { Rng } from './rng.ts';
 
@@ -46,17 +46,26 @@ export function createRiderNameRegistry(names: Iterable<string>): Set<string> {
   return registry;
 }
 
-export function generateWorldTourRiderIdentity(
+function generateCuratedRiderIdentity(
   rng: Rng,
   archetype: RiderArchetype,
   usedNames: Set<string>,
+  identities: readonly RiderCaricature[],
 ): RiderIdentity {
-  const unused = WORLD_RIDER_CARICATURES.filter((identity) => !usedNames.has(identity.name));
+  const unused = identities.filter((identity) => !usedNames.has(identity.name));
   const preferred = unused.filter((identity) => identity.archetypes.includes(archetype));
   const identity = rng.pick(preferred.length > 0 ? preferred : unused);
   if (!identity) throw new Error('World Tour rider caricature registry exhausted');
   usedNames.add(identity.name);
   return { name: identity.name, nationality: identity.nationality };
+}
+
+export function generateWorldTourRiderIdentity(rng: Rng, archetype: RiderArchetype, usedNames: Set<string>): RiderIdentity {
+  return generateCuratedRiderIdentity(rng, archetype, usedNames, WORLD_RIDER_CARICATURES);
+}
+
+export function generateProTourRiderIdentity(rng: Rng, archetype: RiderArchetype, usedNames: Set<string>): RiderIdentity {
+  return generateCuratedRiderIdentity(rng, archetype, usedNames, PRO_RIDER_CARICATURES);
 }
 
 export function generateRiderIdentity(rng: Rng, archetype: RiderArchetype, usedNames: Set<string>): RiderIdentity {

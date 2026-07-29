@@ -113,7 +113,7 @@ export class PreRaceScene extends Phaser.Scene {
     this.add.text(width / 2, 54, sub, { fontFamily: FONT, fontSize: '13px', color: COLORS.textMuted }).setOrigin(0.5);
 
     // profile + course read
-    new StageProfileView(this, width / 2 - 165, 72, 330, 58, this.stage.type);
+    new StageProfileView(this, width / 2 - 165, 72, 330, 58, this.stage);
     this.add.text(width / 2, 146, BLURBS[this.stage.type], { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted, align: 'center', wordWrap: { width: 330 } }).setOrigin(0.5);
 
     // role sheet — pre-filled default for this stage's terrain
@@ -128,21 +128,22 @@ export class PreRaceScene extends Phaser.Scene {
     const hasFieldRead = !!this.dynasty?.world && this.canRest;
     if (hasGcRead) this.buildGcContext(width, 166);
     if (hasFieldRead) this.buildFieldRead(width, race.id, race.eligibility.division, 164);
-    const profileY = hasGcRead ? 190 : hasFieldRead ? 182 : 168;
-    this.add.rectangle(width / 2, profileY + 9, width - 28, 40, COLORS.panelAlt, 1).setStrokeStyle(1, COLORS.stroke);
-    this.riderProfileTitle = this.add.text(28, profileY, '', {
+    const profileTop = hasGcRead ? 180 : hasFieldRead ? 176 : 160;
+    this.add.rectangle(width / 2, profileTop + 27, width - 28, 54, COLORS.panelAlt, 1).setStrokeStyle(1, COLORS.stroke);
+    this.riderProfileTitle = this.add.text(28, profileTop + 10, '', {
       fontFamily: FONT,
       fontSize: '11px',
       fontStyle: 'bold',
       color: COLORS.accentText,
     }).setOrigin(0, 0.5);
-    this.riderProfileStats = this.add.text(28, profileY + 18, '', {
+    this.riderProfileStats = this.add.text(28, profileTop + 25, '', {
       fontFamily: FONT,
       fontSize: '9px',
       color: COLORS.text,
-    }).setOrigin(0, 0.5);
+      lineSpacing: 2,
+    }).setOrigin(0, 0);
 
-    const top = profileY + 45;
+    const top = profileTop + 76;
     if (this.canRest) {
       // the header line doubles as the live "Starting X/5" counter (set in refresh)
       this.pickText = this.add.text(width / 2, top - 14, '', { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: COLORS.text }).setOrigin(0.5);
@@ -150,7 +151,7 @@ export class PreRaceScene extends Phaser.Scene {
       this.add.text(width / 2, top - 14, 'ROLES — tap a rider, then a role', { fontFamily: FONT, fontSize: '12px', color: COLORS.textMuted }).setOrigin(0.5);
     }
 
-    const rowH = 44;
+    const rowH = 42;
     this.squadIds.forEach((id, i) => {
       const rider = this.byId.get(id)!;
       const y = top + 18 + i * rowH;
@@ -332,10 +333,10 @@ export class PreRaceScene extends Phaser.Scene {
     const selectedRider = this.byId.get(this.selectedRiderId)!;
     const stats = selectedRider.stats;
     this.riderProfileTitle.setText(
-      `${selectedRider.name}  ·  ${riderType(selectedRider).toUpperCase()}  ·  OVR ${riderRating(selectedRider)}  ·  AGE ${selectedRider.age}`,
+      `${selectedRider.name}  ·  ${riderType(selectedRider).toUpperCase()}`,
     );
     this.riderProfileStats.setText(
-      `CLM ${stats.climbing}   FLT ${stats.flat}   SPR ${stats.sprint}   PUN ${stats.puncheur}   END ${stats.endurance}   STA ${stats.stamina}   CON ${stats.consistency}`,
+      `OVR ${riderRating(selectedRider)}  ·  AGE ${selectedRider.age}     CLM ${stats.climbing}  FLT ${stats.flat}  SPR ${stats.sprint}  PUN ${stats.puncheur}\nEND ${stats.endurance}  STA ${stats.stamina}  CON ${stats.consistency}`,
     );
     for (const { role, btn } of this.roleButtons) btn.setSelected(!isRested && role === currentRole);
     this.restButton?.setSelected(isRested);

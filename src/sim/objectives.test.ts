@@ -68,6 +68,17 @@ describe('season objectives', () => {
     expect(goals.every((goal) => goal.kind !== 'monument' && goal.kind !== 'wins')).toBe(true);
   });
 
+  it('rotates generated sponsor goals across seasons within each strength band', () => {
+    const draft = generateWorldDraft({ seed: 701 });
+    for (const team of draft.world.teams) {
+      const first = objectiveForGeneratedTeam(draft.world, draft.riders, team.id, 1);
+      const second = objectiveForGeneratedTeam(draft.world, draft.riders, team.id, 2);
+      const third = objectiveForGeneratedTeam(draft.world, draft.riders, team.id, 3);
+      expect(second.kind).not.toBe(first.kind);
+      expect(third.kind).toBe(first.kind);
+    }
+  });
+
   it('counts one best team result per event for top-10 and podium goals', () => {
     expect(objectiveStatus({ kind: 'top10s', text: '', target: 1, reward: 0 }, classifiedSeason(8), (id) => id === 'me').met).toBe(true);
     expect(objectiveStatus({ kind: 'podiums', text: '', target: 1, reward: 0 }, classifiedSeason(4), (id) => id === 'me').met).toBe(false);

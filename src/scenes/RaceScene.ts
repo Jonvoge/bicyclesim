@@ -235,7 +235,7 @@ export class RaceScene extends Phaser.Scene {
     makeButton(this, width - 46, 56, 'Skip', () => this.skip(), { width: 44, height: 24, fontSize: 12 });
 
     // stage profile with live position marker
-    this.profile = new StageProfileView(this, this.trackLeft, 96, width - 2 * this.trackLeft, 62, this.stage.type, { showMarker: true });
+    this.profile = new StageProfileView(this, this.trackLeft, 96, width - 2 * this.trackLeft, 62, this.stage, { showMarker: true });
 
     // groups overview strip
     this.groupsText = this.add.text(width / 2, 176, '', { fontFamily: FONT, fontSize: '12px', color: COLORS.text }).setOrigin(0.5);

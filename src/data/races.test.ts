@@ -29,6 +29,10 @@ describe('division calendars', () => {
       for (const stageId of race!.stageIds) {
         const stage = STAGES_BY_ID.get(stageId);
         expect(stage, `${raceId}: ${stageId}`).toBeDefined();
+        if (division === 'world') {
+          expect(stage!.elevationProfile?.length, `${stageId} authored profile`).toBeGreaterThanOrEqual(12);
+          expect(stage!.elevationProfile!.every((sample) => sample >= 0 && sample <= 1), `${stageId} normalized profile`).toBe(true);
+        }
         terrain.add(stage!.type);
       }
     }
@@ -41,5 +45,11 @@ describe('division calendars', () => {
       if (wildcardSlots > 0) expect(race.eligibility.division).toBe('world');
       expect(wildcardSlots).toBeLessThan(race.eligibility.fieldSize);
     }
+  });
+
+  it('gives every World Tour stage a distinct authored profile', () => {
+    const stages = WORLD_CALENDAR.flatMap((raceId) => RACES_BY_ID.get(raceId)!.stageIds)
+      .map((stageId) => STAGES_BY_ID.get(stageId)!);
+    expect(new Set(stages.map((stage) => JSON.stringify(stage.elevationProfile))).size).toBe(stages.length);
   });
 });

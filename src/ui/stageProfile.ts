@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { StageType } from '../data/types.ts';
+import type { Stage, StageType } from '../data/types.ts';
 import { COLORS } from './theme.ts';
 
 /**
@@ -38,13 +38,13 @@ export class StageProfileView {
     y: number,
     w: number,
     h: number,
-    type: StageType,
+    stage: Pick<Stage, 'type' | 'elevationProfile'>,
     opts: { showMarker?: boolean } = {},
   ) {
     this.scene = scene;
     scene.add.rectangle(x + w / 2, y + h / 2, w, h, COLORS.panel, 1).setStrokeStyle(1, COLORS.stroke);
 
-    const heights = SHAPES[type];
+    const heights = stage.elevationProfile ?? SHAPES[stage.type];
     const base = y + h - 6;
     const usable = h - 14;
     const step = w / (heights.length - 1);
